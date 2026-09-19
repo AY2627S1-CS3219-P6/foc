@@ -1,0 +1,22 @@
+# Python runtime and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.venv/
+
+# Local User Service configuration and generated development keys
+.env
+.env.*
+!.env.example
+!.env.*.example
+secrets/
+*.pem
+*.key
+
+# Supabase CLI runtime state; config, migrations, and seed SQL are committed
+supabase/.branches/
+supabase/.temp/
