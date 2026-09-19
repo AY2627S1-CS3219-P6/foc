@@ -12,6 +12,11 @@
 - The web client communicates only with FoC services. It must not call Supabase directly or receive Supabase URLs, keys, or database credentials.
 - Supabase Auth and Supabase client SDKs are not part of FoC. Application services own their authentication and authorization decisions.
 
+## User-interface design
+
+- For any User Service Sprint 1 web UI, use the [FoC Figma design](https://www.figma.com/design/1QaorStohl4p1T8PoC9YG5/CS3219---Project-6?node-id=294-6) as the visual source of truth. Implement only the User Service flows in scope: sign-in, registration, email/OTP verification, and the authenticated profile/account experience.
+- Do not implement or change Supplier, Errand, Message, or cross-service administration UI as part of User Service work. Preserve the Figma layout, typography, colours, responsive behaviour, states, and copy for the in-scope screens; add only accessibility and error/loading behaviour necessary to make those designs functional.
+
 ## User Service database workflow
 
 - `user-service/supabase/migrations/` is the sole User Service schema history. Create and review timestamped Supabase SQL migrations, test them with `npx supabase db reset`, and commit them with dependent application changes.
