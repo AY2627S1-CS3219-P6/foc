@@ -3,12 +3,37 @@ dist/
 build/
 out/
 
+# Node modules
+node_modules/
+
 # Environment / secrets
 .env
 .env.local
 .env.*.local
 *.pem
 *.key
+
+# Python runtime and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Per-service local configuration and generated development keys
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+**/secrets/
+
+# Supabase CLI runtime state; configuration, migrations, and seeds stay tracked
+**/supabase/.branches/
+**/supabase/.temp/
 
 # OS
 .DS_Store
