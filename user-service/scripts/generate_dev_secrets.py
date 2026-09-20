@@ -15,13 +15,13 @@ import argparse
 import os
 import secrets
 import subprocess
-import sys
 from pathlib import Path
-
+from urllib.parse import urlsplit, urlunsplit
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ENV_FILE = SERVICE_ROOT / ".env"
 DEFAULT_KEY_DIRECTORY = SERVICE_ROOT / "secrets" / "development"
+NPX_COMMAND = "npx.cmd" if os.name == "nt" else "npx"
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -32,6 +32,16 @@ def parse_arguments() -> argparse.Namespace:
         help="replace an existing .env file and development key pair",
     )
     return parser.parse_args()
+
+
+def supabase_command() -> list[str]:
+    """Prefer the project-pinned CLI and fall back to npx when needed."""
+
+    executable = "supabase.cmd" if os.name == "nt" else "supabase"
+    local_cli = SERVICE_ROOT / "node_modules" / ".bin" / executable
+    if local_cli.exists():
+        return [str(local_cli)]
+    return [NPX_COMMAND, "supabase"]
 
 
 def load_cryptography():
@@ -52,7 +62,7 @@ def local_database_url() -> str:
     """Read only DB_URL from the local CLI status; never echo CLI secrets."""
 
     result = subprocess.run(
-        ["npx", "supabase", "status", "-o", "env"],
+        [*supabase_command(), "status", "-o", "env"],
         cwd=SERVICE_ROOT,
         capture_output=True,
         check=False,
@@ -71,6 +81,20 @@ def local_database_url() -> str:
                 return "postgresql+asyncpg://" + value.removeprefix("postgresql://")
             return value
     return ""
+
+
+def docker_database_url(database_url: str) -> str:
+    """Point a Docker container at the Supabase CLI database running on the host."""
+
+    if not database_url:
+        return ""
+    parsed = urlsplit(database_url)
+    if not parsed.hostname:
+        return ""
+    userinfo = parsed.netloc.rsplit("@", maxsplit=1)[0] if "@" in parsed.netloc else ""
+    port = f":{parsed.port}" if parsed.port else ""
+    netloc = f"{userinfo}@host.docker.internal{port}" if userinfo else f"host.docker.internal{port}"
+    return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
 
 
 def assert_writable(targets: list[Path], force: bool) -> None:
@@ -97,6 +121,7 @@ def write_environment_file(path: Path, database_url: str) -> None:
     values = {
         "ENVIRONMENT": "development",
         "DATABASE_URL": database_url,
+        "DATABASE_URL_DOCKER": docker_database_url(database_url),
         "JWT_PRIVATE_KEY_PATH": "secrets/development/jwt_private_key.pem",
         "JWT_PUBLIC_KEY_PATH": "secrets/development/jwt_public_key.pem",
         "JWT_ISSUER": "foc-user-service",
