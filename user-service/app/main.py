@@ -6,19 +6,33 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.api.errors import ApiError, FieldError
+from app.api.registration import router as registration_router
 from app.core.config import Settings, get_settings
-from app.core.correlation import CORRELATION_ID_HEADER, CorrelationIdMiddleware, get_correlation_id
+from app.core.correlation import (
+    CORRELATION_ID_HEADER,
+    CorrelationIdMiddleware,
+    get_correlation_id,
+)
 from app.core.logging import configure_logging, logger
-from app.db import Database
+from app.db import Database, DatabaseUnavailableError
+from app.registration.mailer import OtpSender, SmtpOtpSender
+from app.registration.service import RegistrationService
 
 
 class ServiceNotReadyError(RuntimeError):
     """Raised when an operational dependency has not become available."""
 
 
-def error_payload(code: str, message: str, correlation_id: str) -> dict[str, object]:
+def error_payload(
+    code: str,
+    message: str,
+    correlation_id: str,
+    field_errors: list[FieldError] | None = None,
+) -> dict[str, object]:
     """Use the contract's safe, consistent error envelope."""
 
     return {
@@ -26,17 +40,25 @@ def error_payload(code: str, message: str, correlation_id: str) -> dict[str, obj
             "code": code,
             "message": message,
             "correlationId": correlation_id,
-            "fieldErrors": [],
+            "fieldErrors": [error.as_dict() for error in field_errors or []],
         }
     }
 
 
-def create_app(settings: Settings | None = None, database: Database | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    database: Database | None = None,
+    otp_sender: OtpSender | None = None,
+) -> FastAPI:
     """Build an independently testable application without running migrations."""
 
     service_settings = settings or get_settings()
     configure_logging(service_settings.log_level)
     service_database = database or Database(service_settings.database_url)
+    registration_service = RegistrationService(
+        service_settings,
+        otp_sender or SmtpOtpSender(service_settings),
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -57,6 +79,7 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
         redoc_url=None,
     )
     app.state.database = service_database
+    app.state.registration_service = registration_service
     app.add_middleware(CorrelationIdMiddleware)
 
     @app.exception_handler(ServiceNotReadyError)
@@ -94,6 +117,48 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
         response.headers[CORRELATION_ID_HEADER] = correlation_id
         return response
 
+    @app.exception_handler(DatabaseUnavailableError)
+    async def database_unavailable_handler(
+        request: Request,
+        _: DatabaseUnavailableError,
+    ) -> JSONResponse:
+        return await service_not_ready_handler(request, ServiceNotReadyError())
+
+    @app.exception_handler(ApiError)
+    async def api_error_handler(request: Request, error: ApiError) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.status_code,
+            content=error_payload(
+                error.code,
+                error.message,
+                get_correlation_id(request),
+                error.field_errors,
+            ),
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_handler(
+        request: Request,
+        error: RequestValidationError,
+    ) -> JSONResponse:
+        field_errors = [
+            FieldError(
+                field=".".join(str(part) for part in item["loc"] if part != "body"),
+                code="INVALID_VALUE",
+                message=item["msg"],
+            )
+            for item in error.errors()
+        ]
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content=error_payload(
+                "VALIDATION_ERROR",
+                "Input validation failed.",
+                get_correlation_id(request),
+                field_errors,
+            ),
+        )
+
     @app.get("/health/live", include_in_schema=False)
     async def live() -> dict[str, str]:
         return {"status": "live"}
@@ -103,6 +168,8 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
         if not await request.app.state.database.ping():
             raise ServiceNotReadyError()
         return {"status": "ready"}
+
+    app.include_router(registration_router)
 
     return app
 
