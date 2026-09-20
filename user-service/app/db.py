@@ -22,7 +22,7 @@ _DATABASE_CONNECT_TIMEOUT_SECONDS = 5
 
 
 def _normalized_asyncpg_url_and_connect_args(database_url: str) -> tuple[str, dict[str, object]]:
-    normalized_url = async_database_url(database_url)
+    normalized_url = _asyncpg_database_url(database_url)
     split_url = urlsplit(normalized_url)
     query_params = parse_qsl(split_url.query, keep_blank_values=True)
 
@@ -46,7 +46,7 @@ class DatabaseUnavailableError(RuntimeError):
     """Raised when a request needs a database session that is not configured."""
 
 
-def async_database_url(database_url: str) -> str:
+def _asyncpg_database_url(database_url: str) -> str:
     """Use asyncpg for ordinary PostgreSQL URLs supplied by deployment config."""
 
     if database_url.startswith("postgres://"):
@@ -54,7 +54,13 @@ def async_database_url(database_url: str) -> str:
     elif database_url.startswith("postgresql://"):
         database_url = _ASYNC_POSTGRESQL_SCHEME + database_url.removeprefix("postgresql://")
 
-    split_url = urlsplit(database_url)
+    return database_url
+
+
+def async_database_url(database_url: str) -> str:
+    """Normalize a PostgreSQL URL for SQLAlchemy's asyncpg dialect."""
+
+    split_url = urlsplit(_asyncpg_database_url(database_url))
     query_params = parse_qsl(split_url.query, keep_blank_values=True)
     normalized_query = urlencode(
         [(key, value) for key, value in query_params if key != "sslmode"],
@@ -70,7 +76,9 @@ class Database:
         self._engine: AsyncEngine | None = None
         self._session_factory: async_sessionmaker[AsyncSession] | None = None
         if database_url:
-            normalized_database_url, connect_args = _normalized_asyncpg_url_and_connect_args(database_url)
+            normalized_database_url, connect_args = _normalized_asyncpg_url_and_connect_args(
+                database_url
+            )
             self._engine = create_async_engine(
                 normalized_database_url,
                 pool_pre_ping=True,
