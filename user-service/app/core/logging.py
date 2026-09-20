@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
@@ -14,22 +15,40 @@ _SENSITIVE_KEY_PARTS = (
     "authorization",
     "cookie",
     "credential",
-    "database_url",
+    "databaseurl",
     "otp",
     "password",
-    "private_key",
+    "privatekey",
     "refresh",
     "secret",
     "token",
 )
 _REDACTED = "[REDACTED]"
+_SENSITIVE_MESSAGE_VALUE = re.compile(
+    r"""(?ix)
+    \b
+    (?:
+        authorization|cookie|credential|database[\s_-]*url|otp|password|
+        private[\s_-]*key|refresh(?:[\s_-]*token)?|secret|token
+    )
+    \b
+    \s*(?::|=)\s*
+    (?:[^,;\]\}\r\n]+)
+    """
+)
 
 
 def is_sensitive_key(key: object) -> bool:
     """Identify data keys that must never reach a log sink."""
 
-    normalized = str(key).casefold()
+    normalized = re.sub(r"[^a-z0-9]", "", str(key).casefold())
     return any(part in normalized for part in _SENSITIVE_KEY_PARTS)
+
+
+def redact_message(message: object) -> str:
+    """Redact labelled secret values embedded in otherwise static messages."""
+
+    return _SENSITIVE_MESSAGE_VALUE.sub(_REDACTED, str(message))
 
 
 def redact_context(value: Any, key: object | None = None) -> Any:
@@ -51,6 +70,10 @@ class RedactingFilter(logging.Filter):
     """Ensure explicitly supplied logging context is redacted before formatting."""
 
     def filter(self, record: logging.LogRecord) -> bool:
+        # Positional arguments have no reliable sensitivity metadata. Do not interpolate
+        # them: service logs must put dynamic, redacted fields in ``context`` instead.
+        record.msg = redact_message(record.msg)
+        record.args = ()
         if hasattr(record, "context"):
             record.context = redact_context(record.context)
         for key in tuple(record.__dict__):
@@ -67,7 +90,9 @@ class JsonFormatter(logging.Formatter):
             "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
+            # Do not call ``getMessage``: a handler misconfiguration must not make
+            # positional interpolation an accidental secret-exfiltration path.
+            "message": redact_message(record.msg),
             "correlationId": getattr(record, "correlation_id", current_correlation_id.get()),
         }
         if hasattr(record, "event"):

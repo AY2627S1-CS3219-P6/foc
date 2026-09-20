@@ -118,6 +118,8 @@ def write_private_file(path: Path, value: bytes) -> None:
 
 
 def write_environment_file(path: Path, database_url: str) -> None:
+    rabbitmq_user = "foc_user_service"
+    rabbitmq_password = secrets.token_urlsafe(24)
     values = {
         "ENVIRONMENT": "development",
         "DATABASE_URL": database_url,
@@ -133,7 +135,9 @@ def write_environment_file(path: Path, database_url: str) -> None:
         "SMTP_HOST": "127.0.0.1",
         "SMTP_PORT": "1025",
         "SMTP_FROM": "no-reply@foc.local",
-        "RABBITMQ_URL": "amqp://guest:guest@127.0.0.1:5672/",
+        "RABBITMQ_USER": rabbitmq_user,
+        "RABBITMQ_PASSWORD": rabbitmq_password,
+        "RABBITMQ_URL": f"amqp://{rabbitmq_user}:{rabbitmq_password}@127.0.0.1:5672/",
     }
     lines = ["# Generated for local development. Do not commit this file."]
     if not database_url:

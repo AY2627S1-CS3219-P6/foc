@@ -26,7 +26,8 @@ Run these commands from this directory.
    .\.venv\Scripts\python.exe scripts\generate_dev_secrets.py
 
 3. Start the service, Mailpit, and RabbitMQ. The service reaches the Supabase
-   CLI PostgreSQL container through the derived DATABASE_URL_DOCKER value.
+   CLI PostgreSQL container through the derived DATABASE_URL_DOCKER value and
+   reaches RabbitMQ with the generated non-guest development credentials.
 
    docker compose up --build
 
@@ -35,8 +36,10 @@ Supabase PostgreSQL is reachable, http://localhost:8000/health/ready returns
 200. Mailpit is available at http://localhost:8025 and RabbitMQ management at
 http://localhost:15672.
 
-The application startup check only probes PostgreSQL. It never creates,
-modifies, or migrates schema objects.
+The liveness endpoint never waits for PostgreSQL; the readiness endpoint
+performs the database probe. The application never creates, modifies, or
+migrates schema objects at startup. Standard `postgresql://` database URLs are
+accepted and normalized to the asyncpg dialect internally.
 
 ## Tests and local database reset
 

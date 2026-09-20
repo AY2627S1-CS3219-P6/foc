@@ -9,7 +9,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from app.core.config import Settings, get_settings
-from app.core.correlation import CorrelationIdMiddleware, get_correlation_id
+from app.core.correlation import CORRELATION_ID_HEADER, CorrelationIdMiddleware, get_correlation_id
 from app.core.logging import configure_logging, logger
 from app.db import Database
 
@@ -40,10 +40,9 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        ready = await app.state.database.ping()
         logger.info(
-            "startup database connectivity check completed",
-            extra={"event": "startup_check", "context": {"databaseReady": ready}},
+            "startup completed; database availability is reported by readiness",
+            extra={"event": "startup_check", "context": {"databaseProbeDeferred": True}},
         )
         try:
             yield
@@ -70,6 +69,30 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
                 get_correlation_id(request),
             ),
         )
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, error: Exception) -> JSONResponse:
+        """Keep error responses traceable without exposing implementation details."""
+
+        correlation_id = get_correlation_id(request)
+        logger.exception(
+            "unhandled request error",
+            extra={
+                "correlation_id": correlation_id,
+                "event": "unhandled_request_error",
+                "context": {"errorType": type(error).__name__},
+            },
+        )
+        response = JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=error_payload(
+                "INTERNAL_SERVER_ERROR",
+                "An unexpected service error occurred.",
+                correlation_id,
+            ),
+        )
+        response.headers[CORRELATION_ID_HEADER] = correlation_id
+        return response
 
     @app.get("/health/live", include_in_schema=False)
     async def live() -> dict[str, str]:

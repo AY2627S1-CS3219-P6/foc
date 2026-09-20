@@ -16,9 +16,22 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.logging import logger
 
+_ASYNC_POSTGRESQL_SCHEME = "postgresql+asyncpg://"
+_DATABASE_CONNECT_TIMEOUT_SECONDS = 5
+
 
 class DatabaseUnavailableError(RuntimeError):
     """Raised when a request needs a database session that is not configured."""
+
+
+def async_database_url(database_url: str) -> str:
+    """Use asyncpg for ordinary PostgreSQL URLs supplied by deployment config."""
+
+    if database_url.startswith("postgres://"):
+        return _ASYNC_POSTGRESQL_SCHEME + database_url.removeprefix("postgres://")
+    if database_url.startswith("postgresql://"):
+        return _ASYNC_POSTGRESQL_SCHEME + database_url.removeprefix("postgresql://")
+    return database_url
 
 
 class Database:
@@ -29,10 +42,11 @@ class Database:
         self._session_factory: async_sessionmaker[AsyncSession] | None = None
         if database_url:
             self._engine = create_async_engine(
-                database_url,
+                async_database_url(database_url),
                 pool_pre_ping=True,
                 pool_size=5,
                 max_overflow=5,
+                connect_args={"timeout": _DATABASE_CONNECT_TIMEOUT_SECONDS},
             )
             self._session_factory = async_sessionmaker(self._engine, expire_on_commit=False)
 

@@ -9,7 +9,7 @@ services:
       DATABASE_URL: ${DATABASE_URL_DOCKER:-}
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-foc_user_service}:${RABBITMQ_PASSWORD:-foc-local-rabbitmq}@rabbitmq:5672/
     extra_hosts:
       - host.docker.internal:host-gateway
     ports:
@@ -35,6 +35,9 @@ services:
 
   rabbitmq:
     image: rabbitmq:4.1-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-foc_user_service}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-foc-local-rabbitmq}
     ports:
       - "15672:15672"
     healthcheck:

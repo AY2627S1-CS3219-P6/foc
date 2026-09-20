@@ -13,13 +13,26 @@ def test_structured_log_context_redacts_nested_secrets() -> None:
         },
         "refreshToken": "not-for-logs",
     }
-
     assert redact_context(context) == {
         "request": {
             "password": "[REDACTED]",
             "safeField": "safe",
         },
         "refreshToken": "[REDACTED]",
+    }
+
+
+def test_structured_log_context_redacts_camel_case_sensitive_keys() -> None:
+    context = {
+        "databaseUrl": "postgresql://not-for-logs",
+        "privateKey": "not-for-logs",
+        "nested": {"refresh_token": "not-for-logs"},
+    }
+
+    assert redact_context(context) == {
+        "databaseUrl": "[REDACTED]",
+        "privateKey": "[REDACTED]",
+        "nested": {"refresh_token": "[REDACTED]"},
     }
 
 
@@ -43,3 +56,21 @@ def test_structured_logs_include_request_correlation_id_without_secrets() -> Non
 
     assert json.loads(output)["correlationId"] == "request-99"
     assert "not-for-logs" not in output
+
+
+def test_formatter_never_interpolates_or_preserves_labelled_secret_messages() -> None:
+    secret = "not-for-logs"
+    record = logging.LogRecord(
+        "user_service",
+        logging.INFO,
+        __file__,
+        0,
+        "password=%s privateKey=also-not-for-logs",
+        (secret,),
+        None,
+    )
+
+    output = JsonFormatter().format(record)
+
+    assert secret not in output
+    assert "also-not-for-logs" not in output
