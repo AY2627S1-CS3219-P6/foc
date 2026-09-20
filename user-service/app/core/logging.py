@@ -12,6 +12,7 @@ from typing import Any
 from app.core.correlation import current_correlation_id
 
 _SENSITIVE_KEY_PARTS = (
+    "apikey",
     "authorization",
     "cookie",
     "credential",
