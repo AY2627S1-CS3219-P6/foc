@@ -22,9 +22,7 @@ def test_existing_asyncpg_url_is_unchanged() -> None:
 
 def test_sslmode_is_removed_from_asyncpg_url() -> None:
     assert (
-        async_database_url(
-            "postgresql://db.supabase.co/postgres?sslmode=require&pgbouncer=true"
-        )
+        async_database_url("postgresql://db.supabase.co/postgres?sslmode=require&pgbouncer=true")
         == "postgresql+asyncpg://db.supabase.co/postgres?pgbouncer=true"
     )
 
