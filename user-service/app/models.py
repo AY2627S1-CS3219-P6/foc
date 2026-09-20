@@ -30,6 +30,7 @@ class SystemRole(enum.StrEnum):
 class AccountStatus(enum.StrEnum):
     ACTIVE = "ACTIVE"
     SUSPENDED = "SUSPENDED"
+    DELETED = "DELETED"
 
 
 class ParticipationMode(enum.StrEnum):
@@ -44,10 +45,10 @@ class User(Base):
     __table_args__ = {"schema": USER_SERVICE_SCHEMA}
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    username: Mapped[str] = mapped_column(String(64), unique=True)
-    normalized_username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
-    email: Mapped[str] = mapped_column(String(254))
-    normalized_email: Mapped[str] = mapped_column(String(254), unique=True, index=True)
+    username: Mapped[str | None] = mapped_column(String(64), unique=True)
+    normalized_username: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
+    email: Mapped[str | None] = mapped_column(String(254))
+    normalized_email: Mapped[str | None] = mapped_column(String(254), unique=True, index=True)
     display_name: Mapped[str] = mapped_column(String(64))
     system_role: Mapped[SystemRole] = mapped_column(
         Enum(
@@ -67,7 +68,7 @@ class User(Base):
         ),
         default=AccountStatus.ACTIVE,
     )
-    email_verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     active_participation_mode: Mapped[ParticipationMode] = mapped_column(
         Enum(
             ParticipationMode,
@@ -86,6 +87,7 @@ class User(Base):
         DateTime(timezone=True),
         server_default=func.now(),
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Credential(Base):

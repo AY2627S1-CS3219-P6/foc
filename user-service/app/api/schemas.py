@@ -1,4 +1,4 @@
-"""Strict public DTOs for Phase 1 registration and email verification."""
+"""Strict public DTOs for registration, authentication, and self profiles."""
 
 from __future__ import annotations
 
@@ -129,3 +129,30 @@ class CurrentUserResponse(ApiModel):
     system_role: SystemRole
     account_status: AccountStatus
     active_participation_mode: ParticipationMode
+
+
+class ProfileUpdateRequest(ApiModel):
+    """The only mutable fields on a caller's own identity profile."""
+
+    display_name: str | None = Field(default=None, min_length=1, max_length=64)
+    active_participation_mode: ParticipationMode | None = None
+
+    @field_validator("display_name")
+    @classmethod
+    def validate_updated_display_name(cls, value: str | None) -> str | None:
+        if value is None:
+            raise ValueError("Display name must not be null.")
+        return validate_profile_name(value)
+
+    @model_validator(mode="after")
+    def require_a_mutable_field(self) -> ProfileUpdateRequest:
+        if not self.model_fields_set:
+            raise ValueError("Supply displayName or activeParticipationMode.")
+        return self
+
+
+class AccountDeletionRequest(ApiModel):
+    """Explicit self-deletion confirmation; no protected profile fields are accepted."""
+
+    current_password: str = Field(min_length=1, max_length=128)
+    acknowledge_deletion: Literal[True]

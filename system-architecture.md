@@ -9,7 +9,7 @@ The first delivery target is Docker Compose on a developer machine. The same ser
 | Decision | Selected approach | Why it fits FoC |
 | --- | --- | --- |
 | Service runtime | Python 3.13, FastAPI, Uvicorn | FastAPI supplies typed Pydantic v2 request validation and explicit dependency-based authentication and authorization guards, while remaining compact and Docker-friendly. |
-| Data store | Supabase Cloud PostgreSQL, one Supabase project/database and credential set per service | User identifiers, unique names/emails, roles, sessions, audits, and balance/order state need relational constraints and transactions. PostgreSQL supports unique indexes, row locks, migrations, and the expected 35,000-user scale. Each service owns its data and can evolve independently. |
+| Data store | Supabase Cloud PostgreSQL, one Supabase project/database and credential set per service | User identifiers, unique active names/emails, terminal identity tombstones, roles, sessions, audits, and balance/order state need relational constraints and transactions. PostgreSQL supports unique indexes, row locks, migrations, and the expected 35,000-user scale. Each service owns its data and can evolve independently. |
 | User persistence access | SQLAlchemy 2 async with `asyncpg`; Supabase CLI SQL migrations | SQLAlchemy models support runtime ORM/query access. Versioned SQL files under `user-service/supabase/migrations/` are the only schema-migration authority, so local, preview, and cloud databases receive the same changes. |
 | Authentication | Short-lived RS256 JWT access tokens plus rotating opaque refresh tokens | Other services verify access-token signatures using a public JWKS key, without reading the User database or sharing a signing secret. Refresh tokens are stored only as hashes and can be revoked per session. |
 | Asynchronous integration | RabbitMQ topic exchange with transactional outbox/inbox patterns | Registration and order outcomes do not need a synchronous cross-service response. Durable, versioned events avoid cascading failures and enable retry/idempotency. RabbitMQ runs in Compose now and can be replaced by Amazon MQ for RabbitMQ later. |
@@ -64,7 +64,7 @@ The arrow from Supplier Service to User Service is deliberately narrow. Normal a
 
 | Service | Owns | May synchronously depend on | Publishes / consumes |
 | --- | --- | --- | --- |
-| User Service | identities, credentials, sessions, verification challenges, roles, profiles, audit entries, registration outbox in its own Supabase PostgreSQL database | SMTP provider; no product service | Publishes `user.registered.v1`; supplies signed-token public keys and current authorization decisions |
+| User Service | identities, de-identified account tombstones, credentials, sessions, verification challenges, roles, profiles, audit entries, registration outbox in its own Supabase PostgreSQL database | SMTP provider; no product service | Publishes `user.registered.v1`; supplies signed-token public keys and current authorization decisions |
 | Supplier Service | supplier records and search indexes | User Service only for current administrative authorization | Does not access User data directly |
 | Order Service | errand records, lifecycle history, participant IDs, expiry | Supplier Service only when it must validate an active supplier | Publishes terminal errand lifecycle events |
 | Credit Service | wallets, reservations, immutable ledger | None on the critical consumer path | Consumes registration and lifecycle events idempotently |
@@ -72,11 +72,19 @@ The arrow from Supplier Service to User Service is deliberately narrow. Normal a
 These rules are non-negotiable:
 
 - A service reads and writes only its own database. There are no cross-service foreign keys, shared ORM models, or cross-database joins.
-- Cross-service records carry immutable IDs (for example `userId` and `supplierId`), not copied profiles, passwords, or credentials.
+- Cross-service records carry immutable IDs (for example `userId` and `supplierId`), not copied profiles, passwords, credentials, or other User Service PII.
 - HTTP contracts and events are versioned (`/v1`, `*.v1`) and documented separately. A shared contract package may contain JSON schemas and generated types only; it must not become shared domain/business logic.
 - Event producers write domain state and an outbox row in one database transaction. Publishers retry pending outbox rows; consumers retain processed event IDs in an inbox/idempotency table before applying a business change.
 - All services propagate a correlation ID in HTTP headers and event metadata. Logs exclude passwords, password hashes, OTPs, refresh tokens, and secret configuration.
 - Service-to-service calls have short timeouts, bounded retries only for safe requests, and explicit failure behavior. Administrative Supplier operations fail closed; a delayed User Service must not let an unverified privilege change through.
+
+## Account lifecycle and tombstones
+
+User Service owns account deletion. It never physically removes a user row that may be referenced by an Order, Chat, Credit, or future service. Instead, one transaction deletes credentials and sessions; clears username, normalized username, email, normalized email, and email-verification data; replaces the display name with `Deleted User`; resets the participation preference; increments the role version; and records a terminal `DELETED` status with a deletion timestamp. The stable `userId` and former system role remain only as historical metadata; account status is authoritative, so a tombstone cannot authenticate, refresh, or receive authorization.
+
+The cleared username and email are released for registration by a new account, which always receives a different `userId`. The present User Service schema has no `payment_token`; future PII-bearing fields must be cleared or irreversibly anonymized in the same tombstone transaction. Immutable audit records and cross-service participant IDs remain only where project or legal history requires them.
+
+Order, Chat, and other services retain their own records and immutable participant IDs, but do not receive a Phase 3 deletion event or make a profile-resolution call. They render an unavailable/deleted participant using the local generic label `Deleted User`. If a future service deliberately stores a display-name snapshot, it must define its own anonymization contract; User Service never reads or mutates another service's database.
 
 ## Authentication and authorization boundary
 
@@ -100,7 +108,7 @@ sequenceDiagram
     end
 ```
 
-The access JWT contains only `sub` (stable user ID), `sid` (session ID), `role`, `roleVersion`, issuer, audience, issued-at, and expiry claims. It contains no email, display name, password-derived data, OTP, or refresh token. User Service checks current server-side state for its own protected endpoints; the Supplier administrative authorization decision likewise checks current server-side state. This avoids trusting user-controlled payloads or an old role claim for an elevated action.
+The access JWT contains only `sub` (stable user ID), `sid` (session ID), `role`, `roleVersion`, issuer, audience, issued-at, and expiry claims. It contains no email, display name, password-derived data, OTP, or refresh token. User Service checks current server-side state for its own protected endpoints; `DELETED` status and the removed session deny every token even if its expiry has not passed. The Supplier administrative authorization decision likewise checks current server-side state. This avoids trusting user-controlled payloads or an old role claim for an elevated action.
 
 ## Local and AWS deployment shape
 
