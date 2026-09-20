@@ -139,3 +139,33 @@ class RegistrationChallenge(Base):
         DateTime(timezone=True),
         server_default=func.now(),
     )
+
+
+class UserSession(Base):
+    """A revocable session storing only a digest of its opaque refresh token."""
+
+    __tablename__ = "sessions"
+    __table_args__ = {"schema": USER_SERVICE_SCHEMA}
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey(f"{USER_SERVICE_SCHEMA}.users.id", ondelete="CASCADE"),
+        index=True,
+    )
+    refresh_token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    token_family: Mapped[UUID] = mapped_column(index=True)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_active_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )

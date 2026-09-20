@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     environment: Literal["development", "test", "production"] = "development"
     log_level: str = "INFO"
     database_url: str | None = None
+    jwt_private_key_path: Path | None = None
+    jwt_public_key_path: Path | None = None
+    jwt_issuer: str = "foc-user-service"
+    jwt_audience: str = "foc-services"
+    jwt_access_token_ttl_seconds: int = Field(default=900, ge=60, le=3600)
+    jwt_refresh_token_ttl_seconds: int = Field(default=86_400, ge=300, le=2_592_000)
+    jwt_session_idle_timeout_seconds: int = Field(default=1_800, ge=60, le=1_800)
     otp_hmac_secret: SecretStr | None = None
     otp_ttl_seconds: int = Field(default=600, ge=60, le=3600)
     otp_max_attempts: int = Field(default=5, ge=1, le=10)
@@ -41,6 +48,16 @@ class Settings(BaseSettings):
         if isinstance(value, str) and not value.strip():
             return None
         return value
+
+    @field_validator("jwt_private_key_path", "jwt_public_key_path", mode="before")
+    @classmethod
+    def resolve_jwt_key_path(cls, value: object) -> object:
+        if value is None:
+            return None
+        if isinstance(value, str) and not value.strip():
+            return None
+        path = Path(value)
+        return path if path.is_absolute() else SERVICE_ROOT / path
 
     @field_validator("otp_hmac_secret", mode="before")
     @classmethod

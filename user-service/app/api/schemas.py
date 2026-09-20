@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.models import AccountStatus, ParticipationMode, SystemRole
 from app.registration.validation import (
     validate_email,
     validate_otp,
@@ -101,3 +102,30 @@ class AccountActivatedResponse(ApiModel):
     display_name: str
     system_role: Literal["USER"] = "USER"
     email_verified_at: datetime
+
+
+class SessionCreateRequest(ApiModel):
+    """Credential payload deliberately kept generic to avoid account enumeration."""
+
+    email: str = Field(min_length=1, max_length=254)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class AccessSessionResponse(ApiModel):
+    """Public token response; the opaque refresh token is cookie-only."""
+
+    access_token: str
+    token_type: Literal["Bearer"] = "Bearer"
+    expires_at: datetime
+
+
+class CurrentUserResponse(ApiModel):
+    """Only the authenticated caller's safe identity and current mode."""
+
+    user_id: UUID
+    username: str
+    email: str
+    display_name: str
+    system_role: SystemRole
+    account_status: AccountStatus
+    active_participation_mode: ParticipationMode

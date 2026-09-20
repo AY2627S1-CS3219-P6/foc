@@ -1,10 +1,10 @@
 # User Service
 
-Phases 0 and 1 provide a runnable FastAPI foundation and verified student
-account creation. The service has database-aware health checks, structured
-redacted logs, correlation IDs, Supabase SQL migrations, bcrypt credential
-storage, and OTP verification through Mailpit. Login and session endpoints
-begin in Phase 2.
+Phases 0 through 2 provide a runnable FastAPI foundation, verified student
+account creation, and revocable authentication. The service has database-aware
+health checks, structured redacted logs, correlation IDs, Supabase SQL
+migrations, bcrypt credential storage, Mailpit OTP verification, RS256 access
+tokens, rotating refresh-token cookies, and a self-only identity endpoint.
 
 ## Local development
 
@@ -100,5 +100,47 @@ six-digit code. Verify with that code:
 The response must report `status: active` and `systemRole: USER`. Repeat the
 registration request to see duplicate protection, or replace one field with an
 invalid NUS email, a username containing a space, or a weak password to see
-safe field errors. Phase 2 adds login, so an activation response—not a login—is
-the expected Phase 1 endpoint outcome.
+safe field errors.
+
+## Phase 2 manual smoke test
+
+Start from an account already verified through the Phase 1 flow. The development
+secret generator creates the RSA key pair configured by `JWT_PRIVATE_KEY_PATH`
+and `JWT_PUBLIC_KEY_PATH`; never copy those values into a request, response,
+or source file.
+
+In a second PowerShell window, log in and retain the web session so the
+`HttpOnly` refresh cookie is sent automatically:
+
+    $webSession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+    $login = Invoke-RestMethod -Method Post -WebSession $webSession -Uri http://localhost:8000/v1/auth/sessions -ContentType "application/json" -Body (@{
+      email = "phase1-smoke-user@u.nus.edu"
+      password = "Phase1SmokePass1!"
+    } | ConvertTo-Json)
+    $accessToken = $login.accessToken
+
+The server caps every refresh session at 24 hours and invalidates a session
+after 30 minutes without an authenticated request. Those limits apply even if
+an older local `JWT_REFRESH_TOKEN_TTL_SECONDS` value is longer.
+
+Read only the authenticated caller's profile:
+
+    $authorization = @{ Authorization = "Bearer $accessToken" }
+    Invoke-RestMethod -Headers $authorization -Uri http://localhost:8000/v1/users/me
+
+Rotate the refresh session, then use the returned access token:
+
+    $rotated = Invoke-RestMethod -Method Post -WebSession $webSession -Uri http://localhost:8000/v1/auth/sessions/refresh
+    $authorization = @{ Authorization = "Bearer $($rotated.accessToken)" }
+    Invoke-RestMethod -Headers $authorization -Uri http://localhost:8000/v1/users/me
+
+The original access token is now rejected because its server-side session was
+revoked during rotation. Finally, log out and confirm the rotated token is also
+rejected:
+
+    Invoke-WebRequest -Method Delete -WebSession $webSession -Headers $authorization -Uri http://localhost:8000/v1/auth/sessions/current
+    Invoke-WebRequest -SkipHttpErrorCheck -Headers $authorization -Uri http://localhost:8000/v1/users/me
+
+The final request must return `401`; the refresh token is never returned in JSON.
+The public signing key is available at
+`http://localhost:8000/.well-known/jwks.json`; it contains no private-key material.
