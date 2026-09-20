@@ -1,10 +1,12 @@
 # User Service
 
-Phases 0 through 2 provide a runnable FastAPI foundation, verified student
+Phases 0 through 3 provide a runnable FastAPI foundation, verified student
 account creation, and revocable authentication. The service has database-aware
 health checks, structured redacted logs, correlation IDs, Supabase SQL
 migrations, bcrypt credential storage, Mailpit OTP verification, RS256 access
-tokens, rotating refresh-token cookies, and a self-only identity endpoint.
+tokens, rotating refresh-token cookies, and self-only identity/profile
+management. Requester and courier are profile capabilities on the same stable
+user ID; they are not separate accounts or system roles.
 
 ## Local development
 
@@ -144,3 +146,40 @@ rejected:
 The final request must return `401`; the refresh token is never returned in JSON.
 The public signing key is available at
 `http://localhost:8000/.well-known/jwks.json`; it contains no private-key material.
+
+## Phase 3 manual smoke test
+
+Continue the Phase 2 browser session with its current `$authorization` header.
+Update the authenticated caller's display name and participation capability:
+
+    $profile = Invoke-RestMethod -Method Patch -Headers $authorization -Uri http://localhost:8000/v1/users/me -ContentType "application/json" -Body (@{
+      displayName = "phase3-courier"
+      activeParticipationMode = "COURIER"
+    } | ConvertTo-Json)
+    $profile.userId
+    Invoke-RestMethod -Headers $authorization -Uri http://localhost:8000/v1/users/me
+
+Both responses must show the same `userId`, the updated `displayName`, and
+`activeParticipationMode: COURIER`. The mode is a preference only; it never
+changes `systemRole`. Protected fields are rejected rather than ignored:
+
+    Invoke-WebRequest -SkipHttpErrorCheck -Method Patch -Headers $authorization -Uri http://localhost:8000/v1/users/me -ContentType "application/json" -Body (@{
+      systemRole = "ADMIN"
+    } | ConvertTo-Json)
+
+The request returns `422` and a subsequent profile read is unchanged. To
+permanently delete the current account, supply its password and an explicit
+acknowledgement. The service deletes its credentials and sessions, removes the
+profile's PII, and retains only a de-identified `DELETED` tombstone with the
+same stable user ID:
+
+    $deletion = @{
+      currentPassword = "Phase1SmokePass1!"
+      acknowledgeDeletion = $true
+    } | ConvertTo-Json
+    Invoke-WebRequest -Method Delete -WebSession $webSession -Headers $authorization -Uri http://localhost:8000/v1/users/me -ContentType "application/json" -Body $deletion
+    Invoke-WebRequest -SkipHttpErrorCheck -Headers $authorization -Uri http://localhost:8000/v1/users/me
+
+The deletion returns `204`, clears the refresh cookie, and the final profile
+request returns `401`. The same credentials can no longer log in; the released
+email and username may later register a new account with a different user ID.
