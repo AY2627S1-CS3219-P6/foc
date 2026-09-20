@@ -9,8 +9,12 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.api.authentication import jwks_router
+from app.api.authentication import router as authentication_router
 from app.api.errors import ApiError, FieldError
 from app.api.registration import router as registration_router
+from app.api.users import router as users_router
+from app.auth.service import AuthenticationService
 from app.core.config import Settings, get_settings
 from app.core.correlation import (
     CORRELATION_ID_HEADER,
@@ -49,6 +53,7 @@ def create_app(
     settings: Settings | None = None,
     database: Database | None = None,
     otp_sender: OtpSender | None = None,
+    authentication_service: AuthenticationService | None = None,
 ) -> FastAPI:
     """Build an independently testable application without running migrations."""
 
@@ -59,6 +64,7 @@ def create_app(
         service_settings,
         otp_sender or SmtpOtpSender(service_settings),
     )
+    service_authentication = authentication_service or AuthenticationService(service_settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -79,7 +85,9 @@ def create_app(
         redoc_url=None,
     )
     app.state.database = service_database
+    app.state.settings = service_settings
     app.state.registration_service = registration_service
+    app.state.authentication_service = service_authentication
     app.add_middleware(CorrelationIdMiddleware)
 
     @app.exception_handler(ServiceNotReadyError)
@@ -170,6 +178,9 @@ def create_app(
         return {"status": "ready"}
 
     app.include_router(registration_router)
+    app.include_router(authentication_router)
+    app.include_router(jwks_router)
+    app.include_router(users_router)
 
     return app
 

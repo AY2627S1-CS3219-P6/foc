@@ -10,6 +10,8 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-foc_user_service}:${RABBITMQ_PASSWORD:-foc-local-rabbitmq}@rabbitmq:5672/
+    volumes:
+      - ./secrets/development:/app/secrets/development:ro
     extra_hosts:
       - host.docker.internal:host-gateway
     ports:
