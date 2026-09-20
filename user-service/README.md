@@ -1,9 +1,10 @@
 # User Service
 
-Phase 0 provides the runnable FastAPI foundation only. It has database-aware
-health checks, structured redacted logs, correlation IDs, local supporting
-services, and test commands. Registration, credentials, OTPs, sessions, and
-schema migrations begin in later phases.
+Phases 0 and 1 provide a runnable FastAPI foundation and verified student
+account creation. The service has database-aware health checks, structured
+redacted logs, correlation IDs, Supabase SQL migrations, bcrypt credential
+storage, and OTP verification through Mailpit. Login and session endpoints
+begin in Phase 2.
 
 ## Local development
 
@@ -25,7 +26,11 @@ Run these commands from this directory.
    .\.venv\Scripts\pip.exe install -e ".[dev]"
    .\.venv\Scripts\python.exe scripts\generate_dev_secrets.py
 
-3. Start the service, Mailpit, and RabbitMQ. The service reaches the Supabase
+3. Apply the committed schema history to the local database.
+
+   npx supabase db reset
+
+4. Start the service, Mailpit, and RabbitMQ. The service reaches the Supabase
    CLI PostgreSQL container through the derived DATABASE_URL_DOCKER value and
    reaches RabbitMQ with the generated non-guest development credentials.
 
@@ -43,7 +48,7 @@ accepted and normalized to the asyncpg dialect internally.
 
 ## Tests and local database reset
 
-Run the baseline unit and ASGI integration tests:
+Run the unit and ASGI integration tests:
 
     .\.venv\Scripts\pytest.exe
 
@@ -52,8 +57,8 @@ use the helper. It discovers the local database URL without echoing it:
 
     .\.venv\Scripts\python.exe scripts\run_tests_with_local_supabase.py
 
-The Supabase migration directory is the only migration history. Phase 0 does
-not add a schema migration. Later schema changes must be created with:
+The Supabase migration directory is the only migration history. Schema changes
+must be created with:
 
     npx supabase migration new <description>
     npx supabase db reset
@@ -65,3 +70,35 @@ project using the actual cloud project reference for foc-user-service:
 
 The CLI link state remains local and ignored. Do not place hosted database
 credentials, Supabase URLs, or Supabase keys in this repository.
+
+## Phase 1 manual smoke test
+
+Keep `docker compose up --build` running, then use a second PowerShell window.
+First confirm the service is ready:
+
+    Invoke-RestMethod http://localhost:8000/health/ready
+
+Create a valid, unique student account. The password below is an example only;
+do not reuse it outside local testing.
+
+    $registration = @{
+      username = "phase1-smoke-user"
+      email = "phase1-smoke-user@u.nus.edu"
+      password = "Phase1SmokePass1!"
+    } | ConvertTo-Json
+    Invoke-RestMethod -Method Post -Uri http://localhost:8000/v1/auth/registrations -ContentType "application/json" -Body $registration
+
+Open http://localhost:8025, open the verification email, and copy its
+six-digit code. Verify with that code:
+
+    $verification = @{
+      email = "phase1-smoke-user@u.nus.edu"
+      otp = Read-Host "Mailpit verification code"
+    } | ConvertTo-Json
+    Invoke-RestMethod -Method Post -Uri http://localhost:8000/v1/auth/email-verifications -ContentType "application/json" -Body $verification
+
+The response must report `status: active` and `systemRole: USER`. Repeat the
+registration request to see duplicate protection, or replace one field with an
+invalid NUS email, a username containing a space, or a weak password to see
+safe field errors. Phase 2 adds login, so an activation response—not a login—is
+the expected Phase 1 endpoint outcome.

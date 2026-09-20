@@ -6,7 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 SERVICE_ROOT = Path(__file__).resolve().parents[2]
@@ -25,10 +25,26 @@ class Settings(BaseSettings):
     environment: Literal["development", "test", "production"] = "development"
     log_level: str = "INFO"
     database_url: str | None = None
+    otp_hmac_secret: SecretStr | None = None
+    otp_ttl_seconds: int = Field(default=600, ge=60, le=3600)
+    otp_max_attempts: int = Field(default=5, ge=1, le=10)
+    otp_max_resends: int = Field(default=3, ge=0, le=10)
+    otp_resend_cooldown_seconds: int = Field(default=60, ge=0, le=3600)
+    bcrypt_rounds: int = Field(default=12, ge=4, le=31)
+    smtp_host: str = "127.0.0.1"
+    smtp_port: int = Field(default=1025, ge=1, le=65535)
+    smtp_from: str = "no-reply@foc.local"
 
     @field_validator("database_url", mode="before")
     @classmethod
     def empty_database_url_is_unconfigured(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("otp_hmac_secret", mode="before")
+    @classmethod
+    def empty_otp_secret_is_unconfigured(cls, value: object) -> object:
         if isinstance(value, str) and not value.strip():
             return None
         return value
