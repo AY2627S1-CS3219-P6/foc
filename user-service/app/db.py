@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi import Request
 from sqlalchemy import text
@@ -20,6 +21,27 @@ _ASYNC_POSTGRESQL_SCHEME = "postgresql+asyncpg://"
 _DATABASE_CONNECT_TIMEOUT_SECONDS = 5
 
 
+def _normalized_asyncpg_url_and_connect_args(database_url: str) -> tuple[str, dict[str, object]]:
+    normalized_url = async_database_url(database_url)
+    split_url = urlsplit(normalized_url)
+    query_params = parse_qsl(split_url.query, keep_blank_values=True)
+
+    connect_args: dict[str, object] = {"timeout": _DATABASE_CONNECT_TIMEOUT_SECONDS}
+    filtered_query: list[tuple[str, str]] = []
+    for key, value in query_params:
+        if key != "sslmode":
+            filtered_query.append((key, value))
+            continue
+        if value.lower() in {"require", "verify-ca", "verify-full"}:
+            connect_args["ssl"] = True
+        elif value.lower() == "disable":
+            connect_args["ssl"] = False
+
+    normalized_query = urlencode(filtered_query, doseq=True)
+    normalized_database_url = urlunsplit(split_url._replace(query=normalized_query))
+    return normalized_database_url, connect_args
+
+
 class DatabaseUnavailableError(RuntimeError):
     """Raised when a request needs a database session that is not configured."""
 
@@ -28,10 +50,17 @@ def async_database_url(database_url: str) -> str:
     """Use asyncpg for ordinary PostgreSQL URLs supplied by deployment config."""
 
     if database_url.startswith("postgres://"):
-        return _ASYNC_POSTGRESQL_SCHEME + database_url.removeprefix("postgres://")
-    if database_url.startswith("postgresql://"):
-        return _ASYNC_POSTGRESQL_SCHEME + database_url.removeprefix("postgresql://")
-    return database_url
+        database_url = _ASYNC_POSTGRESQL_SCHEME + database_url.removeprefix("postgres://")
+    elif database_url.startswith("postgresql://"):
+        database_url = _ASYNC_POSTGRESQL_SCHEME + database_url.removeprefix("postgresql://")
+
+    split_url = urlsplit(database_url)
+    query_params = parse_qsl(split_url.query, keep_blank_values=True)
+    normalized_query = urlencode(
+        [(key, value) for key, value in query_params if key != "sslmode"],
+        doseq=True,
+    )
+    return urlunsplit(split_url._replace(query=normalized_query))
 
 
 class Database:
@@ -41,12 +70,13 @@ class Database:
         self._engine: AsyncEngine | None = None
         self._session_factory: async_sessionmaker[AsyncSession] | None = None
         if database_url:
+            normalized_database_url, connect_args = _normalized_asyncpg_url_and_connect_args(database_url)
             self._engine = create_async_engine(
-                async_database_url(database_url),
+                normalized_database_url,
                 pool_pre_ping=True,
                 pool_size=5,
                 max_overflow=5,
-                connect_args={"timeout": _DATABASE_CONNECT_TIMEOUT_SECONDS},
+                connect_args=connect_args,
             )
             self._session_factory = async_sessionmaker(self._engine, expire_on_commit=False)
 
