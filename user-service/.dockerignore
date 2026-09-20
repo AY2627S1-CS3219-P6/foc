@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+secrets/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+node_modules/
+supabase/.branches/
+supabase/.temp/
+tests/

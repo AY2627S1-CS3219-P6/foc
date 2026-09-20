@@ -23,3 +23,16 @@
 
 - Add pytest unit/integration coverage for validation, authentication, session rotation, protected profile fields, RBAC, last-Super-Admin concurrency protection, audit immutability, and outbox idempotency.
 - Before handoff, run the relevant tests plus `npx supabase db reset`; verify migrations can reconstruct a clean local database.
+
+## Phase review, commits, and pull requests
+
+- Implement one PLAN.md phase at a time. Pause for the user's review and
+  approval before committing that phase; do not combine phases in one commit or
+  pull request.
+- Every phase commit message and pull-request body must use point form: first
+  list what the change implements, then end with a separate point-form
+  FR/NFR coverage list that identifies only the requirements the phase actually
+  satisfies or advances.
+- When a later phase depends on an unmerged earlier phase, create a stacked
+  branch from the earlier phase branch and open its pull request against that
+  phase branch. Retarget it to main only after the earlier pull request merges.
