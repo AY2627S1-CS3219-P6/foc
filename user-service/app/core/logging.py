@@ -30,7 +30,7 @@ _SENSITIVE_MESSAGE_VALUE = re.compile(
     \b
     (?:
         authorization|cookie|credential|database[\s_-]*url|otp|password|
-        private[\s_-]*key|refresh(?:[\s_-]*token)?|secret|token
+        api[\s_-]*key|private[\s_-]*key|refresh(?:[\s_-]*token)?|secret|token
     )
     \b
     \s*(?::|=)\s*
