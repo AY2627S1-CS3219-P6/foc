@@ -1,6 +1,6 @@
 # User Service
 
-Phases 0 through 5 provide a runnable FastAPI foundation, verified student
+Phases 0 through 6 provide a runnable FastAPI foundation, verified student
 account creation, and revocable authentication. The service has database-aware
 health checks, structured redacted logs, correlation IDs, Supabase SQL
 migrations, bcrypt credential storage, Mailpit OTP verification, RS256 access
@@ -11,6 +11,14 @@ Super Admin role guards use current server-side identity state. Supplier Service
 verifies normal access tokens locally and asks User Service for a current,
 fail-closed supplier-management decision immediately before an administrative
 operation.
+
+Verified registration also writes a durable `user.registered.v1` outbox record
+in the same database transaction as the User and credential. The independently
+restartable `outbox-publisher` Compose service publishes exactly `eventId`,
+`eventType`, `userId`, and `occurredAt` to the durable `foc.events` RabbitMQ
+topic exchange. It stores no password, profile, OTP, refresh token, or other
+credential data in the event path. Consumer services must treat `eventId` and
+`userId` as idempotency keys.
 
 ## Local development
 
@@ -44,8 +52,9 @@ Run these commands from this directory.
 
 The liveness probe is available at http://localhost:8000/health/live. Once
 Supabase PostgreSQL is reachable, http://localhost:8000/health/ready returns
-200. Mailpit is available at http://localhost:8025 and RabbitMQ management at
-http://localhost:15672.
+200. Mailpit is available at http://localhost:8025, RabbitMQ management at
+http://localhost:15672, and its local-only AMQP endpoint is localhost:5672 for
+the D2 event-capture demo.
 
 The liveness endpoint never waits for PostgreSQL; the readiness endpoint
 performs the database probe. The application never creates, modifies, or
@@ -254,3 +263,39 @@ uses a transaction-scoped PostgreSQL advisory lock so a demotion or
 self-tombstone deletion cannot remove the last active Super Admin. After a
 second Super Admin exists, a non-last Super Admin may use the normal confirmed
 self-deletion flow.
+
+## Phase 6 D2 demonstration and timing evidence
+
+The Compose stack starts `outbox-publisher` alongside User Service. It claims a
+pending event with a short database lease, publishes it with RabbitMQ publisher
+confirms, and marks it published only after the broker accepts it. A transient
+failure releases the lease, increments the observable attempt count, records a
+safe error type, and schedules bounded exponential retry. A repeated delivery
+can therefore retain the same event ID; the future Credit Service must process
+that ID and user ID idempotently.
+
+For one clean local database, configure the bootstrap Super Admin fields in the
+ignored `.env` file and set a normal-user password only in the terminal. The
+non-secret sample identity is in
+[`docs/d2-demo-users.example.json`](docs/d2-demo-users.example.json).
+
+Set `D2_DEMO_NORMAL_PASSWORD` to a local test password only in the terminal
+that invokes the script; never place it in source control. Then run:
+
+    .\.venv\Scripts\python.exe scripts\run_d2_demo.py
+
+The script performs bootstrap, registration, Mailpit OTP verification, event
+capture from RabbitMQ, login, requester/courier toggling, protected-field
+rejection, Super Admin promotion, and the User-to-Admin Supplier authorization
+transition. It prints neither passwords, OTPs, access tokens, shared service
+secrets, nor RabbitMQ credentials.
+
+To record local p95 timing evidence, create one verified timing account and set
+its email/password plus a separate registration-password variable only in the
+current terminal. Then run:
+
+    .\.venv\Scripts\python.exe scripts\measure_d2_timings.py --samples 10
+
+The command emits p95 and mean milliseconds for registration, login, profile
+read, and profile write. It establishes D2 instrumentation and a repeatable
+measurement method; the specified scale tests remain planned for Sprint 4.

@@ -15,7 +15,7 @@ from sqlalchemy import select
 from app.core.config import Settings
 from app.db import Database
 from app.main import create_app
-from app.models import Credential, RegistrationChallenge, User
+from app.models import Credential, OutboxEvent, OutboxEventState, RegistrationChallenge, User
 
 
 @dataclass
@@ -118,6 +118,10 @@ async def test_registration_verification_persists_only_hashes_and_activates_atom
                 database,
                 select(Credential).where(Credential.user_id == user.id),
             )
+            outbox_event = await read_one(
+                database,
+                select(OutboxEvent).where(OutboxEvent.aggregate_id == user.id),
+            )
             remaining_challenge = await read_one(
                 database,
                 select(RegistrationChallenge).where(
@@ -128,6 +132,11 @@ async def test_registration_verification_persists_only_hashes_and_activates_atom
             assert credential is not None
             assert bcrypt.checkpw(password.encode(), credential.password_hash.encode())
             assert remaining_challenge is None
+            assert outbox_event is not None
+            assert outbox_event.event_type == "user.registered.v1"
+            assert outbox_event.aggregate_id == user.id
+            assert outbox_event.state == OutboxEventState.PENDING
+            assert outbox_event.publish_attempts == 0
 
             duplicate = await client.post("/v1/auth/registrations", json=registration)
             assert duplicate.status_code == 409

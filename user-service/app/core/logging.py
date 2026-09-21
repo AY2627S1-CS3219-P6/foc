@@ -108,6 +108,10 @@ class JsonFormatter(logging.Formatter):
 def configure_logging(level: str) -> None:
     """Configure only this service's logger to avoid changing host application logs."""
 
+    # AMQP client log messages can include connection URLs. Outbox failures are
+    # already recorded through this service's redacted structured logger.
+    for dependency_logger_name in ("aio_pika", "aiormq"):
+        logging.getLogger(dependency_logger_name).setLevel(logging.CRITICAL)
     logger = logging.getLogger("user_service")
     logger.handlers.clear()
     handler = logging.StreamHandler()
