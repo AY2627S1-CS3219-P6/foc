@@ -10,8 +10,9 @@ from email_validator import validate_email as parse_email
 NUS_STUDENT_EMAIL_DOMAIN = "u.nus.edu"
 MAX_BCRYPT_PASSWORD_BYTES = 72
 _USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9!#$%^&*()\-_=+?]+$")
-_PASSWORD_PATTERN = re.compile(r"^[A-Za-z0-9!@#$%^&*()\-_=+?]+$")
-_PASSWORD_SPECIALS = frozenset("!@#$%^&*()-_=+?")
+_PASSWORD_PATTERN = re.compile(r"^[A-Za-z0-9!@#$%^&*()\-_=+?.]+$")
+_PASSWORD_SPECIALS = frozenset("!@#$%^&*()-_=+?.")
+_PASSWORD_REQUIREMENTS_ERROR = "Use 12-72 characters from 3 of the 4 character groups"
 
 
 def normalize_email(email: str) -> str:
@@ -64,14 +65,10 @@ def validate_password(value: str) -> str:
     """Enforce length, allow-list, and three-of-four password categories."""
 
     encoded = value.encode("utf-8")
-    if len(value) < 12:
-        raise ValueError("Password must contain at least 12 characters.")
-    if len(encoded) > MAX_BCRYPT_PASSWORD_BYTES:
-        raise ValueError("Password must not exceed 72 bytes.")
+    if len(value) < 12 or len(encoded) > MAX_BCRYPT_PASSWORD_BYTES:
+        raise ValueError(_PASSWORD_REQUIREMENTS_ERROR)
     if not _PASSWORD_PATTERN.fullmatch(value):
-        raise ValueError(
-            "Password may contain only letters, digits, and ! @ # $ % ^ & * ( ) - _ = + ?."
-        )
+        raise ValueError(_PASSWORD_REQUIREMENTS_ERROR)
 
     categories = (
         any("A" <= character <= "Z" for character in value),
@@ -80,10 +77,7 @@ def validate_password(value: str) -> str:
         any(character in _PASSWORD_SPECIALS for character in value),
     )
     if sum(categories) < 3:
-        raise ValueError(
-            "Password must include characters from at least three of uppercase, lowercase, "
-            "digits, and special characters."
-        )
+        raise ValueError(_PASSWORD_REQUIREMENTS_ERROR)
     return value
 
 
