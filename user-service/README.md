@@ -1,6 +1,6 @@
 # User Service
 
-Phases 0 through 4 provide a runnable FastAPI foundation, verified student
+Phases 0 through 5 provide a runnable FastAPI foundation, verified student
 account creation, and revocable authentication. The service has database-aware
 health checks, structured redacted logs, correlation IDs, Supabase SQL
 migrations, bcrypt credential storage, Mailpit OTP verification, RS256 access
@@ -220,3 +220,37 @@ identity, malformed or expired bearer tokens, and every timeout/error must deny
 the supplier-management operation. Supplier Service must not make an
 administrative decision from a JWT role claim or receive User Service database
 access.
+
+## Phase 5 administrator lifecycle smoke test
+
+The first Super Admin is deliberately not created through the public
+registration flow. After completing the local setup, set explicit values only
+in the ignored `.env` file (or in a deployment secret store):
+
+    BOOTSTRAP_SUPER_ADMIN_USERNAME=<valid-username>
+    BOOTSTRAP_SUPER_ADMIN_EMAIL=<valid-nus-email>
+    BOOTSTRAP_SUPER_ADMIN_PASSWORD=<valid-password>
+    BOOTSTRAP_SUPER_ADMIN_DISPLAY_NAME=<optional-valid-display-name>
+
+The username, email, display name, and password use the same validation policy
+as registration. Create the initial verified authority once:
+
+    .\.venv\Scripts\bootstrap-super-admin.exe
+
+The command prints only the new user ID. It refuses to run if any active Super
+Admin already exists, and it never prints the configured credentials or their
+bcrypt hash.
+
+With a valid Super Admin access token and a different active user ID, change
+that user's system role through the Super Admin-only endpoint:
+
+    $roleChange = @{ systemRole = "ADMIN" } | ConvertTo-Json
+    Invoke-RestMethod -Method Patch -Headers @{ Authorization = "Bearer <super-admin-access-token>" } -Uri "http://localhost:8000/v1/admin/users/<target-user-id>/system-role" -ContentType "application/json" -Body $roleChange
+
+Every successful role transition increments the target's `roleVersion`, revokes
+all of the target's existing sessions, and appends an immutable redacted audit
+record. Admins cannot make role changes; self-role changes fail. The service
+uses a transaction-scoped PostgreSQL advisory lock so a demotion or
+self-tombstone deletion cannot remove the last active Super Admin. After a
+second Super Admin exists, a non-last Super Admin may use the normal confirmed
+self-deletion flow.

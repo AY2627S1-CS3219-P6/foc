@@ -171,3 +171,43 @@ class UserSession(Base):
         DateTime(timezone=True),
         server_default=func.now(),
     )
+
+
+class AdminAuditEntry(Base):
+    """An append-only, redacted record of a successful role-lifecycle action."""
+
+    __tablename__ = "admin_audit_entries"
+    __table_args__ = {"schema": USER_SERVICE_SCHEMA}
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    actor_id: Mapped[UUID] = mapped_column(
+        ForeignKey(f"{USER_SERVICE_SCHEMA}.users.id", ondelete="RESTRICT"),
+        index=True,
+    )
+    target_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey(f"{USER_SERVICE_SCHEMA}.users.id", ondelete="RESTRICT"),
+        index=True,
+    )
+    action: Mapped[str] = mapped_column(String(64))
+    outcome: Mapped[str] = mapped_column(String(32))
+    role_before: Mapped[SystemRole | None] = mapped_column(
+        Enum(
+            SystemRole,
+            name="system_role",
+            schema=USER_SERVICE_SCHEMA,
+            create_type=False,
+        )
+    )
+    role_after: Mapped[SystemRole | None] = mapped_column(
+        Enum(
+            SystemRole,
+            name="system_role",
+            schema=USER_SERVICE_SCHEMA,
+            create_type=False,
+        )
+    )
+    correlation_id: Mapped[str] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )

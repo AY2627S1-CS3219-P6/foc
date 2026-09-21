@@ -9,9 +9,10 @@ import bcrypt
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.admin.lifecycle import acquire_lifecycle_lock, ensure_not_last_active_super_admin
 from app.api.errors import ApiError
 from app.api.schemas import ProfileUpdateRequest
-from app.models import AccountStatus, Credential, ParticipationMode, User, UserSession
+from app.models import AccountStatus, Credential, ParticipationMode, SystemRole, User, UserSession
 
 _DELETED_DISPLAY_NAME = "Deleted User"
 
@@ -51,6 +52,7 @@ class ProfileService:
 
         now = datetime.now(UTC)
         async with session.begin():
+            await acquire_lifecycle_lock(session)
             row = (
                 await session.execute(
                     select(User, Credential)
@@ -68,6 +70,8 @@ class ProfileService:
                     "INVALID_CURRENT_PASSWORD",
                     "The current password is not valid.",
                 )
+            if user.system_role == SystemRole.SUPER_ADMIN:
+                await ensure_not_last_active_super_admin(session, user_id=user.id)
             await session.execute(delete(UserSession).where(UserSession.user_id == user_id))
             await session.delete(credential)
             user.username = None

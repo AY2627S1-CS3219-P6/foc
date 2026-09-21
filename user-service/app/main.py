@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.api.admin import router as admin_router
 from app.api.authentication import jwks_router
 from app.api.authentication import router as authentication_router
 from app.api.authorization import router as authorization_router
@@ -183,6 +184,7 @@ def create_app(
     app.include_router(jwks_router)
     app.include_router(users_router)
     app.include_router(authorization_router)
+    app.include_router(admin_router)
 
     return app
 

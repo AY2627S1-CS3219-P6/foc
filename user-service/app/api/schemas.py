@@ -159,6 +159,20 @@ class AccountDeletionRequest(ApiModel):
     acknowledge_deletion: Literal[True]
 
 
+class SystemRoleUpdateRequest(ApiModel):
+    """The strictly limited role choice available to a current Super Admin."""
+
+    system_role: SystemRole
+
+
+class SystemRoleUpdateResponse(ApiModel):
+    """Safe confirmation of an atomic target-role transition."""
+
+    user_id: UUID
+    system_role: SystemRole
+    role_version: int
+
+
 class SupplierManagementAction(StrEnum):
     """The narrow administrative actions Supplier Service may ask about."""
 
