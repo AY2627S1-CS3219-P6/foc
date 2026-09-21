@@ -2,7 +2,7 @@
 
 ## Sprint 1 outcome (D2)
 
-Deliver a near-complete User Service that can be demonstrated locally in containers. It will register and verify students, authenticate them, protect a self-owned profile, support requester/courier mode toggling, enforce User/Admin/Super Admin RBAC, provide a secure first-Super-Admin bootstrap and role lifecycle, publish a safe registration event, and give Supplier Service the information it needs to enforce administrative restrictions.
+Deliver a near-complete User Service that can be demonstrated locally in containers. It will register and verify students, authenticate them, protect a self-owned profile, enforce User/Admin/Super Admin RBAC, provide a secure first-Super-Admin bootstrap and role lifecycle, publish a safe registration event, and give Supplier Service the information it needs to enforce administrative restrictions.
 
 The service owns identity only. It must not create wallets, suppliers, orders, or any endpoint belonging to another microservice.
 
@@ -26,7 +26,7 @@ Initialize and link the local project from `user-service/` using `npx supabase i
 
 | Table | Essential fields and constraints | Purpose |
 | --- | --- | --- |
-| `users` | `id` UUID PK; nullable original and normalized unique `username`; nullable normalized `email`; `display_name`; `system_role` enum (`USER`, `ADMIN`, `SUPER_ADMIN`); `account_status` enum (`ACTIVE`, `SUSPENDED`, `DELETED`); nullable `email_verified_at`; `active_participation_mode`; `role_version`; `deleted_at`; timestamps | Active identity and safe profile fields, plus de-identified account tombstones. Every public identifier is the immutable `id`. |
+| `users` | `id` UUID PK; nullable original and normalized unique `username`; nullable normalized `email`; `display_name`; `system_role` enum (`USER`, `ADMIN`, `SUPER_ADMIN`); `account_status` enum (`ACTIVE`, `SUSPENDED`, `DELETED`); nullable `email_verified_at`; `role_version`; `deleted_at`; timestamps | Active identity and safe profile fields, plus de-identified account tombstones. Every public identifier is the immutable `id`. |
 | `credentials` | one-to-one `user_id`; bcrypt password hash; password-change timestamp | Separates credentials from public profile queries. Passwords are never retrievable. |
 | `registration_challenges` | proposed username/email/display name; bcrypt password hash; HMAC-peppered OTP hash; expiry; attempt and resend counters | Holds a pending registration until an OTP succeeds, so only verified accounts are activated and published. |
 | `sessions` | `id`; `user_id`; hashed rotating refresh token; issued/expiry/revoked timestamps; token family | Supports logout, refresh rotation, and per-session revocation without persisting a raw refresh token. |
@@ -37,7 +37,7 @@ Indexes cover non-null normalized username/email and the current active Super Ad
 
 ### Account-deletion tombstone
 
-Account deletion is an irreversible, transactional anonymization, not a physical deletion of the `users` row. After password and explicit-acknowledgement verification, FastAPI deletes the credential and every session; clears `username`, `normalized_username`, `email`, `normalized_email`, and `email_verified_at`; replaces `display_name` with `Deleted User`; resets `active_participation_mode` to `REQUESTER`; increments `role_version`; and records `account_status = DELETED` with `deleted_at`. The stable `id` and former `system_role` remain as non-PII historical metadata, but `DELETED` is terminal and denies login, refresh, and every protected action.
+Account deletion is an irreversible, transactional anonymization, not a physical deletion of the `users` row. After password and explicit-acknowledgement verification, FastAPI deletes the credential and every session; clears `username`, `normalized_username`, `email`, `normalized_email`, and `email_verified_at`; replaces `display_name` with `Deleted User`; increments `role_version`; and records `account_status = DELETED` with `deleted_at`. The stable `id` and former `system_role` remain as non-PII historical metadata, but `DELETED` is terminal and denies login, refresh, and every protected action.
 
 Removing the identifiers allows a later registration to use the same email or username, but it always creates a new `id`. The User Service currently has no `payment_token`; any future PII-bearing field must be cleared or irreversibly anonymized by this same transaction. The audit and outbox tables introduced by later phases retain only their immutable, non-secret records.
 
@@ -64,8 +64,8 @@ All application responses use a consistent error shape containing a stable code,
 | `POST /v1/auth/sessions` | public | Authenticate an active verified user, return an access token, and set the refresh-token cookie. Return a non-enumerating invalid-credentials response otherwise. |
 | `POST /v1/auth/sessions/refresh` | refresh cookie | Rotate a valid refresh token and issue a new access token; reject expired, reused, or revoked sessions. |
 | `DELETE /v1/auth/sessions/current` | authenticated/refresh cookie | Revoke the current session and clear the cookie. |
-| `GET /v1/users/me` | authenticated | Return only the caller's safe profile and current participation-mode preference. |
-| `PATCH /v1/users/me` | authenticated | Update only `displayName` and `activeParticipationMode`; reapply validation and reject protected fields. |
+| `GET /v1/users/me` | authenticated | Return only the caller's safe profile. |
+| `PATCH /v1/users/me` | authenticated | Update only `displayName`; reapply validation and reject protected fields. |
 | `DELETE /v1/users/me` | authenticated | Require current password and an explicit deletion acknowledgement; transactionally anonymize the profile into a terminal `DELETED` tombstone, delete credentials/sessions, and retain the stable ID unless doing so would remove the last active Super Admin. |
 | `PATCH /v1/admin/users/{userId}/system-role` | current `SUPER_ADMIN` | Promote or demote another account among `USER`, `ADMIN`, and `SUPER_ADMIN`; record an audit entry and invalidate old role state. Self role changes are rejected. |
 | `GET /.well-known/jwks.json` | service/public key distribution | Return public JWT-signing keys only, with a stable key ID for local signature verification and rotation. |
@@ -101,13 +101,13 @@ Each phase ends with a human-verifiable result and automated tests. Do not start
 
 **Human check:** a verified account can log in, refresh once, retrieve its own profile, then cannot use the old refresh token after rotation or retrieve the profile after logout. Responses never display an authentication secret.
 
-### Phase 3 - protected profile management and requester/courier participation
+### Phase 3 - protected profile management
 
-- Implement allowed profile updates: validated display-name changes and `activeParticipationMode` toggling between requester and courier.
-- Treat both participation modes as capabilities of the same stable `userId`, never as new accounts or privileged roles. Reject requests containing protected fields rather than silently accepting them.
-- Implement the destructive account-deletion confirmation as a tombstone transaction. Preserve the immutable `userId`, replace the display name with `Deleted User`, clear all User Service PII, delete credentials and sessions, reset participation mode, increment `roleVersion`, and mark the account terminally `DELETED`; never create a replacement identity or deletion event in this phase.
+- Implement allowed profile updates: validated display-name changes. Reject requests containing protected fields rather than silently accepting them.
+- Requester and courier are order-level participant relationships on the same stable `userId`, not separate accounts, profile modes, or privileged roles.
+- Implement the destructive account-deletion confirmation as a tombstone transaction. Preserve the immutable `userId`, replace the display name with `Deleted User`, clear all User Service PII, delete credentials and sessions, increment `roleVersion`, and mark the account terminally `DELETED`; never create a replacement identity or deletion event in this phase.
 
-**Human check:** the same account toggles requester/courier mode and retains its user ID; valid display-name changes, including duplicate names, persist. Attempts to alter email, username, role, account status, or ID fail and leave the profile unchanged. Deletion requires the warning acknowledgement, leaves the original ID with `DELETED` status and `Deleted User` display name, clears PII/credentials/sessions, prevents further login, and permits a new account with the released email and username to receive a different ID. Order, Chat, and other services retain their participant IDs and render a deleted participant as `Deleted User` without a new Phase 3 integration call or event.
+**Human check:** valid display-name changes, including duplicate names, persist. Attempts to alter email, username, requester/courier participation, system role, account status, or ID fail and leave the profile unchanged. Deletion requires the warning acknowledgement, leaves the original ID with `DELETED` status and `Deleted User` display name, clears PII/credentials/sessions, prevents further login, and permits a new account with the released email and username to receive a different ID. Order, Chat, and other services retain their participant IDs and render a deleted participant as `Deleted User` without a new Phase 3 integration call or event.
 
 ### Phase 4 - RBAC and Supplier Service integration contract
 
@@ -144,7 +144,7 @@ These remain explicitly planned so Sprint 1 does not accidentally claim them com
 
 | D2 expectation | Evidence delivered by this plan |
 | --- | --- |
-| 1. Role design | Role table, fixed permission model, requester/courier mode distinction, and test/demo script. |
+| 1. Role design | Role table, fixed permission model, requester/courier participant distinction, and test/demo script. |
 | 2. Database and secure credentials | PostgreSQL justification, concrete schema, bcrypt/HMAC storage, migrations, and database verification. |
 | 3. Authentication and RBAC | RS256 access/rotating refresh design, FastAPI dependency guards, server-side current-role checks, and negative tests. |
 | 4. Supplier integration | JWKS plus fail-closed internal current-authorization decision contract for the Supplier Service owner. |

@@ -9,7 +9,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models import AccountStatus, ParticipationMode, SystemRole
+from app.models import AccountStatus, SystemRole
 from app.registration.validation import (
     validate_email,
     validate_otp,
@@ -121,7 +121,7 @@ class AccessSessionResponse(ApiModel):
 
 
 class CurrentUserResponse(ApiModel):
-    """Only the authenticated caller's safe identity and current mode."""
+    """Only the authenticated caller's safe identity."""
 
     user_id: UUID
     username: str
@@ -129,14 +129,12 @@ class CurrentUserResponse(ApiModel):
     display_name: str
     system_role: SystemRole
     account_status: AccountStatus
-    active_participation_mode: ParticipationMode
 
 
 class ProfileUpdateRequest(ApiModel):
     """The only mutable fields on a caller's own identity profile."""
 
     display_name: str | None = Field(default=None, min_length=1, max_length=64)
-    active_participation_mode: ParticipationMode | None = None
 
     @field_validator("display_name")
     @classmethod
@@ -148,7 +146,7 @@ class ProfileUpdateRequest(ApiModel):
     @model_validator(mode="after")
     def require_a_mutable_field(self) -> ProfileUpdateRequest:
         if not self.model_fields_set:
-            raise ValueError("Supply displayName or activeParticipationMode.")
+            raise ValueError("Supply displayName.")
         return self
 
 

@@ -20,7 +20,6 @@ from app.main import create_app
 from app.models import (
     AccountStatus,
     Credential,
-    ParticipationMode,
     SystemRole,
     User,
     UserSession,
@@ -47,7 +46,6 @@ async def seed_active_user(
                 system_role=SystemRole.USER,
                 account_status=AccountStatus.ACTIVE,
                 email_verified_at=now,
-                active_participation_mode=ParticipationMode.REQUESTER,
                 role_version=1,
             )
             session.add(user)
@@ -162,7 +160,6 @@ async def test_login_rotation_reuse_detection_profile_and_logout(
             assert profile.status_code == 200
             assert profile.json()["userId"] == str(user_id)
             assert profile.json()["accountStatus"] == "ACTIVE"
-            assert profile.json()["activeParticipationMode"] == "REQUESTER"
 
             refreshed = await client.post("/v1/auth/sessions/refresh")
             assert refreshed.status_code == 200

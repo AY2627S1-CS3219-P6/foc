@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.admin.lifecycle import acquire_lifecycle_lock, ensure_not_last_active_super_admin
 from app.api.errors import ApiError
 from app.api.schemas import ProfileUpdateRequest
-from app.models import AccountStatus, Credential, ParticipationMode, SystemRole, User, UserSession
+from app.models import AccountStatus, Credential, SystemRole, User, UserSession
 
 _DELETED_DISPLAY_NAME = "Deleted User"
 
@@ -27,14 +27,12 @@ class ProfileService:
         user_id: UUID,
         changes: ProfileUpdateRequest,
     ) -> User:
-        """Persist only display name and participation-mode preferences."""
+        """Persist the caller's validated display name."""
 
         async with session.begin():
             user = await self._locked_user(session, user_id=user_id)
             if changes.display_name is not None:
                 user.display_name = changes.display_name
-            if changes.active_participation_mode is not None:
-                user.active_participation_mode = changes.active_participation_mode
         return user
 
     async def delete_account(
@@ -80,7 +78,6 @@ class ProfileService:
             user.normalized_email = None
             user.email_verified_at = None
             user.display_name = _DELETED_DISPLAY_NAME
-            user.active_participation_mode = ParticipationMode.REQUESTER
             user.role_version += 1
             user.account_status = AccountStatus.DELETED
             user.deleted_at = now

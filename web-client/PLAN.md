@@ -5,7 +5,7 @@
 Build the FoC web client as a React, Vite, and TypeScript application with
 first-class desktop and mobile layouts. It implements only User Service Sprint
 1 flows: registration, email OTP verification, session management, self-owned
-profile updates, participation-mode selection, logout, and confirmed deletion.
+profile updates, logout, and confirmed deletion.
 
 ## Design and scope
 

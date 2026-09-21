@@ -32,7 +32,6 @@ async def get_current_user(
         display_name=user.display_name,
         system_role=user.system_role,
         account_status=user.account_status,
-        active_participation_mode=user.active_participation_mode,
     )
 
 
@@ -52,7 +51,6 @@ async def update_current_user(
         display_name=user.display_name,
         system_role=user.system_role,
         account_status=user.account_status,
-        active_participation_mode=user.active_participation_mode,
     )
 
 

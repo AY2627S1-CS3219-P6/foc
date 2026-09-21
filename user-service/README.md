@@ -5,9 +5,10 @@ account creation, and revocable authentication. The service has database-aware
 health checks, structured redacted logs, correlation IDs, Supabase SQL
 migrations, bcrypt credential storage, Mailpit OTP verification, RS256 access
 tokens, rotating refresh-token cookies, and self-only identity/profile
-management. Requester and courier are profile capabilities on the same stable
-user ID; they are not separate accounts or system roles. Fixed User, Admin, and
-Super Admin role guards use current server-side identity state. Supplier Service
+management. Requester and courier are order-level participant relationships on
+the same stable user ID; they are not separate accounts, profile modes, or
+system roles. Fixed User, Admin, and Super Admin role guards use current
+server-side identity state. Supplier Service
 verifies normal access tokens locally and asks User Service for a current,
 fail-closed supplier-management decision immediately before an administrative
 operation.
@@ -163,18 +164,16 @@ The public signing key is available at
 ## Phase 3 manual smoke test
 
 Continue the Phase 2 browser session with its current `$authorization` header.
-Update the authenticated caller's display name and participation capability:
+Update the authenticated caller's display name:
 
     $profile = Invoke-RestMethod -Method Patch -Headers $authorization -Uri http://localhost:8000/v1/users/me -ContentType "application/json" -Body (@{
-      displayName = "phase3-courier"
-      activeParticipationMode = "COURIER"
+      displayName = "phase3-renamed"
     } | ConvertTo-Json)
     $profile.userId
     Invoke-RestMethod -Headers $authorization -Uri http://localhost:8000/v1/users/me
 
-Both responses must show the same `userId`, the updated `displayName`, and
-`activeParticipationMode: COURIER`. The mode is a preference only; it never
-changes `systemRole`. Protected fields are rejected rather than ignored:
+Both responses must show the same `userId` and updated `displayName`.
+Protected fields are rejected rather than ignored:
 
     Invoke-WebRequest -SkipHttpErrorCheck -Method Patch -Headers $authorization -Uri http://localhost:8000/v1/users/me -ContentType "application/json" -Body (@{
       systemRole = "ADMIN"
@@ -285,10 +284,10 @@ that invokes the script; never place it in source control. Then run:
     .\.venv\Scripts\python.exe scripts\run_d2_demo.py
 
 The script performs bootstrap, registration, Mailpit OTP verification, event
-capture from RabbitMQ, login, requester/courier toggling, protected-field
-rejection, Super Admin promotion, and the User-to-Admin Supplier authorization
-transition. It prints neither passwords, OTPs, access tokens, shared service
-secrets, nor RabbitMQ credentials.
+capture from RabbitMQ, login, protected-field rejection, Super Admin promotion,
+and the User-to-Admin Supplier authorization transition. It prints neither
+passwords, OTPs, access tokens, shared service secrets, nor RabbitMQ
+credentials.
 
 To record local p95 timing evidence, create one verified timing account and set
 its email/password plus a separate registration-password variable only in the

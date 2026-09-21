@@ -1,7 +1,5 @@
 import { requestJson } from "./client";
 
-export type ParticipationMode = "REQUESTER" | "COURIER";
-
 export type CurrentUser = {
   userId: string;
   username: string;
@@ -9,7 +7,6 @@ export type CurrentUser = {
   displayName: string;
   systemRole: "USER" | "ADMIN" | "SUPER_ADMIN";
   accountStatus: "ACTIVE" | "SUSPENDED" | "DELETED";
-  activeParticipationMode: ParticipationMode;
 };
 
 export type AccessSession = {
@@ -41,7 +38,7 @@ export type RegistrationPayload = {
   displayName?: string;
 };
 
-export type ProfileChanges = Partial<Pick<CurrentUser, "displayName" | "activeParticipationMode">>;
+export type ProfileChanges = Pick<CurrentUser, "displayName">;
 
 export const userService = {
   startRegistration: (payload: RegistrationPayload) =>

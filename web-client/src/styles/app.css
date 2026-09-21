@@ -88,7 +88,7 @@ a { color: var(--primary); font-weight: 700; text-decoration-thickness: 1px; tex
 }
 
 .form-field { display: grid; gap: .45rem; margin-bottom: 1.05rem; }
-.form-field label, .mode-picker legend { color: var(--ink); font-size: .88rem; font-weight: 700; }
+.form-field label { color: var(--ink); font-size: .88rem; font-weight: 700; }
 .form-field input {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -175,12 +175,6 @@ a { color: var(--primary); font-weight: 700; text-decoration-thickness: 1px; tex
 .identity-list dd { color: var(--ink); font-size: .88rem; font-weight: 750; margin: 0; overflow-wrap: anywhere; text-align: right; }
 .profile-actions, .inline-actions { align-items: center; display: flex; flex-wrap: wrap; gap: .85rem; margin-top: 1.2rem; }
 .profile-edit-form { border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 1.1rem; }
-.mode-picker { border: 0; margin: .25rem 0 1.1rem; padding: 0; }
-.mode-picker > p { color: var(--muted); font-size: .84rem; line-height: 1.5; margin: .45rem 0 .75rem; }
-.mode-options { display: grid; gap: .6rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.mode-option { align-items: center; border: 1px solid var(--border); border-radius: 9px; cursor: pointer; display: flex; font-size: .9rem; font-weight: 700; gap: .5rem; min-height: 46px; padding: .55rem .7rem; }
-.mode-option-selected { background: #edf6fc; border-color: #75a9ce; color: var(--primary); }
-.mode-option input { accent-color: var(--primary); }
 .danger-zone { background: var(--danger-surface); border-color: #f2d4cb; box-shadow: none; }
 .danger-zone .section-label, .danger-zone h2 { color: var(--danger); }
 .danger-zone h2 { font-size: 1.06rem; margin: 0 0 .45rem; }

@@ -33,11 +33,6 @@ class AccountStatus(enum.StrEnum):
     DELETED = "DELETED"
 
 
-class ParticipationMode(enum.StrEnum):
-    REQUESTER = "REQUESTER"
-    COURIER = "COURIER"
-
-
 class OutboxEventState(enum.StrEnum):
     PENDING = "PENDING"
     PUBLISHED = "PUBLISHED"
@@ -74,15 +69,6 @@ class User(Base):
         default=AccountStatus.ACTIVE,
     )
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    active_participation_mode: Mapped[ParticipationMode] = mapped_column(
-        Enum(
-            ParticipationMode,
-            name="participation_mode",
-            schema=USER_SERVICE_SCHEMA,
-            create_type=False,
-        ),
-        default=ParticipationMode.REQUESTER,
-    )
     role_version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
