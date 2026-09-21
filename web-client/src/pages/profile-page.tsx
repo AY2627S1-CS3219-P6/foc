@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
-import type { ParticipationMode } from "../api/user-service";
 import { validateDisplayName } from "../api/validation";
 import { useAuth } from "../app/auth-provider";
 import { DeleteAccountDialog } from "../components/delete-account-dialog";
@@ -9,15 +8,10 @@ import { DesktopAppShell } from "../components/desktop-app-shell";
 import { FormField } from "../components/form-field";
 import { MobileAppShell } from "../components/mobile-app-shell";
 
-function displayMode(mode: ParticipationMode): string {
-  return mode === "COURIER" ? "Courier" : "Requester";
-}
-
 function ProfileContent() {
   const { user, updateProfile, signOut, deleteAccount } = useAuth();
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
-  const [mode, setMode] = useState<ParticipationMode>(user?.activeParticipationMode ?? "REQUESTER");
   const [fieldError, setFieldError] = useState<string>();
   const [formError, setFormError] = useState<string>();
   const [success, setSuccess] = useState<string>();
@@ -32,7 +26,6 @@ function ProfileContent() {
   useEffect(() => {
     if (!user) return;
     setDisplayName(user.displayName);
-    setMode(user.activeParticipationMode);
   }, [user]);
 
   if (!user) return null;
@@ -45,7 +38,7 @@ function ProfileContent() {
     if (nameError) return;
     setBusy(true);
     try {
-      await updateProfile({ displayName, activeParticipationMode: mode });
+      await updateProfile({ displayName });
       setEditing(false);
       setSuccess("Profile updated.");
     } catch (requestError) {
@@ -90,7 +83,7 @@ function ProfileContent() {
       <header className="profile-heading">
         <p className="section-label">Account</p>
         <h1>Profile and security</h1>
-        <p>Your username and NUS email are fixed. Update your display name or participation preference here.</p>
+        <p>Your username and NUS email are fixed. Update your display name here.</p>
       </header>
       {success ? <p className="form-success" role="status">{success}</p> : null}
       <div className="profile-workspace">
@@ -99,7 +92,6 @@ function ProfileContent() {
             <span className="avatar avatar-large">{user.displayName.slice(0, 1).toUpperCase()}</span>
             <div>
               <h2>{user.displayName}</h2>
-              <p>{displayMode(user.activeParticipationMode)}</p>
             </div>
           </div>
           <dl className="identity-list">
@@ -111,18 +103,6 @@ function ProfileContent() {
           {editing ? (
             <div className="profile-edit-form">
               <FormField error={fieldError} label="Display name" onChange={(event) => setDisplayName(event.target.value)} value={displayName} />
-              <fieldset className="mode-picker">
-                <legend>Participation preference</legend>
-                <p>Choose the view you want to start with. This does not change your account role.</p>
-                <div className="mode-options">
-                  {(["REQUESTER", "COURIER"] as ParticipationMode[]).map((option) => (
-                    <label className={mode === option ? "mode-option mode-option-selected" : "mode-option"} key={option}>
-                      <input checked={mode === option} name="participation-mode" onChange={() => setMode(option)} type="radio" value={option} />
-                      <span>{displayMode(option)}</span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
               {formError ? <p className="form-error" role="alert">{formError}</p> : null}
               <div className="inline-actions">
                 <button className="button button-primary" disabled={busy} onClick={saveProfile} type="button">

@@ -4,16 +4,12 @@ import pytest
 from pydantic import ValidationError
 
 from app.api.schemas import AccountDeletionRequest, ProfileUpdateRequest
-from app.models import ParticipationMode
 
 
 def test_profile_update_accepts_only_mutable_validated_fields() -> None:
-    request = ProfileUpdateRequest.model_validate(
-        {"displayName": "Courier_User?", "activeParticipationMode": "COURIER"}
-    )
+    request = ProfileUpdateRequest.model_validate({"displayName": "Updated_User?"})
 
-    assert request.display_name == "Courier_User?"
-    assert request.active_participation_mode == ParticipationMode.COURIER
+    assert request.display_name == "Updated_User?"
 
 
 @pytest.mark.parametrize(
@@ -24,6 +20,7 @@ def test_profile_update_accepts_only_mutable_validated_fields() -> None:
         {"displayName": None},
         {"email": "replacement@u.nus.edu"},
         {"username": "replacement"},
+        {"activeParticipationMode": "COURIER"},
         {"systemRole": "ADMIN"},
         {"accountStatus": "SUSPENDED"},
         {"id": "00000000-0000-0000-0000-000000000001"},

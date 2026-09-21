@@ -155,17 +155,6 @@ async def run_demo(arguments: argparse.Namespace) -> None:
                     "normal-user login",
                 )
                 user_headers = bearer_headers(user_login["accessToken"])
-                updated = await assert_status(
-                    await service_client.patch(
-                        "/v1/users/me",
-                        headers=user_headers,
-                        json={"activeParticipationMode": "COURIER"},
-                    ),
-                    200,
-                    "participation-mode update",
-                )
-                if updated["activeParticipationMode"] != "COURIER":
-                    raise RuntimeError("The participation mode was not updated.")
                 protected = await service_client.patch(
                     "/v1/users/me",
                     headers=user_headers,

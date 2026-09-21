@@ -22,7 +22,6 @@ from app.main import create_app
 from app.models import (
     AccountStatus,
     Credential,
-    ParticipationMode,
     SystemRole,
     User,
     UserSession,
@@ -91,7 +90,6 @@ async def seed_active_user(
                 system_role=system_role,
                 account_status=AccountStatus.ACTIVE,
                 email_verified_at=now,
-                active_participation_mode=ParticipationMode.REQUESTER,
                 role_version=1,
             )
             session.add(user)
@@ -156,21 +154,18 @@ async def test_profile_management_rejects_protected_fields_and_tombstones_accoun
             updated = await client.patch(
                 "/v1/users/me",
                 headers=authorization,
-                json={
-                    "displayName": "Phase3-Courier",
-                    "activeParticipationMode": "COURIER",
-                },
+                json={"displayName": "Phase3-Renamed"},
             )
             assert updated.status_code == 200
             assert updated.json()["userId"] == str(user_id)
-            assert updated.json()["displayName"] == "Phase3-Courier"
-            assert updated.json()["activeParticipationMode"] == "COURIER"
+            assert updated.json()["displayName"] == "Phase3-Renamed"
+            assert "activeParticipationMode" not in updated.json()
 
             persisted = await client.get("/v1/users/me", headers=authorization)
             assert persisted.status_code == 200
             assert persisted.json()["userId"] == str(user_id)
-            assert persisted.json()["displayName"] == "Phase3-Courier"
-            assert persisted.json()["activeParticipationMode"] == "COURIER"
+            assert persisted.json()["displayName"] == "Phase3-Renamed"
+            assert "activeParticipationMode" not in persisted.json()
 
             invalid_name = await client.patch(
                 "/v1/users/me",
@@ -206,16 +201,17 @@ async def test_profile_management_rejects_protected_fields_and_tombstones_accoun
                 duplicate_name = await duplicate_client.patch(
                     "/v1/users/me",
                     headers=duplicate_authorization,
-                    json={"displayName": "Phase3-Courier"},
+                    json={"displayName": "Phase3-Renamed"},
                 )
                 assert duplicate_name.status_code == 200
                 assert duplicate_name.json()["userId"] == str(duplicate_user_id)
                 assert duplicate_name.json()["userId"] != str(user_id)
-                assert duplicate_name.json()["displayName"] == "Phase3-Courier"
+                assert duplicate_name.json()["displayName"] == "Phase3-Renamed"
 
             protected_field_values = {
                 "email": f"replacement-{test_id}@u.nus.edu",
                 "username": "replacement",
+                "activeParticipationMode": "COURIER",
                 "systemRole": "ADMIN",
                 "accountStatus": "SUSPENDED",
                 "id": str(uuid4()),
@@ -235,8 +231,7 @@ async def test_profile_management_rejects_protected_fields_and_tombstones_accoun
                 unchanged = await client.get("/v1/users/me", headers=authorization)
                 assert unchanged.status_code == 200
                 assert unchanged.json()["userId"] == str(user_id)
-                assert unchanged.json()["displayName"] == "Phase3-Courier"
-                assert unchanged.json()["activeParticipationMode"] == "COURIER"
+                assert unchanged.json()["displayName"] == "Phase3-Renamed"
 
             missing_acknowledgement = await client.request(
                 "DELETE",
@@ -284,7 +279,6 @@ async def test_profile_management_rejects_protected_fields_and_tombstones_accoun
             assert tombstone.normalized_email is None
             assert tombstone.email_verified_at is None
             assert tombstone.display_name == "Deleted User"
-            assert tombstone.active_participation_mode == ParticipationMode.REQUESTER
             assert tombstone.system_role == SystemRole.ADMIN
             assert tombstone.role_version == 2
             credential = await read_one(

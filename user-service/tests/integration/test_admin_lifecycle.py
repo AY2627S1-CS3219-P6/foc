@@ -28,7 +28,6 @@ from app.models import (
     AccountStatus,
     AdminAuditEntry,
     Credential,
-    ParticipationMode,
     SystemRole,
     User,
 )
@@ -81,7 +80,6 @@ async def seed_active_user(
                 system_role=SystemRole.USER,
                 account_status=AccountStatus.ACTIVE,
                 email_verified_at=now,
-                active_participation_mode=ParticipationMode.REQUESTER,
                 role_version=1,
             )
             session.add(user)

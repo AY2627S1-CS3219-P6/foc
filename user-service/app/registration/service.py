@@ -19,7 +19,6 @@ from app.models import (
     AccountStatus,
     Credential,
     OutboxEvent,
-    ParticipationMode,
     RegistrationChallenge,
     SystemRole,
     User,
@@ -269,7 +268,6 @@ class RegistrationService:
                         system_role=SystemRole.USER,
                         account_status=AccountStatus.ACTIVE,
                         email_verified_at=now,
-                        active_participation_mode=ParticipationMode.REQUESTER,
                         role_version=1,
                     )
                     session.add(activated_user)

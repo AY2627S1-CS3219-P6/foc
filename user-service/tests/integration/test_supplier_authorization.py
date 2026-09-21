@@ -17,7 +17,6 @@ from app.main import create_app
 from app.models import (
     AccountStatus,
     Credential,
-    ParticipationMode,
     SystemRole,
     User,
 )
@@ -64,7 +63,6 @@ async def seed_active_user(
                 system_role=system_role,
                 account_status=AccountStatus.ACTIVE,
                 email_verified_at=now,
-                active_participation_mode=ParticipationMode.REQUESTER,
                 role_version=1,
             )
             session.add(user)
