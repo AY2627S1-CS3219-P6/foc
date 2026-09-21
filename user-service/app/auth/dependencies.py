@@ -57,3 +57,13 @@ async def require_self_access(
     if not has_minimum_role(principal.user.system_role, SystemRole.USER):
         raise ApiError(403, "INSUFFICIENT_ROLE", "The current role cannot use this resource.")
     return principal
+
+
+async def require_super_admin(
+    principal: Annotated[AuthenticatedPrincipal, Depends(get_current_principal)],
+) -> AuthenticatedPrincipal:
+    """Require the one role allowed to change another account's system role."""
+
+    if principal.user.system_role != SystemRole.SUPER_ADMIN:
+        raise ApiError(403, "INSUFFICIENT_ROLE", "Super Admin access is required.")
+    return principal

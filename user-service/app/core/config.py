@@ -40,6 +40,10 @@ class Settings(BaseSettings):
             "INTERNAL_SERVICE_SECRET",
         ),
     )
+    bootstrap_super_admin_username: str | None = None
+    bootstrap_super_admin_email: str | None = None
+    bootstrap_super_admin_password: SecretStr | None = None
+    bootstrap_super_admin_display_name: str | None = None
     otp_ttl_seconds: int = Field(default=600, ge=60, le=3600)
     otp_max_attempts: int = Field(default=5, ge=1, le=10)
     otp_max_resends: int = Field(default=3, ge=0, le=10)
@@ -66,9 +70,21 @@ class Settings(BaseSettings):
         path = Path(value)
         return path if path.is_absolute() else SERVICE_ROOT / path
 
-    @field_validator("otp_hmac_secret", mode="before")
+    @field_validator("otp_hmac_secret", "bootstrap_super_admin_password", mode="before")
     @classmethod
-    def empty_otp_secret_is_unconfigured(cls, value: object) -> object:
+    def empty_secret_is_unconfigured(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator(
+        "bootstrap_super_admin_username",
+        "bootstrap_super_admin_email",
+        "bootstrap_super_admin_display_name",
+        mode="before",
+    )
+    @classmethod
+    def empty_bootstrap_value_is_unconfigured(cls, value: object) -> object:
         if isinstance(value, str) and not value.strip():
             return None
         return value

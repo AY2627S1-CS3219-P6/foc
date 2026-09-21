@@ -133,6 +133,12 @@ def write_environment_file(path: Path, database_url: str) -> None:
         "JWT_SESSION_IDLE_TIMEOUT_SECONDS": "1800",
         "OTP_HMAC_SECRET": secrets.token_urlsafe(32),
         "SUPPLIER_SERVICE_SHARED_SECRET": secrets.token_urlsafe(32),
+        # These are deliberately not generated. An operator must choose explicit
+        # bootstrap credentials before the one-shot command can create authority.
+        "BOOTSTRAP_SUPER_ADMIN_USERNAME": "",
+        "BOOTSTRAP_SUPER_ADMIN_EMAIL": "",
+        "BOOTSTRAP_SUPER_ADMIN_PASSWORD": "",
+        "BOOTSTRAP_SUPER_ADMIN_DISPLAY_NAME": "",
         "SMTP_HOST": "127.0.0.1",
         "SMTP_PORT": "1025",
         "SMTP_FROM": "no-reply@foc.local",
