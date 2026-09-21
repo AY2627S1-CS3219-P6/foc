@@ -2,8 +2,9 @@ import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { isApiRequestError, type FieldError } from "../api/client";
 import { userService } from "../api/user-service";
-import { validateRegistration } from "../api/validation";
+import { passwordFormatError, validateRegistration } from "../api/validation";
 import { FormField } from "../components/form-field";
+import { PasswordRequirements, passwordHintText } from "../components/password-requirements";
 
 type RegistrationForm = {
   username: string;
@@ -87,12 +88,19 @@ export function RegistrationPage() {
             </div>
           </div>
           <form onSubmit={handleSubmit}>
-            <div className="form-row">
-              <FormField error={fieldErrors.username} label="Username" onChange={(event) => updateField("username", event.target.value)} required value={form.username} />
-              <FormField error={fieldErrors.displayName} hint="Optional" label="Display name" onChange={(event) => updateField("displayName", event.target.value)} value={form.displayName} />
-            </div>
+            <FormField error={fieldErrors.displayName} label="Display name (Optional)" onChange={(event) => updateField("displayName", event.target.value)} value={form.displayName} />
+            <FormField error={fieldErrors.username} label="Username" onChange={(event) => updateField("username", event.target.value)} required value={form.username} />
             <FormField autoComplete="email" error={fieldErrors.email} label="NUS email" onChange={(event) => updateField("email", event.target.value)} placeholder="you@u.nus.edu" required type="email" value={form.email} />
-            <FormField autoComplete="new-password" error={fieldErrors.password} hint="At least 12 characters from three character groups." label="Password" onChange={(event) => updateField("password", event.target.value)} required type="password" value={form.password} />
+            <FormField
+              autoComplete="new-password"
+              error={fieldErrors.password ? <PasswordRequirements>{passwordFormatError}</PasswordRequirements> : undefined}
+              hint={<PasswordRequirements>{passwordHintText}</PasswordRequirements>}
+              label="Password"
+              onChange={(event) => updateField("password", event.target.value)}
+              required
+              type="password"
+              value={form.password}
+            />
             <FormField autoComplete="new-password" error={fieldErrors.passwordConfirmation} label="Confirm password" onChange={(event) => updateField("passwordConfirmation", event.target.value)} required type="password" value={form.passwordConfirmation} />
             {error ? <p className="form-error" role="alert">{error}</p> : null}
             <button className="button button-primary button-block" disabled={busy} type="submit">

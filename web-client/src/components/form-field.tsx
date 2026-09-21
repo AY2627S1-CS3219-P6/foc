@@ -1,9 +1,9 @@
-import { type ComponentPropsWithoutRef, useId } from "react";
+import { type ComponentPropsWithoutRef, type ReactNode, useId } from "react";
 
 type FormFieldProps = ComponentPropsWithoutRef<"input"> & {
   label: string;
-  hint?: string;
-  error?: string;
+  hint?: ReactNode;
+  error?: ReactNode;
 };
 
 export function FormField({ label, hint, error, id, className = "", ...inputProps }: FormFieldProps) {

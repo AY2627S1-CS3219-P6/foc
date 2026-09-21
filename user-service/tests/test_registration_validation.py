@@ -16,14 +16,24 @@ def test_registration_defaults_display_name_to_username() -> None:
     assert request.display_name == "Alice_User?"
 
 
+def test_registration_accepts_a_full_stop_in_a_password() -> None:
+    request = RegistrationRequest(
+        username="Alice_User?",
+        email="alice@u.nus.edu",
+        password="Secure.Pass1",
+    )
+
+    assert request.password == "Secure.Pass1"
+
+
 @pytest.mark.parametrize(
     ("field", "value", "message"),
     [
         ("username", "Alice User", "Username may contain only"),
         ("email", "alice@example.com", "Use a NUS student email address"),
-        ("password", "onlylowercasepassword", "at least three"),
-        ("password", "Short1!", "at least 12"),
-        ("password", "Secure Pass1!", "may contain only"),
+        ("password", "onlylowercasepassword", "Use 12-72 characters from 3 of the 4"),
+        ("password", "Short1!", "Use 12-72 characters from 3 of the 4"),
+        ("password", "Secure Pass1!", "Use 12-72 characters from 3 of the 4"),
         ("display_name", "Alice User", "Display name may contain only"),
     ],
 )

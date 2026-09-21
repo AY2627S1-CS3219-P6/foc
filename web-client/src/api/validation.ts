@@ -1,7 +1,8 @@
 export type ClientFieldErrors = Record<string, string>;
 
 const allowedName = /^[A-Za-z0-9!#$%^&*()\-_=+?]+$/;
-const allowedPassword = /^[A-Za-z0-9!@#$%^&*()\-_=+?]+$/;
+const allowedPassword = /^[A-Za-z0-9!@#$%^&*()\-_=+?.]+$/;
+export const passwordFormatError = "Use 12-72 characters from 3 of the 4 character groups";
 
 export function validateRegistration(values: {
   username: string;
@@ -21,12 +22,12 @@ export function validateRegistration(values: {
     errors.displayName = "Use letters, digits, or ! # $ % ^ & * ( ) - _ = + ?.";
   }
   if (values.password.length < 12 || values.password.length > 72 || !allowedPassword.test(values.password)) {
-    errors.password = "Use 12–72 allowed characters.";
+    errors.password = passwordFormatError;
   } else {
     const groups = [/[A-Z]/, /[a-z]/, /\d/, /[!@#$%^&*()\-_=+?]/].filter((rule) =>
       rule.test(values.password),
     ).length;
-    if (groups < 3) errors.password = "Use at least three: uppercase, lowercase, digits, special characters.";
+    if (groups < 3) errors.password = passwordFormatError;
   }
   if (values.password !== values.passwordConfirmation) {
     errors.passwordConfirmation = "Passwords do not match.";

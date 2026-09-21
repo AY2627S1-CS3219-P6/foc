@@ -18,3 +18,26 @@ for (const viewport of viewports) {
     await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
   });
 }
+
+test("registration fields are stacked in the requested order and align on desktop", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1024 });
+  await page.goto("/register");
+  await expect(page.getByLabel("Display name (Optional)")).toBeVisible();
+
+  const geometry = await page.locator("form input").evaluateAll((inputs) =>
+    inputs.map((input) => {
+      const box = input.getBoundingClientRect();
+      return { label: input.labels?.[0]?.textContent?.trim(), x: box.x, width: box.width, y: box.y };
+    }),
+  );
+  expect(geometry.map((input) => input.label)).toEqual([
+    "Display name (Optional)",
+    "Username",
+    "NUS email",
+    "Password",
+    "Confirm password",
+  ]);
+  expect(new Set(geometry.map((input) => input.x)).size).toBe(1);
+  expect(new Set(geometry.map((input) => input.width)).size).toBe(1);
+  expect(geometry.map((input) => input.y)).toEqual([...geometry.map((input) => input.y)].sort((a, b) => a - b));
+});
