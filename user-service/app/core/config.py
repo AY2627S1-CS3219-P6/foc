@@ -40,6 +40,12 @@ class Settings(BaseSettings):
             "INTERNAL_SERVICE_SECRET",
         ),
     )
+    rabbitmq_url: SecretStr | None = None
+    outbox_exchange_name: str = "foc.events"
+    outbox_poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=60.0)
+    outbox_lease_seconds: int = Field(default=30, ge=5, le=300)
+    outbox_retry_initial_delay_seconds: int = Field(default=1, ge=1, le=60)
+    outbox_retry_max_delay_seconds: int = Field(default=60, ge=1, le=3600)
     bootstrap_super_admin_username: str | None = None
     bootstrap_super_admin_email: str | None = None
     bootstrap_super_admin_password: SecretStr | None = None
@@ -70,7 +76,12 @@ class Settings(BaseSettings):
         path = Path(value)
         return path if path.is_absolute() else SERVICE_ROOT / path
 
-    @field_validator("otp_hmac_secret", "bootstrap_super_admin_password", mode="before")
+    @field_validator(
+        "otp_hmac_secret",
+        "bootstrap_super_admin_password",
+        "rabbitmq_url",
+        mode="before",
+    )
     @classmethod
     def empty_secret_is_unconfigured(cls, value: object) -> object:
         if isinstance(value, str) and not value.strip():

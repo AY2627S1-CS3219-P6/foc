@@ -145,6 +145,11 @@ def write_environment_file(path: Path, database_url: str) -> None:
         "RABBITMQ_USER": rabbitmq_user,
         "RABBITMQ_PASSWORD": rabbitmq_password,
         "RABBITMQ_URL": f"amqp://{rabbitmq_user}:{rabbitmq_password}@127.0.0.1:5672/",
+        "OUTBOX_EXCHANGE_NAME": "foc.events",
+        "OUTBOX_POLL_INTERVAL_SECONDS": "1",
+        "OUTBOX_LEASE_SECONDS": "30",
+        "OUTBOX_RETRY_INITIAL_DELAY_SECONDS": "1",
+        "OUTBOX_RETRY_MAX_DELAY_SECONDS": "60",
     }
     lines = ["# Generated for local development. Do not commit this file."]
     if not database_url:

@@ -38,6 +38,11 @@ class ParticipationMode(enum.StrEnum):
     COURIER = "COURIER"
 
 
+class OutboxEventState(enum.StrEnum):
+    PENDING = "PENDING"
+    PUBLISHED = "PUBLISHED"
+
+
 class User(Base):
     """A verified identity. Public user IDs remain stable across capabilities."""
 
@@ -208,6 +213,47 @@ class AdminAuditEntry(Base):
     )
     correlation_id: Mapped[str] = mapped_column(String(128))
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+
+
+class OutboxEvent(Base):
+    """A minimal, durable event awaiting safe publication to RabbitMQ."""
+
+    __tablename__ = "outbox_events"
+    __table_args__ = {"schema": USER_SERVICE_SCHEMA}
+
+    event_id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    event_type: Mapped[str] = mapped_column(String(64))
+    aggregate_id: Mapped[UUID] = mapped_column(
+        ForeignKey(f"{USER_SERVICE_SCHEMA}.users.id", ondelete="RESTRICT"),
+        index=True,
+    )
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    state: Mapped[OutboxEventState] = mapped_column(
+        Enum(
+            OutboxEventState,
+            name="outbox_event_state",
+            schema=USER_SERVICE_SCHEMA,
+            create_type=False,
+        ),
+        default=OutboxEventState.PENDING,
+    )
+    publish_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error_code: Mapped[str | None] = mapped_column(String(128))
+    lease_token: Mapped[UUID | None] = mapped_column()
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
     )

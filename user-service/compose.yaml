@@ -33,6 +33,27 @@ services:
       retries: 6
       start_period: 10s
 
+  outbox-publisher:
+    build:
+      context: .
+    command: ["outbox-publisher"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: ${DATABASE_URL_DOCKER:-}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-foc_user_service}:${RABBITMQ_PASSWORD:-foc-local-rabbitmq}@rabbitmq:5672/
+    volumes:
+      - ./secrets/development:/app/secrets/development:ro
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - default
+      - user-service-internal
+
   mailpit:
     image: axllent/mailpit:v1.27.3
     ports:
@@ -44,6 +65,7 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-foc_user_service}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-foc-local-rabbitmq}
     ports:
+      - "5672:5672"
       - "15672:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]

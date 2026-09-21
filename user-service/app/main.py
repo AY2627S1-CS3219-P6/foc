@@ -24,6 +24,7 @@ from app.core.correlation import (
     get_correlation_id,
 )
 from app.core.logging import configure_logging, logger
+from app.core.timing import RequestTimingMiddleware
 from app.db import Database, DatabaseUnavailableError
 from app.registration.mailer import OtpSender, SmtpOtpSender
 from app.registration.service import RegistrationService
@@ -90,6 +91,7 @@ def create_app(
     app.state.settings = service_settings
     app.state.registration_service = registration_service
     app.state.authentication_service = service_authentication
+    app.add_middleware(RequestTimingMiddleware)
     app.add_middleware(CorrelationIdMiddleware)
 
     @app.exception_handler(ServiceNotReadyError)

@@ -18,6 +18,7 @@ from app.core.config import Settings
 from app.models import (
     AccountStatus,
     Credential,
+    OutboxEvent,
     ParticipationMode,
     RegistrationChallenge,
     SystemRole,
@@ -278,6 +279,13 @@ class RegistrationService:
                             user_id=activated_user.id,
                             password_hash=challenge.password_hash,
                             password_changed_at=now,
+                        )
+                    )
+                    session.add(
+                        OutboxEvent(
+                            event_type="user.registered.v1",
+                            aggregate_id=activated_user.id,
+                            occurred_at=now,
                         )
                     )
                     await session.delete(challenge)
