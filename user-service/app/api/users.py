@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.authentication import REFRESH_COOKIE_NAME
 from app.api.schemas import AccountDeletionRequest, CurrentUserResponse, ProfileUpdateRequest
-from app.auth.dependencies import AuthenticatedPrincipal, get_current_principal
+from app.auth.dependencies import AuthenticatedPrincipal, require_self_access
 from app.db import get_db_session
 from app.profile.service import ProfileService
 
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/v1/users", tags=["users"])
 
 @router.get("/me", response_model=CurrentUserResponse)
 async def get_current_user(
-    principal: Annotated[AuthenticatedPrincipal, Depends(get_current_principal)],
+    principal: Annotated[AuthenticatedPrincipal, Depends(require_self_access)],
 ) -> CurrentUserResponse:
     """Return the safe profile of the server-validated current caller only."""
 
@@ -40,7 +40,7 @@ async def get_current_user(
 async def update_current_user(
     body: ProfileUpdateRequest,
     session: Annotated[AsyncSession, Depends(get_db_session)],
-    principal: Annotated[AuthenticatedPrincipal, Depends(get_current_principal)],
+    principal: Annotated[AuthenticatedPrincipal, Depends(require_self_access)],
 ) -> CurrentUserResponse:
     """Update the authenticated caller's allow-listed profile preferences only."""
 
@@ -62,7 +62,7 @@ async def delete_current_user(
     request: Request,
     response: Response,
     session: Annotated[AsyncSession, Depends(get_db_session)],
-    principal: Annotated[AuthenticatedPrincipal, Depends(get_current_principal)],
+    principal: Annotated[AuthenticatedPrincipal, Depends(require_self_access)],
 ) -> None:
     """Anonymize this caller's profile and remove its authentication material."""
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 from typing import Literal
 from uuid import UUID
 
@@ -156,3 +157,26 @@ class AccountDeletionRequest(ApiModel):
 
     current_password: str = Field(min_length=1, max_length=128)
     acknowledge_deletion: Literal[True]
+
+
+class SupplierManagementAction(StrEnum):
+    """The narrow administrative actions Supplier Service may ask about."""
+
+    CREATE = "SUPPLIER_CREATE"
+    UPDATE = "SUPPLIER_UPDATE"
+    DEACTIVATE = "SUPPLIER_DEACTIVATE"
+
+
+class AuthorizationDecisionRequest(ApiModel):
+    """A Supplier Service request for an immediate, current-role decision."""
+
+    action: SupplierManagementAction
+
+
+class AuthorizationDecisionResponse(ApiModel):
+    """Safe current-state information for a Supplier Service enforcement point."""
+
+    subject_id: UUID
+    account_status: AccountStatus
+    system_role: SystemRole
+    allowed: bool

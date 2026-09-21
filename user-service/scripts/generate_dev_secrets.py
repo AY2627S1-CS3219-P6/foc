@@ -132,7 +132,7 @@ def write_environment_file(path: Path, database_url: str) -> None:
         "JWT_REFRESH_TOKEN_TTL_SECONDS": "86400",
         "JWT_SESSION_IDLE_TIMEOUT_SECONDS": "1800",
         "OTP_HMAC_SECRET": secrets.token_urlsafe(32),
-        "INTERNAL_SERVICE_SECRET": secrets.token_urlsafe(32),
+        "SUPPLIER_SERVICE_SHARED_SECRET": secrets.token_urlsafe(32),
         "SMTP_HOST": "127.0.0.1",
         "SMTP_PORT": "1025",
         "SMTP_FROM": "no-reply@foc.local",
