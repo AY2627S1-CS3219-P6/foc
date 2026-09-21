@@ -1,4 +1,13 @@
 services:
+  web-client:
+    build:
+      context: ../web-client
+    ports:
+      - "3000:80"
+    depends_on:
+      user-service:
+        condition: service_healthy
+
   user-service:
     build:
       context: .
