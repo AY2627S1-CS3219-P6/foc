@@ -19,6 +19,9 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+    networks:
+      - default
+      - user-service-internal
     healthcheck:
       test:
         - CMD
@@ -47,3 +50,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+networks:
+  user-service-internal:
+    name: ${USER_SERVICE_INTERNAL_NETWORK:-foc-user-service-internal}
+    internal: true

@@ -1,12 +1,16 @@
 # User Service
 
-Phases 0 through 3 provide a runnable FastAPI foundation, verified student
+Phases 0 through 4 provide a runnable FastAPI foundation, verified student
 account creation, and revocable authentication. The service has database-aware
 health checks, structured redacted logs, correlation IDs, Supabase SQL
 migrations, bcrypt credential storage, Mailpit OTP verification, RS256 access
 tokens, rotating refresh-token cookies, and self-only identity/profile
 management. Requester and courier are profile capabilities on the same stable
-user ID; they are not separate accounts or system roles.
+user ID; they are not separate accounts or system roles. Fixed User, Admin, and
+Super Admin role guards use current server-side identity state. Supplier Service
+verifies normal access tokens locally and asks User Service for a current,
+fail-closed supplier-management decision immediately before an administrative
+operation.
 
 ## Local development
 
@@ -183,3 +187,36 @@ same stable user ID:
 The deletion returns `204`, clears the refresh cookie, and the final profile
 request returns `401`. The same credentials can no longer log in; the released
 email and username may later register a new account with a different user ID.
+
+## Phase 4 Supplier authorization smoke test
+
+The public JWKS endpoint remains available at
+`http://localhost:8000/.well-known/jwks.json` for Supplier Service to cache and
+use when checking a normal FoC access JWT. It contains only public signing-key
+material.
+
+Before any supplier create, update, or deactivation request, Supplier Service
+must call User Service through the `foc-user-service-internal` Compose network.
+It supplies the original user bearer token, the locally generated
+`SUPPLIER_SERVICE_SHARED_SECRET`, and one of the declared supplier-management
+actions. The exact request and fail-closed handling are documented in
+[`docs/supplier-authorization-contract.md`](docs/supplier-authorization-contract.md).
+
+For a local HTTP check, use an access token for a verified account and replace
+the placeholders only in a local terminal; never commit or log the shared
+secret:
+
+    $headers = @{
+      Authorization = "Bearer <access token>"
+      "X-FoC-Service-Secret" = "<SUPPLIER_SERVICE_SHARED_SECRET>"
+    }
+    Invoke-RestMethod -Method Post -Headers $headers -Uri http://localhost:8000/v1/internal/authorization-decisions -ContentType "application/json" -Body (@{
+      action = "SUPPLIER_CREATE"
+    } | ConvertTo-Json)
+
+An active `USER` receives a `200` response with `allowed: false`; active
+`ADMIN` and `SUPER_ADMIN` accounts receive `allowed: true`. Missing service
+identity, malformed or expired bearer tokens, and every timeout/error must deny
+the supplier-management operation. Supplier Service must not make an
+administrative decision from a JWT role claim or receive User Service database
+access.

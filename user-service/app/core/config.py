@@ -6,7 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 SERVICE_ROOT = Path(__file__).resolve().parents[2]
@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     jwt_refresh_token_ttl_seconds: int = Field(default=86_400, ge=300, le=2_592_000)
     jwt_session_idle_timeout_seconds: int = Field(default=1_800, ge=60, le=1_800)
     otp_hmac_secret: SecretStr | None = None
+    supplier_service_shared_secret: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "SUPPLIER_SERVICE_SHARED_SECRET",
+            "INTERNAL_SERVICE_SECRET",
+        ),
+    )
     otp_ttl_seconds: int = Field(default=600, ge=60, le=3600)
     otp_max_attempts: int = Field(default=5, ge=1, le=10)
     otp_max_resends: int = Field(default=3, ge=0, le=10)
