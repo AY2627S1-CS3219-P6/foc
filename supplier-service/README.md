@@ -1,4 +1,88 @@
-# Supplier Service: D2 step 1 database design
+# Supplier Service
+
+## Create supplier API
+
+The first FastAPI route is `POST /api/v1/admin/suppliers`. It validates a
+supplier, asks User Service for a current `SUPPLIER_CREATE` admin decision,
+then inserts the supplier and category assignments in one PostgreSQL
+transaction. It returns the committed record with status `201`.
+
+Use Python 3.11 or newer. The macOS system `python3` may be older; use a
+matching interpreter such as `python3.12`. From `supplier-service/`:
+
+```sh
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -e '.[test]'
+```
+
+Copy [`.env.example`](.env.example) to an ignored `.env` if you do not already
+have one. It points to this service's local Supabase database by default. Set
+`SUPPLIER_SERVICE_SHARED_SECRET` to the value configured by the User Service
+operator. The FastAPI app reads environment variables, so load the file into
+your shell before starting it:
+
+```sh
+set -a
+source .env
+set +a
+.venv/bin/uvicorn app.main:app --reload --port 8001
+```
+
+Do not commit the populated `.env` file. To use the hosted Supplier Service
+database instead, change only `SUPPLIER_DATABASE_URL` to its PostgreSQL
+connection string.
+
+With a User Service administrator access token, try:
+
+```sh
+curl -i -X POST http://127.0.0.1:8001/api/v1/admin/suppliers \
+  -H "Authorization: Bearer YOUR_ADMIN_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Example Cafe","categories":["FOOD"],"building_area":"Central Library","pickup_location_description":"Near the entrance","opening_time":"09:00","closing_time":"18:00"}'
+```
+
+The example uses port 8001 so User Service can use port 8000 on the same
+machine.
+The User Service's published contract is
+[`../user-service/docs/supplier-authorization-contract.md`](../user-service/docs/supplier-authorization-contract.md).
+The Supplier Service verifies the access JWT using User Service's public JWKS,
+then asks its internal endpoint for the current role. It does not read User
+Service tables or trust a role supplied in the request.
+
+### Run the API in Docker
+
+Keep Docker Desktop, User Service, and this service's local Supabase stack
+running. User Service's Compose stack provides the
+`foc-user-service-internal` network. Stop the local `uvicorn` process if it is
+using port 8001, then run from `supplier-service/`:
+
+```sh
+docker compose up --build -d
+```
+
+Open `http://127.0.0.1:8001/docs` and send the same administrator POST request
+shown above. Compose loads the ignored `.env` for the shared secret. Inside the
+container, it connects to Supplier PostgreSQL at `host.docker.internal:55322`
+and to User Service at `http://user-service:8000`. These replace the
+`127.0.0.1` addresses used when running Python directly on the Mac. For a
+different database or User Service address, set `SUPPLIER_DATABASE_URL_DOCKER`
+or `USER_SERVICE_BASE_URL_DOCKER` in `.env`. Never put secrets in the image.
+
+```sh
+docker compose down
+```
+
+This stops Supplier Service's API container. Its local Supabase database and
+User Service containers remain running. The CI workflow also builds the image
+after the Supplier Service HTTP tests.
+
+Run the HTTP tests with `.venv/bin/python -m pytest -q`. To check the live
+database path, send a POST with an administrator token and confirm the returned
+supplier appears in the Supplier Service database. Seed SQL verifies the
+migration and sample data, but it does not exercise the POST API.
+The repository CI runs these HTTP tests for Supplier Service changes on pull
+requests to `main` and pushes to `main`; it does not require Supabase
+credentials or Docker.
 
 ## Database choice
 
@@ -19,9 +103,33 @@ after measuring real queries against representative data and concurrent requests
 
 ## Schema
 
-The initial migration is
+The same migration is applied to local and hosted Supplier Service databases:
 [`supabase/migrations/20260923000000_create_suppliers.sql`](supabase/migrations/20260923000000_create_suppliers.sql).
 It creates the `supplier_service` schema in this service's database.
+
+### Local database
+
+With Docker Desktop running, start this service's local Supabase stack from
+`supplier-service/`:
+
+```sh
+supabase start
+```
+
+The first start applies the migration and `supabase/seed.sql`. The local
+database uses port 55322 and its Studio is at `http://127.0.0.1:55323`.
+These ports differ from User Service's local Supabase ports so both stacks can
+run at once. The ignored `.env` points FastAPI to this local database.
+
+To discard local changes and restore the migrated schema and seed data:
+
+```sh
+supabase db reset --local
+```
+
+This reset affects this local Supplier Service database. Stop its containers
+with `supabase stop` when you are finished. The hosted Supabase project is
+separate and is unaffected by these local commands.
 
 ### Hosted database
 

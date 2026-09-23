@@ -1,0 +1,82 @@
+"""Supplier creation request and response models."""
+
+import re
+from datetime import datetime
+from typing import Literal
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
+
+
+TIME_PATTERN = re.compile(r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
+
+
+class SupplierCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    categories: list[str] = Field(min_length=1)
+    building_area: str
+    pickup_location_description: str
+    floor: str | None = None
+    latitude: float | None = Field(default=None, ge=-90, le=90, allow_inf_nan=False)
+    longitude: float | None = Field(default=None, ge=-180, le=180, allow_inf_nan=False)
+    opening_time: str | None = None
+    closing_time: str | None = None
+    image_url: HttpUrl | None = None
+    status: Literal["ACTIVE", "INACTIVE"] = "ACTIVE"
+
+    @field_validator("name", "building_area", "pickup_location_description")
+    @classmethod
+    def nonblank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Must not be blank")
+        return value.strip()
+
+    @field_validator("floor")
+    @classmethod
+    def clean_floor(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
+
+    @field_validator("categories")
+    @classmethod
+    def distinct_categories(cls, value: list[str]) -> list[str]:
+        if any(not code or not re.fullmatch(r"[A-Z][A-Z0-9_]*", code) for code in value):
+            raise ValueError("Use supported category codes")
+        if len(value) != len(set(value)):
+            raise ValueError("Do not repeat a category")
+        return value
+
+    @field_validator("opening_time", "closing_time")
+    @classmethod
+    def exact_time(cls, value: str | None) -> str | None:
+        if value is not None and not TIME_PATTERN.fullmatch(value):
+            raise ValueError("Use 24-hour HH:mm")
+        return value
+
+    @model_validator(mode="after")
+    def paired_fields(self) -> "SupplierCreate":
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("latitude and longitude must be supplied together")
+        if (self.opening_time is None) != (self.closing_time is None):
+            raise ValueError("opening_time and closing_time must be supplied together")
+        return self
+
+
+class SupplierResponse(BaseModel):
+    id: UUID
+    name: str
+    categories: list[str]
+    building_area: str
+    pickup_location_description: str
+    floor: str | None
+    latitude: float | None
+    longitude: float | None
+    opening_time: str | None
+    closing_time: str | None
+    image_url: str | None
+    status: Literal["ACTIVE", "INACTIVE"]
+    created_at: datetime
+    updated_at: datetime
