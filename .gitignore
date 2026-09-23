@@ -23,6 +23,7 @@ htmlcov/
 .ruff_cache/
 .venv/
 venv/
+*.egg-info/
 
 # Per-service local configuration and generated development keys
 **/.env

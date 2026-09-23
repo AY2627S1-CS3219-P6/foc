@@ -1,0 +1,119 @@
+name: foc-dev
+
+services:
+  web-client:
+    build: ./web-client
+    ports:
+      - "3000:80"
+    depends_on:
+      user-service:
+        condition: service_healthy
+      supplier-service:
+        condition: service_healthy
+    networks:
+      - edge
+
+  user-service:
+    build: ./user-service
+    env_file: ./user-service/.env
+    environment:
+      DATABASE_URL: ${DATABASE_URL_DOCKER:?Pass --env-file user-service/.env}
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-foc_user_service}:${RABBITMQ_PASSWORD:?Pass --env-file user-service/.env}@rabbitmq:5672/
+    volumes:
+      - ./user-service/secrets/development:/app/secrets/development:ro
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - edge
+      - user-internal
+      - support
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health/ready")
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+
+  supplier-service:
+    build: ./supplier-service
+    env_file: ./supplier-service/.env
+    environment:
+      SUPPLIER_DATABASE_URL: ${SUPPLIER_DATABASE_URL_DOCKER:-postgresql://postgres:postgres@host.docker.internal:55322/postgres}
+      USER_SERVICE_BASE_URL: http://user-service:8000
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "8001:8001"
+    depends_on:
+      user-service:
+        condition: service_healthy
+    networks:
+      - edge
+      - user-internal
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://127.0.0.1:8001/openapi.json")
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+
+  outbox-publisher:
+    build: ./user-service
+    command: ["outbox-publisher"]
+    env_file: ./user-service/.env
+    environment:
+      DATABASE_URL: ${DATABASE_URL_DOCKER:?Pass --env-file user-service/.env}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-foc_user_service}:${RABBITMQ_PASSWORD:?Pass --env-file user-service/.env}@rabbitmq:5672/
+    volumes:
+      - ./user-service/secrets/development:/app/secrets/development:ro
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - support
+
+  mailpit:
+    image: axllent/mailpit:v1.27.3
+    ports:
+      - "8025:8025"
+    networks:
+      - support
+
+  rabbitmq:
+    image: rabbitmq:4.1-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-foc_user_service}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Pass --env-file user-service/.env}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - support
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+networks:
+  edge:
+  user-internal:
+    internal: true
+  support:

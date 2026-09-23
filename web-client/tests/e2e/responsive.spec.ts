@@ -27,7 +27,7 @@ test("registration fields are stacked in the requested order and align on deskto
   const geometry = await page.locator("form input").evaluateAll((inputs) =>
     inputs.map((input) => {
       const box = input.getBoundingClientRect();
-      return { label: input.labels?.[0]?.textContent?.trim(), x: box.x, width: box.width, y: box.y };
+      return { label: (input as HTMLInputElement).labels?.[0]?.textContent?.trim(), x: box.x, width: box.width, y: box.y };
     }),
   );
   expect(geometry.map((input) => input.label)).toEqual([
