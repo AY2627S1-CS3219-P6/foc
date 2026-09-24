@@ -68,6 +68,15 @@ def list_active_suppliers(
     return repository.list_active_suppliers(filters)
 
 
+@app.get("/api/v1/suppliers/{supplier_id}", response_model=SupplierResponse)
+def get_active_supplier(
+    supplier_id: UUID,
+    _actor_id: Annotated[UUID, Depends(require_authenticated_user)],
+    repository: Annotated[SupplierRepository, Depends(get_repository)],
+) -> SupplierResponse:
+    return repository.get_active_supplier(supplier_id)
+
+
 @app.post(
     "/api/v1/admin/suppliers",
     response_model=SupplierResponse,

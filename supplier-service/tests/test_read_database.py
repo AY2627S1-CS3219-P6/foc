@@ -90,3 +90,20 @@ def test_normal_list_search_filter_sort_and_page(sample_suppliers):
     with pytest.raises(ApiError) as invalid_category:
         repository.list_active_suppliers(_filters(marker, categories=["UNKNOWN"]))
     assert invalid_category.value.status_code == 422
+
+
+def test_active_detail_hides_inactive_and_missing_suppliers(sample_suppliers):
+    repository, _marker, first, _second, _third, inactive = sample_suppliers
+    detail = repository.get_active_supplier(first.id)
+    assert detail.id == first.id
+    assert detail.name == first.name
+    assert detail.categories == ["COFFEE", "FOOD"]
+    assert detail.building_area == first.building_area
+    assert detail.pickup_location_description == first.pickup_location_description
+    assert (detail.opening_time, detail.closing_time) == ("09:00", "18:00")
+    assert detail.created_at == first.created_at and detail.updated_at == first.updated_at
+
+    for supplier_id in (inactive.id, uuid4()):
+        with pytest.raises(ApiError) as missing:
+            repository.get_active_supplier(supplier_id)
+        assert missing.value.status_code == 404

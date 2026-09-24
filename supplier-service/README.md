@@ -25,6 +25,9 @@ curl -G http://127.0.0.1:8001/api/v1/suppliers \
   --data-urlencode "category=COFFEE"
 ```
 
+`GET /api/v1/suppliers/{supplier_id}` returns the full detail for an active
+supplier. An inactive or unknown supplier returns `404` on this normal route.
+
 This service keeps Supabase CLI `2.117.0` as a development dependency. Run
 `npm ci` once after cloning, then use `npx supabase` from this folder for local
 database and hosted-project commands. Node.js is not needed in the FastAPI

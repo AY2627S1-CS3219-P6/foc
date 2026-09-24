@@ -142,6 +142,29 @@ class SupplierRepository:
         except psycopg.Error as error:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
 
+    def get_active_supplier(self, supplier_id: UUID) -> SupplierResponse:
+        if not self.database_url:
+            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
+        try:
+            with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn, conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT * FROM supplier_service.suppliers "
+                    "WHERE id = %s AND status = 'ACTIVE'",
+                    (supplier_id,),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    raise ApiError(404, "SUPPLIER_NOT_FOUND", "Supplier not found")
+                cursor.execute(
+                    "SELECT category_code FROM supplier_service.supplier_categories "
+                    "WHERE supplier_id = %s ORDER BY category_code",
+                    (supplier_id,),
+                )
+                categories = [item["category_code"] for item in cursor.fetchall()]
+            return _response(row, categories)
+        except psycopg.Error as error:
+            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
+
     def create(self, supplier: SupplierCreate) -> SupplierResponse:
         if not self.database_url:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
