@@ -1,0 +1,92 @@
+"""Optional local PostgreSQL checks for supplier read contracts."""
+
+import os
+from urllib.parse import urlparse
+from uuid import uuid4
+
+import psycopg
+import pytest
+
+from app.errors import ApiError
+from app.repository import SupplierRepository
+from app.schemas import SupplierCreate, SupplierListFilters
+
+
+@pytest.fixture
+def sample_suppliers():
+    url = os.getenv("SUPPLIER_TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("Set SUPPLIER_TEST_DATABASE_URL to the local Supplier Supabase database")
+    parsed = urlparse(url)
+    if parsed.hostname not in ("localhost", "127.0.0.1") or parsed.port != 55322:
+        pytest.fail("Database read tests may run only against local Supplier Supabase on port 55322")
+    repository = SupplierRepository(url)
+    marker = f"Read{uuid4().hex}"
+    ids = []
+    try:
+        first = repository.create(SupplierCreate(
+            name=f"Alpha {marker}", categories=["FOOD", "COFFEE"],
+            building_area=f" Central  {marker} ", pickup_location_description="First pickup",
+            floor="1", opening_time="09:00", closing_time="18:00",
+        ))
+        ids.append(first.id)
+        second = repository.create(SupplierCreate(
+            name=f"Beta {marker}", categories=["PRINTING"],
+            building_area=f"central {marker}", pickup_location_description="Second pickup",
+        ))
+        ids.append(second.id)
+        third = repository.create(SupplierCreate(
+            name=f"Gamma {marker}", categories=["SHOPPING"],
+            building_area=f"NorthHub{marker}", pickup_location_description=f"PickupSpot{marker}",
+        ))
+        ids.append(third.id)
+        inactive = repository.create(SupplierCreate(
+            name=f"Delta {marker}", categories=["FOOD"],
+            building_area="South Wing", pickup_location_description="Inactive pickup",
+        ))
+        ids.append(inactive.id)
+        repository.deactivate(inactive.id)
+        yield repository, marker, first, second, third, inactive
+    finally:
+        if ids:
+            with psycopg.connect(url) as conn, conn.cursor() as cursor:
+                cursor.execute("DELETE FROM supplier_service.suppliers WHERE id = ANY(%s)", (ids,))
+
+
+def _filters(marker, **changes):
+    values = {"q": marker, "categories": [], "building_area": None, "sort": "asc", "page": 1, "page_size": 20}
+    values.update(changes)
+    return SupplierListFilters(**values)
+
+
+def test_normal_list_search_filter_sort_and_page(sample_suppliers):
+    repository, marker, first, second, third, inactive = sample_suppliers
+    listed = repository.list_active_suppliers(_filters(marker))
+    assert listed.total == 3
+    assert [item.id for item in listed.items] == [first.id, second.id, third.id]
+    assert inactive.id not in [item.id for item in listed.items]
+    assert listed.items[0].categories == ["COFFEE", "FOOD"]
+    assert (listed.items[0].opening_time, listed.items[0].closing_time) == ("09:00", "18:00")
+
+    assert [item.id for item in repository.list_active_suppliers(_filters(f"northhub{marker.upper()}")).items] == [third.id]
+    assert [item.id for item in repository.list_active_suppliers(_filters(f"pickupspot{marker.upper()}")).items] == [third.id]
+    area = f"  CENTRAL   {marker.upper()}  "
+    assert [item.id for item in repository.list_active_suppliers(_filters(marker, building_area=area)).items] == [first.id, second.id]
+
+    by_categories = repository.list_active_suppliers(_filters(marker, categories=["FOOD", "COFFEE", "PRINTING"]))
+    assert by_categories.total == 2
+    assert [item.id for item in by_categories.items] == [first.id, second.id]
+    combined = repository.list_active_suppliers(_filters(marker, categories=["FOOD"], building_area=area))
+    assert [item.id for item in combined.items] == [first.id]
+
+    assert [item.id for item in repository.list_active_suppliers(_filters(marker, sort="desc")).items] == [third.id, second.id, first.id]
+    second_page = repository.list_active_suppliers(_filters(marker, page=2, page_size=1))
+    assert second_page.total == 3 and [item.id for item in second_page.items] == [second.id]
+    assert repository.list_active_suppliers(_filters(marker + "missing")).model_dump() == {
+        "items": [], "page": 1, "page_size": 20, "total": 0,
+    }
+    assert repository.list_active_suppliers(_filters("%" + marker)).total == 0
+    assert repository.list_active_suppliers(_filters("_" + marker)).total == 0
+    with pytest.raises(ApiError) as invalid_category:
+        repository.list_active_suppliers(_filters(marker, categories=["UNKNOWN"]))
+    assert invalid_category.value.status_code == 422

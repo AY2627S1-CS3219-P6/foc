@@ -1,9 +1,9 @@
 """HTTP entry point for the Supplier Service."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, status
+from fastapi import Depends, FastAPI, Query, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import HTTPAuthorizationCredentials
 
@@ -11,7 +11,15 @@ from app.auth import authorize_supplier_management, bearer, require_authenticate
 from app.config import Settings, get_settings
 from app.errors import ApiError, api_error_handler, validation_error_handler
 from app.repository import SupplierRepository, get_repository
-from app.schemas import CategoryResponse, SupplierCreate, SupplierPatch, SupplierRemovalResponse, SupplierResponse
+from app.schemas import (
+    CategoryResponse,
+    SupplierCreate,
+    SupplierListFilters,
+    SupplierListResponse,
+    SupplierPatch,
+    SupplierRemovalResponse,
+    SupplierResponse,
+)
 
 
 app = FastAPI(title="FoC Supplier Service")
@@ -25,6 +33,39 @@ def list_categories(
     repository: Annotated[SupplierRepository, Depends(get_repository)],
 ) -> list[CategoryResponse]:
     return repository.list_categories()
+
+
+def supplier_list_filters(
+    q: str | None = None,
+    category: Annotated[list[str] | None, Query()] = None,
+    building_area: str | None = None,
+    sort: Literal["asc", "desc"] = "asc",
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> SupplierListFilters:
+    return SupplierListFilters(
+        q=q,
+        categories=category or [],
+        building_area=building_area,
+        sort=sort,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@app.get("/api/v1/suppliers", response_model=SupplierListResponse)
+def list_active_suppliers(
+    request: Request,
+    _actor_id: Annotated[UUID, Depends(require_authenticated_user)],
+    filters: Annotated[SupplierListFilters, Depends(supplier_list_filters)],
+    repository: Annotated[SupplierRepository, Depends(get_repository)],
+) -> SupplierListResponse:
+    if "status" in request.query_params:
+        raise ApiError(
+            422, "VALIDATION_ERROR", "Supplier query is invalid",
+            [{"field": "status", "message": "Status filtering requires administrator access"}],
+        )
+    return repository.list_active_suppliers(filters)
 
 
 @app.post(

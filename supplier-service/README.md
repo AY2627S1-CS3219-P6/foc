@@ -14,6 +14,16 @@ Permanent deletion awaits the Errand Service reference contract described in
 [API.md](API.md#delete-contract-and-errand-references).
 Authenticated users can also call `GET /api/v1/categories` to read supported
 category codes and display names directly from the lookup table.
+`GET /api/v1/suppliers` lists only active suppliers. It accepts `q`, repeated
+`category`, `building_area`, `sort`, `page`, and `page_size` query parameters;
+the response includes `items`, `page`, `page_size`, and `total`. For example:
+
+```sh
+curl -G http://127.0.0.1:8001/api/v1/suppliers \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  --data-urlencode "q=cafe" --data-urlencode "category=FOOD" \
+  --data-urlencode "category=COFFEE"
+```
 
 This service keeps Supabase CLI `2.117.0` as a development dependency. Run
 `npm ci` once after cloning, then use `npx supabase` from this folder for local

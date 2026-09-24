@@ -10,7 +10,16 @@ from pydantic import ValidationError
 
 from app.config import Settings, get_settings
 from app.errors import ApiError, validation_fields
-from app.schemas import CategoryResponse, SupplierCreate, SupplierPatch, SupplierRemovalResponse, SupplierResponse
+from app.schemas import (
+    CategoryResponse,
+    SupplierCreate,
+    SupplierListFilters,
+    SupplierListItem,
+    SupplierListResponse,
+    SupplierPatch,
+    SupplierRemovalResponse,
+    SupplierResponse,
+)
 
 
 SUPPLIER_COLUMNS = (
@@ -27,7 +36,7 @@ SUPPLIER_COLUMNS = (
 )
 
 
-def _check_categories(cursor: psycopg.Cursor, categories: list[str]) -> None:
+def _check_categories(cursor: psycopg.Cursor, categories: list[str], *, field: str = "categories") -> None:
     cursor.execute(
         "SELECT code FROM supplier_service.categories WHERE code = ANY(%s)",
         (categories,),
@@ -39,7 +48,7 @@ def _check_categories(cursor: psycopg.Cursor, categories: list[str]) -> None:
             422,
             "VALIDATION_ERROR",
             "Supplier data is invalid",
-            [{"field": "categories", "message": f"Unsupported category: {code}"} for code in unknown],
+            [{"field": field, "message": f"Unsupported category: {code}"} for code in unknown],
         )
 
 
@@ -49,6 +58,13 @@ def _response(row: dict, categories: list[str]) -> SupplierResponse:
     for column in ("opening_time", "closing_time"):
         result[column] = row[column].strftime("%H:%M") if row[column] else None
     return SupplierResponse.model_validate(result)
+
+
+def _list_item(row: dict) -> SupplierListItem:
+    result = dict(row)
+    for column in ("opening_time", "closing_time"):
+        result[column] = row[column].strftime("%H:%M") if row[column] else None
+    return SupplierListItem.model_validate(result)
 
 
 class SupplierRepository:
@@ -66,6 +82,63 @@ class SupplierRepository:
                 )
                 rows = cursor.fetchall()
             return [CategoryResponse.model_validate(row) for row in rows]
+        except psycopg.Error as error:
+            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
+
+    def list_active_suppliers(self, filters: SupplierListFilters) -> SupplierListResponse:
+        if not self.database_url:
+            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
+        try:
+            with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn, conn.cursor() as cursor:
+                clauses = [sql.SQL("s.status = 'ACTIVE'")]
+                parameters: list[object] = []
+                term = filters.q.strip() if filters.q else ""
+                if term:
+                    clauses.append(sql.SQL(
+                        "(strpos(lower(s.name), lower(%s)) > 0 OR "
+                        "strpos(lower(s.building_area), lower(%s)) > 0 OR "
+                        "strpos(lower(s.pickup_location_description), lower(%s)) > 0)"
+                    ))
+                    parameters.extend((term, term, term))
+                if filters.categories:
+                    _check_categories(cursor, filters.categories, field="category")
+                    clauses.append(sql.SQL(
+                        "EXISTS (SELECT 1 FROM supplier_service.supplier_categories sc "
+                        "WHERE sc.supplier_id = s.id AND sc.category_code = ANY(%s))"
+                    ))
+                    parameters.append(sorted(set(filters.categories)))
+                if filters.building_area is not None:
+                    clauses.append(sql.SQL(
+                        "supplier_service.normalize_identity_component(s.building_area) = "
+                        "supplier_service.normalize_identity_component(%s)"
+                    ))
+                    parameters.append(filters.building_area)
+
+                where_sql = sql.SQL(" AND ").join(clauses)
+                cursor.execute(
+                    sql.SQL("SELECT count(*) AS total FROM supplier_service.suppliers s WHERE {}").format(where_sql),
+                    parameters,
+                )
+                total = cursor.fetchone()["total"]
+                direction = sql.SQL("ASC" if filters.sort == "asc" else "DESC")
+                cursor.execute(
+                    sql.SQL(
+                        "SELECT s.id, s.name, s.building_area, s.floor, s.status, "
+                        "s.opening_time, s.closing_time, "
+                        "ARRAY(SELECT sc.category_code FROM supplier_service.supplier_categories sc "
+                        "WHERE sc.supplier_id = s.id ORDER BY sc.category_code) AS categories "
+                        "FROM supplier_service.suppliers s WHERE {} "
+                        "ORDER BY lower(s.name) {}, s.id ASC LIMIT %s OFFSET %s"
+                    ).format(where_sql, direction),
+                    (*parameters, filters.page_size, (filters.page - 1) * filters.page_size),
+                )
+                rows = cursor.fetchall()
+            return SupplierListResponse(
+                items=[_list_item(row) for row in rows],
+                page=filters.page,
+                page_size=filters.page_size,
+                total=total,
+            )
         except psycopg.Error as error:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
 

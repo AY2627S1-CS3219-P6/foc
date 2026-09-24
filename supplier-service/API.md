@@ -1,8 +1,9 @@
 # Supplier Service API plan
 
 Status: design for Milestone D2 Supplier Service points 2 and 3. Creation POST,
-update PATCH, interim deactivation DELETE, and category lookup GET are
-implemented; supplier read endpoints and permanent deletion remain planned. The Supplier Service is an independent
+update PATCH, interim deactivation DELETE, category lookup GET, and the normal
+active-only supplier list GET are implemented; supplier detail and management
+read endpoints and permanent deletion remain planned. The Supplier Service is an independent
 FastAPI backend with its own Supabase PostgreSQL database. The frontend calls
 these APIs; it never connects to the database.
 
@@ -238,8 +239,8 @@ contracts. None require shared database tables or another service's codebase.
 Each testable Supplier Service FR and NFR from the final backlog appears below.
 Parent headings (such as `M2F1.1` and `M2NFR3`) are covered by their listed
 children. These are **planned acceptance checks** for the full API; the creation
-POST, update PATCH, interim DELETE, and category lookup GET checks are
-implemented, while checks for the remaining routes and permanent deletion are still planned. The existing
+POST, update PATCH, interim DELETE, category lookup GET, and normal supplier
+list checks are implemented, while checks for the remaining routes and permanent deletion are still planned. The existing
 migration supplies some database safeguards.
 The backlog schedules deletion requirements for sprint 2 and performance and
 scale targets for sprint 4. Other Supplier Service rows are planned for sprint
