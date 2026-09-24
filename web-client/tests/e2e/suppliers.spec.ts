@@ -173,7 +173,7 @@ test("admin creates, edits, and deactivates a supplier through live API contract
   });
 
   await page.goto("/admin/suppliers");
-  await page.getByRole("link", { name: "Add supplier" }).click();
+  await page.getByRole("link", { name: "+ Add supplier", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Add supplier" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole("textbox", { name: "Supplier name *" }).fill("Cool Spot");
@@ -195,7 +195,7 @@ test("admin creates, edits, and deactivates a supplier through live API contract
   await page.getByRole("button", { name: "Deactivate", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Deactivate supplier?" })).toContainText("record will be retained");
   await page.getByRole("button", { name: "Deactivate supplier" }).click();
-  await expect(page.getByRole("status")).toContainText("was deactivated");
+  await expect(page.getByRole("status").filter({ hasText: "was deactivated" })).toContainText("was deactivated");
   await expect(page.getByText("Inactive", { exact: true })).toBeVisible();
   expect(writes[2]).toMatchObject({ method: "DELETE" });
 });
