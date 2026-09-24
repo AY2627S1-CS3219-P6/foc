@@ -12,6 +12,27 @@ result, and commits supplier and category changes together. It returns `200`.
 and marks it `INACTIVE`, returning `{"id":"...","outcome":"DEACTIVATED"}`.
 Permanent deletion awaits the Errand Service reference contract described in
 [API.md](API.md#delete-contract-and-errand-references).
+Authenticated users can also call `GET /api/v1/categories` to read supported
+category codes and display names directly from the lookup table.
+`GET /api/v1/suppliers` lists only active suppliers. It accepts `q`, repeated
+`category`, `building_area`, `sort`, `page`, and `page_size` query parameters;
+the response includes `items`, `page`, `page_size`, and `total`. For example:
+
+```sh
+curl -G http://127.0.0.1:8001/api/v1/suppliers \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  --data-urlencode "q=cafe" --data-urlencode "category=FOOD" \
+  --data-urlencode "category=COFFEE"
+```
+
+`GET /api/v1/suppliers/{supplier_id}` returns the full detail for an active
+supplier. An inactive or unknown supplier returns `404` on this normal route.
+Admins can call `GET /api/v1/admin/suppliers` with the same list parameters and
+an optional `status=ACTIVE` or `status=INACTIVE` filter. Without `status`, it
+includes both. Supplier Service asks User Service for a current admin decision
+before returning this management list. `GET /api/v1/admin/suppliers/{supplier_id}`
+returns full details for either an active or inactive supplier to an Admin or
+Super Admin; an unknown ID returns `404`.
 
 This service keeps Supabase CLI `2.117.0` as a development dependency. Run
 `npm ci` once after cloning, then use `npx supabase` from this folder for local
@@ -79,9 +100,9 @@ curl -i -X DELETE http://127.0.0.1:8001/api/v1/admin/suppliers/YOUR_SUPPLIER_UUI
 The Supplier Service asks User Service for a current `SUPPLIER_DEACTIVATE`
 decision. A missing supplier returns `404`. Repeating DELETE on an already
 inactive supplier returns `DEACTIVATED` again. The row and its category links
-remain in Supplier PostgreSQL. Normal-user listing and Errand Service selection
-checks are still planned, so this interim route does not complete every part
-of backlog M2F1.3.
+remain in Supplier PostgreSQL. Normal-user listing excludes inactive suppliers;
+Errand Service selection checks are still planned, so this interim route does
+not complete every part of backlog M2F1.3.
 
 The User Service's published contract is
 [`../user-service/docs/supplier-authorization-contract.md`](../user-service/docs/supplier-authorization-contract.md).

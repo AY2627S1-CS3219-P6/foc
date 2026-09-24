@@ -1,4 +1,4 @@
-"""Verify User Service tokens and ask for a fresh management decision."""
+"""Verify User Service tokens and ask for fresh management decisions."""
 
 from functools import lru_cache
 from typing import Annotated, Literal
@@ -36,14 +36,13 @@ def jwks_client(jwks_url: str) -> PyJWKClient:
 ManagementAction = Literal["SUPPLIER_CREATE", "SUPPLIER_UPDATE", "SUPPLIER_DEACTIVATE"]
 
 
-def authorize_supplier_management(
+def verify_access_token(
     credentials: HTTPAuthorizationCredentials | None,
     settings: Settings,
-    action: ManagementAction,
-) -> UUID:
+) -> tuple[UUID, str]:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise ApiError(401, "UNAUTHENTICATED", "A bearer token is required")
-    if not settings.user_service_base_url or not settings.supplier_service_shared_secret:
+    if not settings.user_service_base_url:
         raise ApiError(503, "AUTH_UNAVAILABLE", "Authorization is unavailable")
 
     token = credentials.credentials
@@ -70,6 +69,28 @@ def authorize_supplier_management(
         raise ApiError(503, "AUTH_UNAVAILABLE", "Authorization is unavailable") from error
     except (InvalidTokenError, PyJWKClientError, KeyError, TypeError, ValueError) as error:
         raise ApiError(401, "UNAUTHENTICATED", "Invalid bearer token") from error
+
+    return subject_id, token
+
+
+def require_authenticated_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> UUID:
+    subject_id, _token = verify_access_token(credentials, settings)
+    return subject_id
+
+
+def authorize_supplier_management(
+    credentials: HTTPAuthorizationCredentials | None,
+    settings: Settings,
+    action: ManagementAction,
+) -> UUID:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise ApiError(401, "UNAUTHENTICATED", "A bearer token is required")
+    if not settings.user_service_base_url or not settings.supplier_service_shared_secret:
+        raise ApiError(503, "AUTH_UNAVAILABLE", "Authorization is unavailable")
+    subject_id, token = verify_access_token(credentials, settings)
 
     decision_url = settings.user_service_base_url.rstrip("/") + "/v1/internal/authorization-decisions"
     try:
@@ -107,3 +128,12 @@ def require_supplier_create_admin(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> UUID:
     return authorize_supplier_management(credentials, settings, "SUPPLIER_CREATE")
+
+
+def require_supplier_read_admin(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> UUID:
+    # The published v1 decision contract has no read-specific admin action.
+    # UPDATE currently carries the same current ADMIN threshold for this read.
+    return authorize_supplier_management(credentials, settings, "SUPPLIER_UPDATE")

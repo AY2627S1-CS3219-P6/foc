@@ -1,6 +1,7 @@
 """Supplier creation, update, and removal models."""
 
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
@@ -109,3 +110,36 @@ class SupplierResponse(BaseModel):
 class SupplierRemovalResponse(BaseModel):
     id: UUID
     outcome: Literal["DEACTIVATED"]
+
+
+class CategoryResponse(BaseModel):
+    code: str
+    display_name: str
+
+
+@dataclass(frozen=True)
+class SupplierListFilters:
+    q: str | None
+    categories: list[str]
+    building_area: str | None
+    sort: Literal["asc", "desc"]
+    page: int
+    page_size: int
+
+
+class SupplierListItem(BaseModel):
+    id: UUID
+    name: str
+    categories: list[str]
+    building_area: str
+    floor: str | None
+    status: Literal["ACTIVE", "INACTIVE"]
+    opening_time: str | None
+    closing_time: str | None
+
+
+class SupplierListResponse(BaseModel):
+    items: list[SupplierListItem]
+    page: int
+    page_size: int
+    total: int

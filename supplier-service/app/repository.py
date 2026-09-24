@@ -1,5 +1,6 @@
 """Supplier-owned PostgreSQL writes. Supabase migrations own the schema."""
 
+from typing import Literal
 from uuid import UUID
 
 import psycopg
@@ -10,7 +11,16 @@ from pydantic import ValidationError
 
 from app.config import Settings, get_settings
 from app.errors import ApiError, validation_fields
-from app.schemas import SupplierCreate, SupplierPatch, SupplierRemovalResponse, SupplierResponse
+from app.schemas import (
+    CategoryResponse,
+    SupplierCreate,
+    SupplierListFilters,
+    SupplierListItem,
+    SupplierListResponse,
+    SupplierPatch,
+    SupplierRemovalResponse,
+    SupplierResponse,
+)
 
 
 SUPPLIER_COLUMNS = (
@@ -27,7 +37,7 @@ SUPPLIER_COLUMNS = (
 )
 
 
-def _check_categories(cursor: psycopg.Cursor, categories: list[str]) -> None:
+def _check_categories(cursor: psycopg.Cursor, categories: list[str], *, field: str = "categories") -> None:
     cursor.execute(
         "SELECT code FROM supplier_service.categories WHERE code = ANY(%s)",
         (categories,),
@@ -39,7 +49,7 @@ def _check_categories(cursor: psycopg.Cursor, categories: list[str]) -> None:
             422,
             "VALIDATION_ERROR",
             "Supplier data is invalid",
-            [{"field": "categories", "message": f"Unsupported category: {code}"} for code in unknown],
+            [{"field": field, "message": f"Unsupported category: {code}"} for code in unknown],
         )
 
 
@@ -51,9 +61,129 @@ def _response(row: dict, categories: list[str]) -> SupplierResponse:
     return SupplierResponse.model_validate(result)
 
 
+def _list_item(row: dict) -> SupplierListItem:
+    result = dict(row)
+    for column in ("opening_time", "closing_time"):
+        result[column] = row[column].strftime("%H:%M") if row[column] else None
+    return SupplierListItem.model_validate(result)
+
+
 class SupplierRepository:
     def __init__(self, database_url: str) -> None:
         self.database_url = database_url
+
+    def list_categories(self) -> list[CategoryResponse]:
+        if not self.database_url:
+            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
+        try:
+            with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn, conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT code, display_name FROM supplier_service.categories "
+                    "ORDER BY display_name, code"
+                )
+                rows = cursor.fetchall()
+            return [CategoryResponse.model_validate(row) for row in rows]
+        except psycopg.Error as error:
+            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
+
+    def list_active_suppliers(self, filters: SupplierListFilters) -> SupplierListResponse:
+        return self._list_suppliers(filters, status="ACTIVE")
+
+    def list_admin_suppliers(
+        self, filters: SupplierListFilters, status: Literal["ACTIVE", "INACTIVE"] | None
+    ) -> SupplierListResponse:
+        return self._list_suppliers(filters, status=status)
+
+    def _list_suppliers(
+        self, filters: SupplierListFilters, status: Literal["ACTIVE", "INACTIVE"] | None
+    ) -> SupplierListResponse:
+        if not self.database_url:
+            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
+        try:
+            with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn, conn.cursor() as cursor:
+                clauses = []
+                parameters: list[object] = []
+                if status is not None:
+                    clauses.append(sql.SQL("s.status = %s::supplier_service.supplier_status"))
+                    parameters.append(status)
+                term = filters.q.strip() if filters.q else ""
+                if term:
+                    clauses.append(sql.SQL(
+                        "(strpos(lower(s.name), lower(%s)) > 0 OR "
+                        "strpos(lower(s.building_area), lower(%s)) > 0 OR "
+                        "strpos(lower(s.pickup_location_description), lower(%s)) > 0)"
+                    ))
+                    parameters.extend((term, term, term))
+                if filters.categories:
+                    _check_categories(cursor, filters.categories, field="category")
+                    clauses.append(sql.SQL(
+                        "EXISTS (SELECT 1 FROM supplier_service.supplier_categories sc "
+                        "WHERE sc.supplier_id = s.id AND sc.category_code = ANY(%s))"
+                    ))
+                    parameters.append(sorted(set(filters.categories)))
+                if filters.building_area is not None:
+                    clauses.append(sql.SQL(
+                        "supplier_service.normalize_identity_component(s.building_area) = "
+                        "supplier_service.normalize_identity_component(%s)"
+                    ))
+                    parameters.append(filters.building_area)
+
+                where_sql = sql.SQL(" AND ").join(clauses) if clauses else sql.SQL("TRUE")
+                cursor.execute(
+                    sql.SQL("SELECT count(*) AS total FROM supplier_service.suppliers s WHERE {}").format(where_sql),
+                    parameters,
+                )
+                total = cursor.fetchone()["total"]
+                direction = sql.SQL("ASC" if filters.sort == "asc" else "DESC")
+                cursor.execute(
+                    sql.SQL(
+                        "SELECT s.id, s.name, s.building_area, s.floor, s.status, "
+                        "s.opening_time, s.closing_time, "
+                        "ARRAY(SELECT sc.category_code FROM supplier_service.supplier_categories sc "
+                        "WHERE sc.supplier_id = s.id ORDER BY sc.category_code) AS categories "
+                        "FROM supplier_service.suppliers s WHERE {} "
+                        "ORDER BY lower(s.name) {}, s.id ASC LIMIT %s OFFSET %s"
+                    ).format(where_sql, direction),
+                    (*parameters, filters.page_size, (filters.page - 1) * filters.page_size),
+                )
+                rows = cursor.fetchall()
+            return SupplierListResponse(
+                items=[_list_item(row) for row in rows],
+                page=filters.page,
+                page_size=filters.page_size,
+                total=total,
+            )
+        except psycopg.Error as error:
+            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
+
+    def get_active_supplier(self, supplier_id: UUID) -> SupplierResponse:
+        return self._get_supplier(supplier_id, include_inactive=False)
+
+    def get_admin_supplier(self, supplier_id: UUID) -> SupplierResponse:
+        return self._get_supplier(supplier_id, include_inactive=True)
+
+    def _get_supplier(self, supplier_id: UUID, *, include_inactive: bool) -> SupplierResponse:
+        if not self.database_url:
+            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
+        try:
+            with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn, conn.cursor() as cursor:
+                active_predicate = sql.SQL("") if include_inactive else sql.SQL(" AND status = 'ACTIVE'")
+                cursor.execute(
+                    sql.SQL("SELECT * FROM supplier_service.suppliers WHERE id = %s{}").format(active_predicate),
+                    (supplier_id,),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    raise ApiError(404, "SUPPLIER_NOT_FOUND", "Supplier not found")
+                cursor.execute(
+                    "SELECT category_code FROM supplier_service.supplier_categories "
+                    "WHERE supplier_id = %s ORDER BY category_code",
+                    (supplier_id,),
+                )
+                categories = [item["category_code"] for item in cursor.fetchall()]
+            return _response(row, categories)
+        except psycopg.Error as error:
+            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
 
     def create(self, supplier: SupplierCreate) -> SupplierResponse:
         if not self.database_url:
