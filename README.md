@@ -32,6 +32,7 @@ microservice (`user-service/`, `supplier-service/`, `order-service/`,
 .
 ├── user-service/
 ├── supplier-service/
+├── web-client/
 ├── order-service/
 ├── credit-service/
 ├── <n2h-service>/
@@ -150,9 +151,11 @@ Run these commands from the repository root in a macOS terminal.
 
 The web proxy sends `/v1/` to User Service and Supplier paths such as
 `/api/v1/admin/suppliers` to Supplier Service. The Supplier API can also be
-tested directly on port 8001 with Postman. The current web UI contains User
-Service screens; Supplier screens are still to be built. Neither backend
-reads the other's database.
+tested directly on port 8001 with Postman. Sign in at `http://localhost:3000`,
+then open `/suppliers` to browse active suppliers. Admins and Super Admins can
+open `/admin/suppliers` to manage them. The current Remove action deactivates a
+supplier; permanent deletion awaits the Errand Service reference contract.
+Neither backend reads the other's database.
 
 ### Later starts and stops
 
