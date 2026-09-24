@@ -128,3 +128,12 @@ def require_supplier_create_admin(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> UUID:
     return authorize_supplier_management(credentials, settings, "SUPPLIER_CREATE")
+
+
+def require_supplier_read_admin(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> UUID:
+    # The published v1 decision contract has no read-specific admin action.
+    # UPDATE currently carries the same current ADMIN threshold for this read.
+    return authorize_supplier_management(credentials, settings, "SUPPLIER_UPDATE")

@@ -1,5 +1,6 @@
 """Supplier-owned PostgreSQL writes. Supabase migrations own the schema."""
 
+from typing import Literal
 from uuid import UUID
 
 import psycopg
@@ -86,12 +87,25 @@ class SupplierRepository:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
 
     def list_active_suppliers(self, filters: SupplierListFilters) -> SupplierListResponse:
+        return self._list_suppliers(filters, status="ACTIVE")
+
+    def list_admin_suppliers(
+        self, filters: SupplierListFilters, status: Literal["ACTIVE", "INACTIVE"] | None
+    ) -> SupplierListResponse:
+        return self._list_suppliers(filters, status=status)
+
+    def _list_suppliers(
+        self, filters: SupplierListFilters, status: Literal["ACTIVE", "INACTIVE"] | None
+    ) -> SupplierListResponse:
         if not self.database_url:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
         try:
             with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn, conn.cursor() as cursor:
-                clauses = [sql.SQL("s.status = 'ACTIVE'")]
+                clauses = []
                 parameters: list[object] = []
+                if status is not None:
+                    clauses.append(sql.SQL("s.status = %s::supplier_service.supplier_status"))
+                    parameters.append(status)
                 term = filters.q.strip() if filters.q else ""
                 if term:
                     clauses.append(sql.SQL(
@@ -114,7 +128,7 @@ class SupplierRepository:
                     ))
                     parameters.append(filters.building_area)
 
-                where_sql = sql.SQL(" AND ").join(clauses)
+                where_sql = sql.SQL(" AND ").join(clauses) if clauses else sql.SQL("TRUE")
                 cursor.execute(
                     sql.SQL("SELECT count(*) AS total FROM supplier_service.suppliers s WHERE {}").format(where_sql),
                     parameters,

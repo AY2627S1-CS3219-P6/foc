@@ -107,3 +107,18 @@ def test_active_detail_hides_inactive_and_missing_suppliers(sample_suppliers):
         with pytest.raises(ApiError) as missing:
             repository.get_active_supplier(supplier_id)
         assert missing.value.status_code == 404
+
+
+def test_admin_list_includes_both_statuses_and_filters_them(sample_suppliers):
+    repository, marker, first, second, third, inactive = sample_suppliers
+    both = repository.list_admin_suppliers(_filters(marker), None)
+    assert both.total == 4
+    assert {item.id for item in both.items} == {first.id, second.id, third.id, inactive.id}
+    assert {item.status for item in both.items} == {"ACTIVE", "INACTIVE"}
+
+    active = repository.list_admin_suppliers(_filters(marker), "ACTIVE")
+    assert active.total == 3 and all(item.status == "ACTIVE" for item in active.items)
+    inactive_only = repository.list_admin_suppliers(_filters(marker), "INACTIVE")
+    assert inactive_only.total == 1 and [item.id for item in inactive_only.items] == [inactive.id]
+    combined = repository.list_admin_suppliers(_filters(marker, categories=["FOOD"]), "INACTIVE")
+    assert [item.id for item in combined.items] == [inactive.id]

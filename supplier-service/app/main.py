@@ -7,7 +7,13 @@ from fastapi import Depends, FastAPI, Query, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.auth import authorize_supplier_management, bearer, require_authenticated_user, require_supplier_create_admin
+from app.auth import (
+    authorize_supplier_management,
+    bearer,
+    require_authenticated_user,
+    require_supplier_create_admin,
+    require_supplier_read_admin,
+)
 from app.config import Settings, get_settings
 from app.errors import ApiError, api_error_handler, validation_error_handler
 from app.repository import SupplierRepository, get_repository
@@ -75,6 +81,16 @@ def get_active_supplier(
     repository: Annotated[SupplierRepository, Depends(get_repository)],
 ) -> SupplierResponse:
     return repository.get_active_supplier(supplier_id)
+
+
+@app.get("/api/v1/admin/suppliers", response_model=SupplierListResponse)
+def list_admin_suppliers(
+    _actor_id: Annotated[UUID, Depends(require_supplier_read_admin)],
+    filters: Annotated[SupplierListFilters, Depends(supplier_list_filters)],
+    repository: Annotated[SupplierRepository, Depends(get_repository)],
+    status_filter: Annotated[Literal["ACTIVE", "INACTIVE"] | None, Query(alias="status")] = None,
+) -> SupplierListResponse:
+    return repository.list_admin_suppliers(filters, status_filter)
 
 
 @app.post(
