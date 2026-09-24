@@ -12,6 +12,8 @@ result, and commits supplier and category changes together. It returns `200`.
 and marks it `INACTIVE`, returning `{"id":"...","outcome":"DEACTIVATED"}`.
 Permanent deletion awaits the Errand Service reference contract described in
 [API.md](API.md#delete-contract-and-errand-references).
+Authenticated users can also call `GET /api/v1/categories` to read supported
+category codes and display names directly from the lookup table.
 
 This service keeps Supabase CLI `2.117.0` as a development dependency. Run
 `npm ci` once after cloning, then use `npx supabase` from this folder for local

@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from app.config import Settings, get_settings
 from app.errors import ApiError, validation_fields
-from app.schemas import SupplierCreate, SupplierPatch, SupplierRemovalResponse, SupplierResponse
+from app.schemas import CategoryResponse, SupplierCreate, SupplierPatch, SupplierRemovalResponse, SupplierResponse
 
 
 SUPPLIER_COLUMNS = (
@@ -54,6 +54,20 @@ def _response(row: dict, categories: list[str]) -> SupplierResponse:
 class SupplierRepository:
     def __init__(self, database_url: str) -> None:
         self.database_url = database_url
+
+    def list_categories(self) -> list[CategoryResponse]:
+        if not self.database_url:
+            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
+        try:
+            with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn, conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT code, display_name FROM supplier_service.categories "
+                    "ORDER BY display_name, code"
+                )
+                rows = cursor.fetchall()
+            return [CategoryResponse.model_validate(row) for row in rows]
+        except psycopg.Error as error:
+            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
 
     def create(self, supplier: SupplierCreate) -> SupplierResponse:
         if not self.database_url:

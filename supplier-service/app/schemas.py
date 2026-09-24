@@ -109,3 +109,8 @@ class SupplierResponse(BaseModel):
 class SupplierRemovalResponse(BaseModel):
     id: UUID
     outcome: Literal["DEACTIVATED"]
+
+
+class CategoryResponse(BaseModel):
+    code: str
+    display_name: str
