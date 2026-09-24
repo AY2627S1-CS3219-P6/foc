@@ -11,7 +11,7 @@ from app.auth import authorize_supplier_management, bearer, require_supplier_cre
 from app.config import Settings, get_settings
 from app.errors import ApiError, api_error_handler, validation_error_handler
 from app.repository import SupplierRepository, get_repository
-from app.schemas import SupplierCreate, SupplierPatch, SupplierResponse
+from app.schemas import SupplierCreate, SupplierPatch, SupplierRemovalResponse, SupplierResponse
 
 
 app = FastAPI(title="FoC Supplier Service")
@@ -43,3 +43,14 @@ def update_supplier(
     action = "SUPPLIER_DEACTIVATE" if patch.status == "INACTIVE" else "SUPPLIER_UPDATE"
     authorize_supplier_management(credentials, settings, action)
     return repository.update(supplier_id, patch)
+
+
+@app.delete("/api/v1/admin/suppliers/{supplier_id}", response_model=SupplierRemovalResponse)
+def deactivate_supplier(
+    supplier_id: UUID,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    repository: Annotated[SupplierRepository, Depends(get_repository)],
+) -> SupplierRemovalResponse:
+    authorize_supplier_management(credentials, settings, "SUPPLIER_DEACTIVATE")
+    return repository.deactivate(supplier_id)

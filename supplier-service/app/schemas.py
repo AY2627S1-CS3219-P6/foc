@@ -1,4 +1,4 @@
-"""Supplier creation, partial update, and response models."""
+"""Supplier creation, update, and removal models."""
 
 import re
 from datetime import datetime
@@ -104,3 +104,8 @@ class SupplierResponse(BaseModel):
     status: Literal["ACTIVE", "INACTIVE"]
     created_at: datetime
     updated_at: datetime
+
+
+class SupplierRemovalResponse(BaseModel):
+    id: UUID
+    outcome: Literal["DEACTIVATED"]
