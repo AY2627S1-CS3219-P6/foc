@@ -4,6 +4,8 @@ import { useAuth } from "./auth-provider";
 import { ProfilePage } from "../pages/profile-page";
 import { RegistrationPage } from "../pages/registration-page";
 import { SignInPage } from "../pages/sign-in-page";
+import { SupplierDetailPage } from "../pages/supplier-detail-page";
+import { SupplierListPage } from "../pages/supplier-list-page";
 import { VerifyEmailPage } from "../pages/verify-email-page";
 
 function SessionLoading() {
@@ -37,6 +39,8 @@ export function AppRoutes() {
         <Route path="/register" element={<PublicRoute><RegistrationPage /></PublicRoute>} />
         <Route path="/verify-email" element={<PublicRoute><VerifyEmailPage /></PublicRoute>} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/suppliers" element={<ProtectedRoute><SupplierListPage /></ProtectedRoute>} />
+        <Route path="/suppliers/:supplierId" element={<ProtectedRoute><SupplierDetailPage /></ProtectedRoute>} />
         <Route path="*" element={<FallbackRoute />} />
       </Routes>
     </BrowserRouter>

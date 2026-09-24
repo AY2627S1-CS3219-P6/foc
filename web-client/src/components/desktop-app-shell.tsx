@@ -1,5 +1,6 @@
 import { type PropsWithChildren } from "react";
 import type { CurrentUser } from "../api/user-service";
+import { Link } from "react-router-dom";
 
 function FoCMark() {
   return (
@@ -33,6 +34,7 @@ export function DesktopAppShell({ children, user }: PropsWithChildren<{ user: Cu
           </div>
         </div>
         <p className="rail-group-label">Account</p>
+        <Link className="rail-supplier-link" to="/suppliers">Suppliers</Link>
         <div aria-current="page" className="rail-profile-link">
           <ProfileGlyph />
           <span>Profile</span>
