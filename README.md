@@ -153,7 +153,7 @@ The web proxy sends `/v1/` to User Service and Supplier paths such as
 `/api/v1/admin/suppliers` to Supplier Service. The Supplier API can also be
 tested directly on port 8001 with Postman. Sign in at `http://localhost:3000`,
 then open `/suppliers` to browse active suppliers. Admins and Super Admins can
-open `/admin/suppliers` to manage them. The current Remove action deactivates a
+open `/admin/suppliers` to manage them. The Deactivate action retains the
 supplier; permanent deletion awaits the Errand Service reference contract.
 Neither backend reads the other's database.
 

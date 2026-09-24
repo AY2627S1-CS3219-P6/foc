@@ -20,14 +20,13 @@ complete UI. Sign in before opening Supplier pages.
 
 | Route | Audience | Purpose |
 | --- | --- | --- |
-| `/suppliers` and `/suppliers/:id` | Any signed-in user | Browse active suppliers, search, filter, sort, paginate, and view details. |
+| `/suppliers` and `/suppliers/:id` | Any signed-in user | Browse active suppliers, search names/areas/pickup locations, filter categories, sort, paginate, and view details. |
 | `/admin/suppliers` and `/admin/suppliers/:id` | Admin or Super Admin | Browse active and inactive suppliers and view full details. |
 | `/admin/suppliers/new` and `/admin/suppliers/:id/edit` | Admin or Super Admin | Create and edit supplier records. |
 
-Management pages include activation, deactivation, and Remove. The current
-Supplier Service `DELETE` returns `DEACTIVATED` and retains the row, so the UI
-explains this in its confirmation dialog. The API checks current permissions
-again for every management request.
+Management pages include activation and deactivation. Deactivate calls the
+current Supplier Service `DELETE`, which returns `DEACTIVATED` and retains the
+row. The API checks current permissions again for every management request.
 
 See [Supplier UI traceability](SUPPLIER_UI.md) for backlog and Milestone D2
 coverage and remaining service-level requirements.
