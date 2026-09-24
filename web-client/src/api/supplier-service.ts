@@ -37,7 +37,6 @@ export type SupplierList = {
 export type SupplierQuery = {
   q?: string;
   categories?: string[];
-  buildingArea?: string;
   sort?: "asc" | "desc";
   status?: SupplierStatus;
   page?: number;
@@ -70,7 +69,6 @@ function queryString(query: SupplierQuery): string {
   const params = new URLSearchParams();
   if (query.q?.trim()) params.set("q", query.q.trim());
   for (const code of query.categories ?? []) params.append("category", code);
-  if (query.buildingArea?.trim()) params.set("building_area", query.buildingArea.trim());
   if (query.sort) params.set("sort", query.sort);
   if (query.status) params.set("status", query.status);
   if (query.page) params.set("page", String(query.page));
