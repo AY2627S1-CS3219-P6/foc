@@ -1,4 +1,6 @@
 {
+  "name": "supplier-service",
+  "private": true,
   "devDependencies": {
     "supabase": "2.117.0"
   }

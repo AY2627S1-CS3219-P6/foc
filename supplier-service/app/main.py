@@ -5,11 +5,13 @@ from uuid import UUID
 
 from fastapi import Depends, FastAPI, status
 from fastapi.exceptions import RequestValidationError
+from fastapi.security import HTTPAuthorizationCredentials
 
-from app.auth import require_supplier_create_admin
+from app.auth import authorize_supplier_management, bearer, require_supplier_create_admin
+from app.config import Settings, get_settings
 from app.errors import ApiError, api_error_handler, validation_error_handler
 from app.repository import SupplierRepository, get_repository
-from app.schemas import SupplierCreate, SupplierResponse
+from app.schemas import SupplierCreate, SupplierPatch, SupplierResponse
 
 
 app = FastAPI(title="FoC Supplier Service")
@@ -28,3 +30,16 @@ def create_supplier(
     repository: Annotated[SupplierRepository, Depends(get_repository)],
 ) -> SupplierResponse:
     return repository.create(supplier)
+
+
+@app.patch("/api/v1/admin/suppliers/{supplier_id}", response_model=SupplierResponse)
+def update_supplier(
+    supplier_id: UUID,
+    patch: SupplierPatch,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    repository: Annotated[SupplierRepository, Depends(get_repository)],
+) -> SupplierResponse:
+    action = "SUPPLIER_DEACTIVATE" if patch.status == "INACTIVE" else "SUPPLIER_UPDATE"
+    authorize_supplier_management(credentials, settings, action)
+    return repository.update(supplier_id, patch)

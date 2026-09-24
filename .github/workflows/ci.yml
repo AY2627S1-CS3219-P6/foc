@@ -128,10 +128,10 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ".[test]"
 
-      - name: Run supplier service POST API tests
+      - name: Run supplier service API tests
         if: matrix.service == 'supplier-service'
         working-directory: supplier-service
-        run: python -m pytest -q tests/test_create.py
+        run: python -m pytest -q
 
       - name: Set up Docker Buildx
         # docker/setup-buildx-action@v3

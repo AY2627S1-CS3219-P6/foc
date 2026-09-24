@@ -33,9 +33,13 @@ def jwks_client(jwks_url: str) -> PyJWKClient:
     return PyJWKClient(jwks_url, timeout=3, lifespan=300)
 
 
-def require_supplier_create_admin(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
-    settings: Annotated[Settings, Depends(get_settings)],
+ManagementAction = Literal["SUPPLIER_CREATE", "SUPPLIER_UPDATE", "SUPPLIER_DEACTIVATE"]
+
+
+def authorize_supplier_management(
+    credentials: HTTPAuthorizationCredentials | None,
+    settings: Settings,
+    action: ManagementAction,
 ) -> UUID:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise ApiError(401, "UNAUTHENTICATED", "A bearer token is required")
@@ -76,7 +80,7 @@ def require_supplier_create_admin(
                 "X-FoC-Service-Secret": settings.supplier_service_shared_secret,
                 "X-Correlation-ID": str(uuid4()),
             },
-            json={"action": "SUPPLIER_CREATE"},
+            json={"action": action},
             timeout=3,
         )
     except httpx.RequestError as error:
@@ -92,7 +96,14 @@ def require_supplier_create_admin(
     if decision.subjectId != subject_id:
         raise ApiError(503, "AUTH_UNAVAILABLE", "Authorization is unavailable")
     if not decision.allowed or decision.accountStatus != "ACTIVE":
-        raise ApiError(403, "FORBIDDEN", "Supplier creation requires an administrator")
+        raise ApiError(403, "FORBIDDEN", "Supplier management requires an administrator")
     if decision.systemRole not in ("ADMIN", "SUPER_ADMIN"):
         raise ApiError(503, "AUTH_UNAVAILABLE", "Authorization is unavailable")
     return subject_id
+
+
+def require_supplier_create_admin(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> UUID:
+    return authorize_supplier_management(credentials, settings, "SUPPLIER_CREATE")
