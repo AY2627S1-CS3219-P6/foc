@@ -1,8 +1,8 @@
 # FoC Web Client
 
-The Sprint 1 web client is a React, Vite, and TypeScript single-page application. It communicates only with User Service through same-origin `/v1/` requests.
-The proxy also routes Supplier API paths under `/api/v1/` to Supplier Service
-for the upcoming Supplier UI. No Supplier screen uses those routes yet.
+The React, Vite, and TypeScript client uses same-origin `/v1/` requests for
+User Service and `/api/v1/` for Supplier Service. Both APIs own authentication
+and authorization decisions. The client does not connect to either database.
 
 ## Local development
 
@@ -13,9 +13,23 @@ npm ci
 npm run dev
 ```
 
-Vite listens on port 5173 and proxies `/v1/` unchanged to `http://localhost:8000`. Start User Service separately from `foc/user-service/` when exercising authentication and profile flows.
-Vite also proxies Supplier API paths to `http://localhost:8001` when Supplier
-Service is running locally.
+Vite listens on port 5173. It proxies `/v1/` to User Service on port 8000 and
+Supplier API requests to Supplier Service on port 8001. Start both services
+and their local databases using the [root setup guide](../README.md) for the
+complete UI. Sign in before opening Supplier pages.
+
+| Route | Audience | Purpose |
+| --- | --- | --- |
+| `/suppliers` and `/suppliers/:id` | Any signed-in user | Browse active suppliers, search names/areas/pickup locations, filter categories, sort, paginate, and view details. |
+| `/admin/suppliers` and `/admin/suppliers/:id` | Admin or Super Admin | Browse active and inactive suppliers and view full details. |
+| `/admin/suppliers/new` and `/admin/suppliers/:id/edit` | Admin or Super Admin | Create and edit supplier records. |
+
+Management pages include activation and deactivation. Deactivate calls the
+current Supplier Service `DELETE`, which returns `DEACTIVATED` and retains the
+row. The API checks current permissions again for every management request.
+
+See [Supplier UI traceability](SUPPLIER_UI.md) for backlog and Milestone D2
+coverage and remaining service-level requirements.
 
 ## Checks
 
@@ -35,7 +49,7 @@ From `foc/user-service/`, start the integrated stack with:
 docker compose up --build
 ```
 
-The web client is served at `http://localhost:3000`. Nginx preserves `/v1/` request paths while proxying them to User Service and uses an SPA history fallback for client routes.
-For the integrated User and Supplier stack, use the root
-[`compose.yaml`](../compose.yaml) as described in the repository README. Nginx
-also preserves Supplier API paths when proxying to Supplier Service.
+The web client is served at `http://localhost:3000`. Nginx preserves both API
+path prefixes and falls back to the SPA for client routes. For the integrated
+User and Supplier stack, use the root [`compose.yaml`](../compose.yaml) as
+described in the repository README.

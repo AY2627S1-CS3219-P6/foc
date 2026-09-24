@@ -20,6 +20,7 @@ type AuthStatus = "restoring" | "anonymous" | "authenticated";
 type AuthContextValue = {
   status: AuthStatus;
   user: CurrentUser | null;
+  withCurrentAccess: <T,>(operation: (token: string) => Promise<T>) => Promise<T>;
   signIn: (email: string, password: string) => Promise<void>;
   updateProfile: (changes: ProfileChanges) => Promise<CurrentUser>;
   signOut: () => Promise<void>;
@@ -127,8 +128,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, signIn, updateProfile, signOut, deleteAccount }),
-    [deleteAccount, signIn, signOut, status, updateProfile, user],
+    () => ({ status, user, withCurrentAccess, signIn, updateProfile, signOut, deleteAccount }),
+    [deleteAccount, signIn, signOut, status, updateProfile, user, withCurrentAccess],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

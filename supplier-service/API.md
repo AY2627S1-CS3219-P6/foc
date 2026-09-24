@@ -61,14 +61,14 @@ Both list routes accept these query parameters:
 | --- | --- |
 | `q` | Trim surrounding whitespace. Omitted or blank means no search restriction. Otherwise, case-insensitive literal substring match in `name`, `building_area`, **or** `pickup_location_description`. Escape SQL wildcard characters supplied by the caller. |
 | `category` | Repeat for OR filtering, e.g. `?category=FOOD&category=COFFEE`. Validate each code against `categories`. Use `EXISTS` so a supplier appears once even if it matches two codes. |
-| `building_area` | Case-insensitive exact match after trimming and collapsing whitespace. |
 | `sort` | `asc` or `desc` by supplier name; default `asc`. Add `id` as a stable tie-breaker for pagination. |
 | `page`, `page_size` | Positive integers, default `1` and `20`. Cap `page_size` at `100` as an API limit. |
 | `status` | **Admin list only:** `ACTIVE` or `INACTIVE`. Omitted means both. The normal list always restricts to `ACTIVE`. |
 
 Search and filters combine with AND; multiple selected categories combine with
 OR inside the category filter. No match returns `200` with an empty `items`
-array and `total: 0`. The normal list never accepts a status override. Read
+array and `total: 0`. The removed exact `building_area` filter returns `422`
+on either list route. The normal list never accepts a status override. Read
 current status from the database so deactivation disappears from normal
 listings within the backlog's five-second limit.
 
@@ -213,7 +213,7 @@ same API errors; rollback before responding.
    response/error models, and authentication dependency. Database migrations
    remain Supabase CLI operations, not startup work.
 2. **Read APIs:** categories, active listing/detail, admin listing/detail,
-   search, OR-category and building filters, status filter, sorting, and
+   search, OR-category and status filters, sorting, and
    pagination. Test inactive visibility, blank searches, combined filters,
    empty results, and 401/403/404 responses through HTTP.
 3. **Create:** validation, atomic category insertion, default status, 201
@@ -288,9 +288,9 @@ column.
 | `M2F3.1.3` | A match in any of the three fields includes the supplier. | Exercise each OR branch and a nonmatching row. |
 | `M2F3.1.4` | Missing/whitespace-only `q` adds no search restriction. | Compare results with omitted and blank `q`. |
 | `M2F3.2.1` | Repeated category parameters use OR and `EXISTS` without duplicates. | Multi-category supplier appears once when both codes are selected. |
-| `M2F3.2.2` | Area filter matches only the selected building/area. | Every returned row has the requested normalized area. |
+| `M2F3.2.2` | The exact area filter was removed from the revised API scope; `q` still searches area text. This original backlog row needs revision. | Both list routes reject the old `building_area` query parameter with `422`. |
 | `M2F3.2.3` | Admin status filter accepts `ACTIVE`/`INACTIVE`; omitted means both. Normal list stays active-only. | Test each admin filter and attempted normal-user status override. |
-| `M2F3.2.4` | Search plus category, area, and admin status filters combine with AND. | Combined query returns only rows satisfying every filter. |
+| `M2F3.2.4` | Search plus category and admin status filters combine with AND. The area-filter portion of this original backlog row needs revision. | Combined query returns only rows satisfying every supported filter. |
 | `M2F3.3.1` | Sort by name ascending/descending, default ascending, with stable ID tie-breaker. | Verify both directions, default, and stable paging on name ties. |
 | `M2F3.4` | No match returns an empty list, not an error. | Assert `200`, `items: []`, and `total: 0`. |
 

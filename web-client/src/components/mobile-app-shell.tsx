@@ -1,5 +1,6 @@
 import { type PropsWithChildren } from "react";
 import type { CurrentUser } from "../api/user-service";
+import { Link } from "react-router-dom";
 
 export function MobileAppShell({ children, user }: PropsWithChildren<{ user: CurrentUser }>) {
   return (
@@ -12,6 +13,7 @@ export function MobileAppShell({ children, user }: PropsWithChildren<{ user: Cur
         <span aria-label="Current user" className="avatar avatar-small">{user.displayName.slice(0, 1).toUpperCase()}</span>
       </header>
       <main className="mobile-content">{children}</main>
+      <nav aria-label="Mobile navigation" className="profile-mobile-nav"><Link to="/suppliers">Suppliers</Link><span aria-current="page">Profile</span></nav>
     </div>
   );
 }

@@ -121,7 +121,6 @@ class CategoryResponse(BaseModel):
 class SupplierListFilters:
     q: str | None
     categories: list[str]
-    building_area: str | None
     sort: Literal["asc", "desc"]
     page: int
     page_size: int

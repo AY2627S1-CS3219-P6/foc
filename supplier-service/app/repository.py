@@ -121,13 +121,6 @@ class SupplierRepository:
                         "WHERE sc.supplier_id = s.id AND sc.category_code = ANY(%s))"
                     ))
                     parameters.append(sorted(set(filters.categories)))
-                if filters.building_area is not None:
-                    clauses.append(sql.SQL(
-                        "supplier_service.normalize_identity_component(s.building_area) = "
-                        "supplier_service.normalize_identity_component(%s)"
-                    ))
-                    parameters.append(filters.building_area)
-
                 where_sql = sql.SQL(" AND ").join(clauses) if clauses else sql.SQL("TRUE")
                 cursor.execute(
                     sql.SQL("SELECT count(*) AS total FROM supplier_service.suppliers s WHERE {}").format(where_sql),
