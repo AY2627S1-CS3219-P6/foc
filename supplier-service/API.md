@@ -2,8 +2,8 @@
 
 Status: design for Milestone D2 Supplier Service points 2 and 3. Creation POST,
 update PATCH, interim deactivation DELETE, category lookup GET, normal supplier
-list and detail GET, and admin supplier list GET are implemented. Admin detail
-and permanent deletion remain planned. The Supplier Service is an independent
+list and detail GET, and admin supplier list and detail GET are implemented.
+Permanent deletion remains planned. The Supplier Service is an independent
 FastAPI backend with its own Supabase PostgreSQL database. The frontend calls
 these APIs; it never connects to the database.
 
@@ -42,7 +42,7 @@ schema is in `supabase/migrations/20260923000000_create_suppliers.sql`.
 `GET /api/v1/categories` returns an array of `{ "code": "FOOD", "display_name": "Food" }`
 objects from the Supplier Service lookup table, ordered by display name. Any
 valid User Service access token may call it; no management decision is needed.
-The admin supplier list checks the caller's current role with User Service's
+The admin supplier list and detail check the caller's current role with User Service's
 `SUPPLIER_UPDATE` decision because the published v1 contract has no separate
 admin-read action. This decision does not mutate a supplier.
 
@@ -242,9 +242,8 @@ contracts. None require shared database tables or another service's codebase.
 Each testable Supplier Service FR and NFR from the final backlog appears below.
 Parent headings (such as `M2F1.1` and `M2NFR3`) are covered by their listed
 children. These are **planned acceptance checks** for the full API; the creation
-POST, update PATCH, interim DELETE, category lookup GET, and normal supplier
-list and detail, and admin list checks are implemented, while checks for the
-remaining routes and permanent deletion are still planned. The existing
+POST, update PATCH, interim DELETE, and all five GET routes are implemented,
+while permanent deletion checks remain planned. The existing
 migration supplies some database safeguards.
 The backlog schedules deletion requirements for sprint 2 and performance and
 scale targets for sprint 4. Other Supplier Service rows are planned for sprint

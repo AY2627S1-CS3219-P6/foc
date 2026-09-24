@@ -122,3 +122,19 @@ def test_admin_list_includes_both_statuses_and_filters_them(sample_suppliers):
     assert inactive_only.total == 1 and [item.id for item in inactive_only.items] == [inactive.id]
     combined = repository.list_admin_suppliers(_filters(marker, categories=["FOOD"]), "INACTIVE")
     assert [item.id for item in combined.items] == [inactive.id]
+
+
+def test_admin_detail_includes_inactive_suppliers(sample_suppliers):
+    repository, _marker, first, _second, _third, inactive = sample_suppliers
+    assert repository.get_admin_supplier(first.id).id == first.id
+    detail = repository.get_admin_supplier(inactive.id)
+    assert detail.id == inactive.id
+    assert detail.status == "INACTIVE"
+    assert detail.name == inactive.name
+    assert detail.categories == ["FOOD"]
+    assert detail.pickup_location_description == inactive.pickup_location_description
+    assert detail.created_at == inactive.created_at
+
+    with pytest.raises(ApiError) as missing:
+        repository.get_admin_supplier(uuid4())
+    assert missing.value.status_code == 404

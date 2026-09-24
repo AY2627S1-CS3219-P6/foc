@@ -157,13 +157,19 @@ class SupplierRepository:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
 
     def get_active_supplier(self, supplier_id: UUID) -> SupplierResponse:
+        return self._get_supplier(supplier_id, include_inactive=False)
+
+    def get_admin_supplier(self, supplier_id: UUID) -> SupplierResponse:
+        return self._get_supplier(supplier_id, include_inactive=True)
+
+    def _get_supplier(self, supplier_id: UUID, *, include_inactive: bool) -> SupplierResponse:
         if not self.database_url:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
         try:
             with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn, conn.cursor() as cursor:
+                active_predicate = sql.SQL("") if include_inactive else sql.SQL(" AND status = 'ACTIVE'")
                 cursor.execute(
-                    "SELECT * FROM supplier_service.suppliers "
-                    "WHERE id = %s AND status = 'ACTIVE'",
+                    sql.SQL("SELECT * FROM supplier_service.suppliers WHERE id = %s{}").format(active_predicate),
                     (supplier_id,),
                 )
                 row = cursor.fetchone()

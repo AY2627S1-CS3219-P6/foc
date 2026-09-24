@@ -30,7 +30,9 @@ supplier. An inactive or unknown supplier returns `404` on this normal route.
 Admins can call `GET /api/v1/admin/suppliers` with the same list parameters and
 an optional `status=ACTIVE` or `status=INACTIVE` filter. Without `status`, it
 includes both. Supplier Service asks User Service for a current admin decision
-before returning this management list.
+before returning this management list. `GET /api/v1/admin/suppliers/{supplier_id}`
+returns full details for either an active or inactive supplier to an Admin or
+Super Admin; an unknown ID returns `404`.
 
 This service keeps Supabase CLI `2.117.0` as a development dependency. Run
 `npm ci` once after cloning, then use `npx supabase` from this folder for local
@@ -98,9 +100,9 @@ curl -i -X DELETE http://127.0.0.1:8001/api/v1/admin/suppliers/YOUR_SUPPLIER_UUI
 The Supplier Service asks User Service for a current `SUPPLIER_DEACTIVATE`
 decision. A missing supplier returns `404`. Repeating DELETE on an already
 inactive supplier returns `DEACTIVATED` again. The row and its category links
-remain in Supplier PostgreSQL. Normal-user listing and Errand Service selection
-checks are still planned, so this interim route does not complete every part
-of backlog M2F1.3.
+remain in Supplier PostgreSQL. Normal-user listing excludes inactive suppliers;
+Errand Service selection checks are still planned, so this interim route does
+not complete every part of backlog M2F1.3.
 
 The User Service's published contract is
 [`../user-service/docs/supplier-authorization-contract.md`](../user-service/docs/supplier-authorization-contract.md).

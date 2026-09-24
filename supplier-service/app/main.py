@@ -93,6 +93,15 @@ def list_admin_suppliers(
     return repository.list_admin_suppliers(filters, status_filter)
 
 
+@app.get("/api/v1/admin/suppliers/{supplier_id}", response_model=SupplierResponse)
+def get_admin_supplier(
+    supplier_id: UUID,
+    _actor_id: Annotated[UUID, Depends(require_supplier_read_admin)],
+    repository: Annotated[SupplierRepository, Depends(get_repository)],
+) -> SupplierResponse:
+    return repository.get_admin_supplier(supplier_id)
+
+
 @app.post(
     "/api/v1/admin/suppliers",
     response_model=SupplierResponse,
