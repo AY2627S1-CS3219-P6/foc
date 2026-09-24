@@ -61,9 +61,8 @@ development.
 - Node.js 22 or newer and npm.
 - Python 3.13 for User Service's local secret generator. On macOS, install it
   with `brew install python@3.13` if needed.
-- A global Supabase CLI for Supplier Service (`supabase --version`). Follow the
-  [Supabase CLI installation guide](https://supabase.com/docs/guides/local-development/cli/getting-started)
-  if it is missing. User Service uses its npm-pinned CLI through `npx`.
+- Both services install the same project-pinned Supabase CLI through `npm ci`.
+  Run it with `npx supabase` from the service folder; no global CLI is needed.
 
 The repository already contains both `supabase/config.toml` files and all SQL
 migrations. Do not run `supabase init` again.
@@ -87,14 +86,14 @@ Run these commands from the repository root in a macOS terminal.
 
    The generator creates `user-service/.env` and local JWT keys. Run it only
    once; it refuses to overwrite existing secrets. If `.env` already exists,
-   skip the generator. The first `supabase start` applies the committed User
+   skip the generator. The first `npx supabase start` applies the committed User
    Service migrations.
 
 2. Start Supplier Service's separate local database and create its ignored
    config file if it does not exist:
 
    ```sh
-   (cd supplier-service && supabase start)
+   (cd supplier-service && npm ci && npx supabase start)
    cp -n supplier-service/.env.example supplier-service/.env
    ```
 
@@ -162,7 +161,7 @@ containers with:
 
 ```sh
 (cd user-service && npx supabase start)
-(cd supplier-service && supabase start)
+(cd supplier-service && npx supabase start)
 docker compose --env-file user-service/.env up --build -d
 ```
 
@@ -171,7 +170,7 @@ To stop the application containers and both local Supabase stacks:
 ```sh
 docker compose --env-file user-service/.env down
 (cd user-service && npx supabase stop)
-(cd supplier-service && supabase stop)
+(cd supplier-service && npx supabase stop)
 ```
 
 Stopping preserves local database data. The service-level Compose files remain
@@ -186,7 +185,7 @@ files, run the reset for the service you want to rebuild:
 
 ```sh
 (cd user-service && npx supabase db reset --local)
-(cd supplier-service && supabase db reset --local)
+(cd supplier-service && npx supabase db reset --local)
 ```
 
 A User Service reset removes the local Super Admin, so run its bootstrap

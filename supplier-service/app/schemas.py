@@ -1,4 +1,4 @@
-"""Supplier creation request and response models."""
+"""Supplier creation, partial update, and response models."""
 
 import re
 from datetime import datetime
@@ -19,8 +19,8 @@ class SupplierCreate(BaseModel):
     building_area: str
     pickup_location_description: str
     floor: str | None = None
-    latitude: float | None = Field(default=None, ge=-90, le=90, allow_inf_nan=False)
-    longitude: float | None = Field(default=None, ge=-180, le=180, allow_inf_nan=False)
+    latitude: float | None = Field(default=None, ge=-90, le=90, allow_inf_nan=False, strict=True)
+    longitude: float | None = Field(default=None, ge=-180, le=180, allow_inf_nan=False, strict=True)
     opening_time: str | None = None
     closing_time: str | None = None
     image_url: HttpUrl | None = None
@@ -62,6 +62,30 @@ class SupplierCreate(BaseModel):
             raise ValueError("latitude and longitude must be supplied together")
         if (self.opening_time is None) != (self.closing_time is None):
             raise ValueError("opening_time and closing_time must be supplied together")
+        return self
+
+
+class SupplierPatch(BaseModel):
+    """Only supplied fields are changed; the repository validates the merged row."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    categories: list[str] | None = None
+    building_area: str | None = None
+    pickup_location_description: str | None = None
+    floor: str | None = None
+    latitude: float | None = Field(default=None, ge=-90, le=90, allow_inf_nan=False, strict=True)
+    longitude: float | None = Field(default=None, ge=-180, le=180, allow_inf_nan=False, strict=True)
+    opening_time: str | None = None
+    closing_time: str | None = None
+    image_url: HttpUrl | None = None
+    status: Literal["ACTIVE", "INACTIVE"] | None = None
+
+    @model_validator(mode="after")
+    def require_change(self) -> "SupplierPatch":
+        if not self.model_fields_set:
+            raise ValueError("At least one supplier field must be supplied")
         return self
 
 

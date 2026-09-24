@@ -1,11 +1,18 @@
 # Supplier Service
 
-## Create supplier API
+## Create and update supplier APIs
 
-The first FastAPI route is `POST /api/v1/admin/suppliers`. It validates a
-supplier, asks User Service for a current `SUPPLIER_CREATE` admin decision,
-then inserts the supplier and category assignments in one PostgreSQL
-transaction. It returns the committed record with status `201`.
+`POST /api/v1/admin/suppliers` validates a new supplier, asks User Service for
+a current `SUPPLIER_CREATE` admin decision, and inserts the supplier and
+categories in one PostgreSQL transaction. It returns `201`. The
+`PATCH /api/v1/admin/suppliers/{supplier_id}` route checks the current admin role
+again, merges supplied fields with the stored record, validates the complete
+result, and commits supplier and category changes together. It returns `200`.
+
+This service keeps Supabase CLI `2.117.0` as a development dependency. Run
+`npm ci` once after cloning, then use `npx supabase` from this folder for local
+database and hosted-project commands. Node.js is not needed in the FastAPI
+container.
 
 Use Python 3.11 or newer. The macOS system `python3` may be older; use a
 matching interpreter such as `python3.12`. From `supplier-service/`:
@@ -43,6 +50,21 @@ curl -i -X POST http://127.0.0.1:8001/api/v1/admin/suppliers \
 
 The example uses port 8001 so User Service can use port 8000 on the same
 machine.
+To update the returned supplier ID, use the same access token:
+
+```sh
+curl -i -X PATCH http://127.0.0.1:8001/api/v1/admin/suppliers/YOUR_SUPPLIER_UUID \
+  -H "Authorization: Bearer YOUR_ADMIN_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Updated Cafe","categories":["COFFEE"]}'
+```
+
+Omitted fields stay unchanged. A supplied `categories` array replaces the old
+set. Send `null` for optional fields to remove them; clear both coordinates or
+both operating times together. `status: INACTIVE` uses User Service's current
+`SUPPLIER_DEACTIVATE` authorization decision. A missing ID returns `404`, an
+invalid resulting record `422`, and a normalized duplicate `409`.
+
 The User Service's published contract is
 [`../user-service/docs/supplier-authorization-contract.md`](../user-service/docs/supplier-authorization-contract.md).
 The Supplier Service verifies the access JWT using User Service's public JWKS,
@@ -76,10 +98,13 @@ This stops Supplier Service's API container. Its local Supabase database and
 User Service containers remain running. The CI workflow also builds the image
 after the Supplier Service HTTP tests.
 
-Run the HTTP tests with `.venv/bin/python -m pytest -q`. To check the live
-database path, send a POST with an administrator token and confirm the returned
-supplier appears in the Supplier Service database. Seed SQL verifies the
-migration and sample data, but it does not exercise the POST API.
+Run the HTTP tests with `.venv/bin/python -m pytest -q`. The optional database
+update test runs when `SUPPLIER_TEST_DATABASE_URL` points to the local Supplier
+database on port 55322; it creates and removes its own temporary suppliers.
+To check the live authenticated path, send POST and PATCH requests with an
+administrator token and confirm the changes in the Supplier Service database.
+Seed SQL verifies the migration and sample data, but it does not exercise the
+API.
 The repository CI runs these HTTP tests for Supplier Service changes on pull
 requests to `main` and pushes to `main`; it does not require Supabase
 credentials or Docker.
@@ -113,7 +138,7 @@ With Docker Desktop running, start this service's local Supabase stack from
 `supplier-service/`:
 
 ```sh
-supabase start
+npx supabase start
 ```
 
 The first start applies the migration and `supabase/seed.sql`. The local
@@ -124,11 +149,11 @@ run at once. The ignored `.env` points FastAPI to this local database.
 To discard local changes and restore the migrated schema and seed data:
 
 ```sh
-supabase db reset --local
+npx supabase db reset --local
 ```
 
 This reset affects this local Supplier Service database. Stop its containers
-with `supabase stop` when you are finished. The hosted Supabase project is
+with `npx supabase stop` when you are finished. The hosted Supabase project is
 separate and is unaffected by these local commands.
 
 ### Hosted database
@@ -138,15 +163,15 @@ Service project. For a new development project, preview and apply the migration
 with its sample data:
 
 ```sh
-supabase login
-supabase link --project-ref YOUR_SUPPLIER_PROJECT_REF
-supabase db push --dry-run
-supabase db push --include-seed
+npx supabase login
+npx supabase link --project-ref YOUR_SUPPLIER_PROJECT_REF
+npx supabase db push --dry-run
+npx supabase db push --include-seed
 ```
 
 The project ref appears in the Dashboard URL. Run `--include-seed` only when
 initializing a fresh development project; later schema migrations use
-`supabase db push` without that flag. In the hosted Dashboard SQL Editor,
+`npx supabase db push` without that flag. In the hosted Dashboard SQL Editor,
 verify the import with:
 
 ```sql
@@ -257,8 +282,8 @@ to demonstrate that a non-admin cannot create a supplier.
 From `supplier-service/`, check the linked project and reset it:
 
 ```sh
-supabase projects list
-supabase db reset --linked
+npx supabase projects list
+npx supabase db reset --linked
 ```
 
 This deletes the hosted project's data, then reruns all migrations and

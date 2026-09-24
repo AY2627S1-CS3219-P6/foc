@@ -26,15 +26,18 @@ def api_error_handler(_request: Request, error: ApiError) -> JSONResponse:
     return JSONResponse(status_code=error.status_code, content={"error": body})
 
 
-def validation_error_handler(_request: Request, error: RequestValidationError) -> JSONResponse:
-    fields = [
+def validation_fields(errors: list[dict]) -> list[dict[str, str]]:
+    return [
         {
             "field": ".".join(str(part) for part in item["loc"] if part != "body") or "body",
             "message": item["msg"],
         }
-        for item in error.errors()
+        for item in errors
     ]
+
+
+def validation_error_handler(_request: Request, error: RequestValidationError) -> JSONResponse:
     return api_error_handler(
         _request,
-        ApiError(422, "VALIDATION_ERROR", "Supplier data is invalid", fields),
+        ApiError(422, "VALIDATION_ERROR", "Supplier data is invalid", validation_fields(error.errors())),
     )

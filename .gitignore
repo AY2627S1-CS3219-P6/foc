@@ -36,6 +36,10 @@ venv/
 **/supabase/.branches/
 **/supabase/.temp/
 
+# Local Supplier Service Postman workspace and requests
+supplier-service/.postman/
+supplier-service/postman/
+
 # OS
 .DS_Store
 Thumbs.db

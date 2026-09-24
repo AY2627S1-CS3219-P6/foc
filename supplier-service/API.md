@@ -1,7 +1,7 @@
 # Supplier Service API plan
 
 Status: design for Milestone D2 Supplier Service points 2 and 3. The supplier
-creation POST is implemented; other endpoints below remain planned. The
+creation POST and update PATCH are implemented; other endpoints below remain planned. The
 Supplier Service is an independent FastAPI backend with its own Supabase
 PostgreSQL database. The frontend calls these APIs; it never connects to the
 database.
@@ -40,6 +40,8 @@ schema is in `supabase/migrations/20260923000000_create_suppliers.sql`.
 
 `PATCH` with `{"status":"INACTIVE"}` deactivates a supplier, and
 `{"status":"ACTIVE"}` reactivates one. No separate status endpoint is needed.
+Supplier Service asks User Service for `SUPPLIER_DEACTIVATE` when a PATCH sets
+`INACTIVE`, and `SUPPLIER_UPDATE` for other PATCH requests.
 The `DELETE` route's reference check is planned for sprint 2 in the backlog;
 its safe behavior and dependency are specified below.
 
@@ -229,9 +231,9 @@ database tables or another service's codebase.
 
 Each testable Supplier Service FR and NFR from the final backlog appears below.
 Parent headings (such as `M2F1.1` and `M2NFR3`) are covered by their listed
-children. These are **planned acceptance checks**, including checks for the
-implemented creation POST; they do not claim that the remaining API routes are
-implemented. The existing migration supplies some database safeguards.
+children. These are **planned acceptance checks** for the full API; the creation
+POST and update PATCH checks are implemented, while checks for the remaining
+routes are still planned. The existing migration supplies some database safeguards.
 The backlog schedules deletion requirements for sprint 2 and performance and
 scale targets for sprint 4. Other Supplier Service rows are planned for sprint
 1 unless the backlog states otherwise. The backlog has a separate priority

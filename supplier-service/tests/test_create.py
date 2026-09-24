@@ -161,6 +161,7 @@ def test_missing_or_invalid_token_is_rejected(setup):
         {"categories": ["FOOD", "FOOD"]},
         {"opening_time": "9:00"},
         {"latitude": 1.3},
+        {"latitude": "1.3", "longitude": 103.8},
         {"image_url": "ftp://example.com/a.png"},
         {"status": None},
         {"id": str(uuid4())},
