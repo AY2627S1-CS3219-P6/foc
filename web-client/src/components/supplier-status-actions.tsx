@@ -3,7 +3,7 @@ import { isApiRequestError } from "../api/client";
 import { type SupplierStatus, supplierService } from "../api/supplier-service";
 import { useAuth } from "../app/auth-provider";
 
-type Action = "activate" | "deactivate" | "remove";
+type Action = "activate" | "deactivate";
 
 export function SupplierStatusActions({ id, name, status, onChanged }: {
   id: string;
@@ -18,7 +18,7 @@ export function SupplierStatusActions({ id, name, status, onChanged }: {
 
   useEffect(() => {
     if (!action) return;
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape" && !busy) setAction(null); };
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape" && !busy) { setAction(null); setError(null); } };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [action, busy]);
@@ -28,12 +28,12 @@ export function SupplierStatusActions({ id, name, status, onChanged }: {
     setBusy(true);
     setError(null);
     try {
-      if (action === "remove") {
-        const result = await withCurrentAccess((token) => supplierService.deactivate(id, token));
-        onChanged(result.outcome === "DEACTIVATED" ? `${name} was deactivated. It remains in Supplier Service for existing references.` : `${name} was removed.`);
+      if (action === "deactivate") {
+        await withCurrentAccess((token) => supplierService.deactivate(id, token));
+        onChanged(`${name} was deactivated. Its record is retained for existing references.`);
       } else {
-        await withCurrentAccess((token) => supplierService.update(id, { status: action === "activate" ? "ACTIVE" : "INACTIVE" }, token));
-        onChanged(`${name} ${action === "activate" ? "activated" : "deactivated"}.`);
+        await withCurrentAccess((token) => supplierService.update(id, { status: "ACTIVE" }, token));
+        onChanged(`${name} was activated.`);
       }
       setAction(null);
     } catch (failure) {
@@ -43,24 +43,19 @@ export function SupplierStatusActions({ id, name, status, onChanged }: {
     }
   }
 
-  const title = action === "remove" ? "Remove supplier?" : action === "activate" ? "Activate supplier?" : "Deactivate supplier?";
-  const explanation = action === "remove"
-    ? "Removal currently deactivates this supplier and retains its record. It will disappear from normal supplier listings."
-    : action === "activate"
-      ? "This supplier will appear in normal supplier listings again."
-      : "This supplier will be hidden from normal supplier listings. Its record will be retained.";
+  const title = action === "activate" ? "Activate supplier?" : "Deactivate supplier?";
+  const explanation = action === "activate"
+    ? "This supplier will appear in normal supplier listings again."
+    : "This supplier will be hidden from normal supplier listings. Its record will be retained.";
 
   return <>
     <div className="supplier-status-actions">
-      {status === "ACTIVE" ? <>
-        <button onClick={() => setAction("deactivate")} type="button">Deactivate</button>
-        <button className="supplier-remove-link" onClick={() => setAction("remove")} type="button">Remove</button>
-      </> : <button onClick={() => setAction("activate")} type="button">Activate</button>}
+      {status === "ACTIVE" ? <button onClick={() => { setError(null); setAction("deactivate"); }} type="button">Deactivate</button> : <button onClick={() => { setError(null); setAction("activate"); }} type="button">Activate</button>}
     </div>
     {action ? <div className="supplier-dialog-backdrop"><div aria-labelledby="supplier-action-title" aria-modal="true" className="supplier-dialog" role="dialog">
       <h2 id="supplier-action-title">{title}</h2><p><strong>{name}</strong>: {explanation}</p>
       {error ? <p className="supplier-dialog-error" role="alert">{error}</p> : null}
-      <div className="supplier-dialog-actions"><button autoFocus disabled={busy} onClick={() => { setAction(null); setError(null); }} type="button">Cancel</button><button className="supplier-primary-action" disabled={busy} onClick={() => void confirm()} type="button">{busy ? "Working…" : action === "remove" ? "Remove supplier" : action === "activate" ? "Activate supplier" : "Deactivate supplier"}</button></div>
+      <div className="supplier-dialog-actions"><button autoFocus disabled={busy} onClick={() => { setAction(null); setError(null); }} type="button">Cancel</button><button className="supplier-primary-action" disabled={busy} onClick={() => void confirm()} type="button">{busy ? "Working…" : action === "activate" ? "Activate supplier" : "Deactivate supplier"}</button></div>
     </div></div> : null}
   </>;
 }

@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
 import { type Category, type SupplierList, type SupplierListItem, type SupplierQuery, supplierService } from "../api/supplier-service";
@@ -13,7 +13,6 @@ function readQuery(params: URLSearchParams, admin: boolean): SupplierQuery {
   return {
     q: params.get("q") ?? "",
     categories: params.getAll("category"),
-    buildingArea: params.get("building_area") ?? "",
     sort: params.get("sort") === "desc" ? "desc" : "asc",
     status: admin && (status === "ACTIVE" || status === "INACTIVE") ? status : undefined,
     page: Number.isInteger(page) && page > 0 ? page : 1,
@@ -31,7 +30,6 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
   const queryKey = searchParams.toString();
   const query = useMemo(() => readQuery(new URLSearchParams(queryKey), admin), [queryKey, admin]);
   const [search, setSearch] = useState(query.q ?? "");
-  const [area, setArea] = useState(query.buildingArea ?? "");
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryError, setCategoryError] = useState(false);
   const [result, setResult] = useState<SupplierList | null>(null);
@@ -42,8 +40,20 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
 
   useEffect(() => {
     setSearch(query.q ?? "");
-    setArea(query.buildingArea ?? "");
-  }, [query.q, query.buildingArea]);
+  }, [query.q]);
+
+  useEffect(() => {
+    const term = search.trim();
+    if (term === (query.q ?? "")) return;
+    const timer = window.setTimeout(() => {
+      const next = new URLSearchParams(window.location.search);
+      next.delete("building_area");
+      if (term) next.set("q", term); else next.delete("q");
+      next.delete("page");
+      setSearchParams(next, { replace: true });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [query.q, search, setSearchParams]);
 
   useEffect(() => {
     let active = true;
@@ -68,6 +78,7 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
     // Read the current URL at action time so consecutive filter changes do not
     // overwrite one another before React has rendered the previous navigation.
     const next = new URLSearchParams(window.location.search);
+    next.delete("building_area");
     for (const [key, value] of Object.entries(changes)) {
       if (value) next.set(key, value); else next.delete(key);
     }
@@ -77,11 +88,6 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
     }
     if (!("page" in changes)) next.delete("page");
     setSearchParams(next);
-  }
-
-  function submitSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    updateQuery({ q: search.trim(), building_area: area.trim() });
   }
 
   function toggleCategory(code: string) {
@@ -95,7 +101,7 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
   const from = result && result.total > 0 ? (result.page - 1) * result.page_size + 1 : 0;
   const to = result ? Math.min(result.total, result.page * result.page_size) : 0;
   const names = new Map(categories.map((category) => [category.code, category.display_name]));
-  const hasFilters = Boolean(query.q?.trim() || query.buildingArea?.trim() || query.categories?.length || query.status);
+  const hasFilters = Boolean(query.q?.trim() || query.categories?.length || query.status);
 
   return <SupplierShell>
     <div className="supplier-page-heading">
@@ -105,11 +111,9 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
     {notice ? <p className="supplier-notice" role="status">{notice}</p> : null}
 
     <section aria-label="Search and filter suppliers" className="supplier-filter-panel">
-      <form className="supplier-search-form" onSubmit={submitSearch}>
-        <label className="supplier-search-field"><span className="sr-only">Search suppliers</span><span aria-hidden="true">⌕</span><input onChange={(event) => setSearch(event.target.value)} placeholder="Search suppliers, areas or pickup locations" type="search" value={search} /></label>
-        <label className="supplier-area-field"><span className="sr-only">Campus area</span><input onChange={(event) => setArea(event.target.value)} placeholder="Campus area: All" value={area} /></label>
-        <button className="supplier-apply-button" type="submit">Search</button>
-      </form>
+      <div className="supplier-search-form" role="search">
+        <label className="supplier-search-field"><span className="sr-only">Search suppliers</span><span aria-hidden="true">⌕</span><input onChange={(event) => setSearch(event.target.value)} placeholder="Search names, areas or pickup locations" type="search" value={search} /></label>
+      </div>
       <div className="supplier-filter-row">
         <details className="supplier-category-picker"><summary>Categories: {selectedCategories.length ? selectedCategories.map((code) => names.get(code) ?? code).join(", ") : "All"}</summary>
           <div className="supplier-category-options">
@@ -119,12 +123,13 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
         </details>
         <label className="supplier-select-label"><span className="sr-only">Sort suppliers</span><select onChange={(event) => updateQuery({ sort: event.target.value === "desc" ? "desc" : null })} value={query.sort}><option value="asc">Sort: Name A–Z</option><option value="desc">Sort: Name Z–A</option></select></label>
         {admin ? <label className="supplier-select-label"><span className="sr-only">Supplier status</span><select onChange={(event) => updateQuery({ status: event.target.value || null })} value={query.status ?? ""}><option value="">Status: All</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label> : <span className="supplier-active-note">Active suppliers only</span>}
+        {hasFilters ? <button className="supplier-inline-button" onClick={() => { setSearch(""); setSearchParams(new URLSearchParams()); }} type="button">Clear filters</button> : null}
       </div>
     </section>
 
     {loading ? <p className="supplier-state" role="status">Loading suppliers…</p> : null}
     {error ? <section className="supplier-state supplier-state-error" role="alert"><h2>Suppliers could not load</h2><p>{error}</p><button className="supplier-apply-button" onClick={() => setReload((value) => value + 1)} type="button">Try again</button></section> : null}
-    {!loading && !error && result?.total === 0 ? <section className="supplier-state"><h2>{hasFilters ? "No suppliers found" : admin ? "No suppliers yet" : "No active suppliers yet"}</h2><p>{hasFilters ? "Try another search or clear the filters." : admin ? "Add the first campus supplier to get started." : "Check back soon for campus suppliers."}</p>{hasFilters ? <button className="supplier-apply-button" onClick={() => { setSearch(""); setArea(""); setSearchParams(new URLSearchParams()); }} type="button">Clear filters</button> : admin ? <Link className="supplier-primary-action" to="/admin/suppliers/new">Add supplier</Link> : null}</section> : null}
+    {!loading && !error && result?.total === 0 ? <section className="supplier-state"><h2>{hasFilters ? "No suppliers found" : admin ? "No suppliers yet" : "No active suppliers yet"}</h2><p>{hasFilters ? "Try another search or use Clear filters above." : admin ? "Add the first campus supplier to get started." : "Check back soon for campus suppliers."}</p>{!hasFilters && admin ? <Link className="supplier-primary-action" to="/admin/suppliers/new">Add supplier</Link> : null}</section> : null}
     {!loading && !error && result && result.total > 0 ? <>
       <div aria-live="polite" className="supplier-results-count">{result.total} supplier{result.total === 1 ? "" : "s"}</div>
       <div className={admin ? "supplier-admin-results" : "supplier-card-grid"}>
@@ -135,7 +140,7 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
           {admin ? <><div className="supplier-admin-category">{item.categories.map((code) => names.get(code) ?? code).join(" / ")}</div><div className="supplier-admin-area">{item.building_area}{item.floor ? ` · Floor ${item.floor}` : ""}</div><span className={`supplier-status ${item.status.toLowerCase()}`}>{item.status === "ACTIVE" ? "Active" : "Inactive"}</span><div className="supplier-admin-actions"><Link to={`/admin/suppliers/${item.id}`}>View</Link><Link to={`/admin/suppliers/${item.id}/edit`}>Edit</Link><SupplierStatusActions id={item.id} name={item.name} onChanged={(message) => { setNotice(message); setReload((value) => value + 1); }} status={item.status} /></div></> : <><span className="supplier-status active">Active</span><Link aria-label={`View ${item.name}`} className="supplier-card-link" to={`/suppliers/${item.id}`}>View supplier <span aria-hidden="true">→</span></Link></>}
         </article>)}
       </div>
-      <div className="supplier-pagination"><span>Showing {from}–{to} of {result.total}</span><label>Per page <select aria-label="Suppliers per page" onChange={(event) => updateQuery({ page_size: event.target.value === "6" ? null : event.target.value })} value={String(query.pageSize)}>{[6, 12, 20, 50].map((size) => <option key={size} value={size}>{size}</option>)}</select></label><div className="supplier-page-buttons"><button disabled={result.page <= 1} onClick={() => updateQuery({ page: String(result.page - 1) })} type="button">Previous</button><span>Page {result.page} of {maxPage}</span><button disabled={result.page >= maxPage} onClick={() => updateQuery({ page: String(result.page + 1) })} type="button">Next</button></div></div>
+      {maxPage > 1 || result.page > 1 ? <div className="supplier-pagination"><span>Showing {from}–{to} of {result.total}</span><label>Per page <select aria-label="Suppliers per page" onChange={(event) => updateQuery({ page_size: event.target.value === "6" ? null : event.target.value })} value={String(query.pageSize)}>{[6, 12, 20, 50].map((size) => <option key={size} value={size}>{size}</option>)}</select></label><div className="supplier-page-buttons"><button disabled={result.page <= 1} onClick={() => updateQuery({ page: String(result.page - 1) })} type="button">Previous</button><span>Page {result.page} of {maxPage}</span><button disabled={result.page >= maxPage} onClick={() => updateQuery({ page: String(result.page + 1) })} type="button">Next</button></div></div> : null}
     </> : null}
   </SupplierShell>;
 }

@@ -10,15 +10,28 @@ function localDate(value: string): string {
   return new Intl.DateTimeFormat("en-SG", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Singapore" }).format(new Date(value));
 }
 
+function readableCategory(code: string): string {
+  return code.toLowerCase().replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export function SupplierDetailPage({ admin = false }: { admin?: boolean }) {
   const { supplierId } = useParams();
   const location = useLocation();
   const { withCurrentAccess } = useAuth();
   const [supplier, setSupplier] = useState<Supplier | null>(null);
+  const [categoryNames, setCategoryNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
   const [reload, setReload] = useState(0);
   const [notice, setNotice] = useState<string | null>((location.state as { notice?: string } | null)?.notice ?? null);
+
+  useEffect(() => {
+    let active = true;
+    withCurrentAccess((token) => supplierService.categories(token))
+      .then((items) => { if (active) setCategoryNames(Object.fromEntries(items.map((item) => [item.code, item.display_name]))); })
+      .catch(() => { /* Supplier details remain usable with readable codes. */ });
+    return () => { active = false; };
+  }, [withCurrentAccess]);
 
   useEffect(() => {
     if (!supplierId) return;
@@ -33,18 +46,19 @@ export function SupplierDetailPage({ admin = false }: { admin?: boolean }) {
   }, [admin, supplierId, reload, withCurrentAccess]);
 
   const listPath = admin ? "/admin/suppliers" : "/suppliers";
+  const categorySummary = supplier?.categories.map((code) => categoryNames[code] ?? readableCategory(code)).join(" / ") ?? "";
   return <SupplierShell>
     <Link className="supplier-back-link" to={listPath}>← All suppliers</Link>
     {notice ? <p className="supplier-notice" role="status">{notice}</p> : null}
     {loading ? <p className="supplier-state" role="status">Loading supplier…</p> : null}
     {error ? <section className="supplier-state supplier-state-error" role="alert"><h1>{error.status === 404 ? "Supplier not found" : "Supplier could not load"}</h1><p>{error.status === 404 ? "This supplier may have been removed or is no longer available." : error.message}</p>{error.status !== 404 ? <button className="supplier-apply-button" onClick={() => setReload((value) => value + 1)} type="button">Try again</button> : null}</section> : null}
     {!loading && supplier ? <>
-      <div className="supplier-page-heading supplier-detail-heading"><div><h1>{supplier.name}</h1><p>{supplier.building_area}{supplier.floor ? ` · Floor ${supplier.floor}` : ""} · {supplier.categories.join(" / ")}</p></div><span className={`supplier-status ${supplier.status.toLowerCase()}`}>{supplier.status === "ACTIVE" ? "Active" : "Inactive"}</span></div>
+      <div className="supplier-page-heading supplier-detail-heading"><div><h1>{supplier.name}</h1><p>{supplier.building_area}{supplier.floor ? ` · Floor ${supplier.floor}` : ""} · {categorySummary}</p></div><span className={`supplier-status ${supplier.status.toLowerCase()}`}>{supplier.status === "ACTIVE" ? "Active" : "Inactive"}</span></div>
       {admin ? <div className="supplier-detail-actions"><Link className="supplier-primary-action" to={`/admin/suppliers/${supplier.id}/edit`}>Edit supplier</Link><SupplierStatusActions id={supplier.id} name={supplier.name} onChanged={(message) => { setNotice(message); setReload((value) => value + 1); }} status={supplier.status} /></div> : null}
       {supplier.image_url ? <div className="supplier-detail-image"><img alt={`${supplier.name} location`} src={supplier.image_url} /></div> : null}
       <div className="supplier-detail-grid">
         <section className="supplier-detail-panel"><h2>Supplier information</h2><dl>
-          <div><dt>Categories</dt><dd>{supplier.categories.join(" / ")}</dd></div>
+          <div><dt>Categories</dt><dd>{categorySummary}</dd></div>
           <div><dt>Building or campus area</dt><dd>{supplier.building_area}</dd></div>
           <div><dt>Pickup location</dt><dd>{supplier.pickup_location_description}</dd></div>
           <div><dt>Floor</dt><dd>{supplier.floor || "Not provided"}</dd></div>

@@ -31,28 +31,45 @@ for (const viewport of [{ width: 375, height: 812 }, { width: 768, height: 1024 
     await page.getByRole("link", { name: "View Cool Spot" }).click();
     await expect(page.getByText("Opp Lift").first()).toBeVisible();
     await expect(page.getByText("09:00–21:30")).toBeVisible();
+    await expect(page.getByText("Food / Coffee").first()).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     if (viewport.width === 375) await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toBeVisible();
   });
 }
 
-test("supplier filters send the supported query contract", async ({ page }) => {
+test("search and filters apply automatically without losing one another", async ({ page }) => {
   await mockSupplierSession(page);
   await page.goto("/suppliers");
   await expect(page.getByRole("heading", { name: "Cool Spot" })).toBeVisible();
   await page.getByRole("searchbox", { name: "Search suppliers" }).fill("cool");
-  await page.getByPlaceholder("Campus area: All").fill("Com2");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
   await page.locator(".supplier-category-picker summary").click();
   await page.getByRole("checkbox", { name: "Food" }).click();
   await expect(page).toHaveURL(/category=FOOD/);
   await page.getByRole("combobox", { name: "Sort suppliers" }).selectOption("desc");
-  await expect(page).toHaveURL(/category=FOOD/);
+  await expect(page).toHaveURL(/q=cool/);
   const query = new URL(page.url()).searchParams;
   expect(query.get("q")).toBe("cool");
-  expect(query.get("building_area")).toBe("Com2");
+  expect(query.has("building_area")).toBe(false);
   expect(query.getAll("category")).toEqual(["FOOD"]);
   expect(query.get("sort")).toBe("desc");
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(page.getByRole("searchbox", { name: "Search suppliers" })).toHaveValue("");
+  expect(new URL(page.url()).search).toBe("");
+});
+
+test("pagination appears only when results span more than one page", async ({ page }) => {
+  await mockSupplierSession(page);
+  await page.goto("/suppliers");
+  await expect(page.getByRole("heading", { name: "Cool Spot" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Suppliers per page" })).toHaveCount(0);
+  await page.route((url) => url.pathname === "/api/v1/suppliers", (route) => route.fulfill({ json: {
+    items: [{ id: supplierId, name: "Cool Spot", categories: ["FOOD"], building_area: "Com2", floor: null, status: "ACTIVE", opening_time: null, closing_time: null }],
+    page: Number(new URL(route.request().url()).searchParams.get("page") ?? 1), page_size: 6, total: 7,
+  } }));
+  await page.reload();
+  await expect(page.getByRole("combobox", { name: "Suppliers per page" })).toBeVisible();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page).toHaveURL(/page=2/);
 });
 
 test("normal users cannot open Supplier management pages", async ({ page }) => {
@@ -120,7 +137,7 @@ test("edit form waits for supplier data and offers retry after a load failure", 
   await expect(page.getByRole("textbox", { name: "Supplier name *" })).toHaveValue("Cool Spot");
 });
 
-test("admin creates, edits, and removes a supplier through live API contracts", async ({ page }) => {
+test("admin creates, edits, and deactivates a supplier through live API contracts", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await mockSupplierSession(page, "ADMIN");
   let saved = {
@@ -175,9 +192,9 @@ test("admin creates, edits, and removes a supplier through live API contracts", 
   await expect(page.getByRole("heading", { name: "Cool Spot Updated" })).toBeVisible();
   expect(writes[1]).toMatchObject({ method: "PATCH", body: { name: "Cool Spot Updated" } });
 
-  await page.getByRole("button", { name: "Remove", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Remove supplier?" })).toContainText("deactivates this supplier");
-  await page.getByRole("button", { name: "Remove supplier" }).click();
+  await page.getByRole("button", { name: "Deactivate", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Deactivate supplier?" })).toContainText("record will be retained");
+  await page.getByRole("button", { name: "Deactivate supplier" }).click();
   await expect(page.getByRole("status")).toContainText("was deactivated");
   await expect(page.getByText("Inactive", { exact: true })).toBeVisible();
   expect(writes[2]).toMatchObject({ method: "DELETE" });
