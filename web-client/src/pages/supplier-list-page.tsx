@@ -4,6 +4,7 @@ import { isApiRequestError } from "../api/client";
 import { type Category, type SupplierList, type SupplierListItem, type SupplierQuery, supplierService } from "../api/supplier-service";
 import { useAuth } from "../app/auth-provider";
 import { SupplierIcon, SupplierShell } from "../components/supplier-shell";
+import { SupplierStatusActions } from "../components/supplier-status-actions";
 
 function readQuery(params: URLSearchParams, admin: boolean): SupplierQuery {
   const page = Number(params.get("page"));
@@ -37,6 +38,7 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     setSearch(query.q ?? "");
@@ -93,12 +95,14 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
   const from = result && result.total > 0 ? (result.page - 1) * result.page_size + 1 : 0;
   const to = result ? Math.min(result.total, result.page * result.page_size) : 0;
   const names = new Map(categories.map((category) => [category.code, category.display_name]));
+  const hasFilters = Boolean(query.q?.trim() || query.buildingArea?.trim() || query.categories?.length || query.status);
 
   return <SupplierShell>
     <div className="supplier-page-heading">
       <div><h1>{admin ? "Manage suppliers" : "Campus suppliers"}</h1><p>{admin ? "Maintain supplier details and availability." : "Browse nearby campus spots and find what you need."}</p></div>
       {admin ? <Link className="supplier-primary-action" to="/admin/suppliers/new">+ Add supplier</Link> : null}
     </div>
+    {notice ? <p className="supplier-notice" role="status">{notice}</p> : null}
 
     <section aria-label="Search and filter suppliers" className="supplier-filter-panel">
       <form className="supplier-search-form" onSubmit={submitSearch}>
@@ -120,15 +124,15 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
 
     {loading ? <p className="supplier-state" role="status">Loading suppliers…</p> : null}
     {error ? <section className="supplier-state supplier-state-error" role="alert"><h2>Suppliers could not load</h2><p>{error}</p><button className="supplier-apply-button" onClick={() => setReload((value) => value + 1)} type="button">Try again</button></section> : null}
-    {!loading && !error && result?.total === 0 ? <section className="supplier-state"><h2>No suppliers found</h2><p>Try another search or clear the filters.</p><button className="supplier-apply-button" onClick={() => { setSearch(""); setArea(""); setSearchParams(new URLSearchParams()); }} type="button">Clear filters</button></section> : null}
+    {!loading && !error && result?.total === 0 ? <section className="supplier-state"><h2>{hasFilters ? "No suppliers found" : admin ? "No suppliers yet" : "No active suppliers yet"}</h2><p>{hasFilters ? "Try another search or clear the filters." : admin ? "Add the first campus supplier to get started." : "Check back soon for campus suppliers."}</p>{hasFilters ? <button className="supplier-apply-button" onClick={() => { setSearch(""); setArea(""); setSearchParams(new URLSearchParams()); }} type="button">Clear filters</button> : admin ? <Link className="supplier-primary-action" to="/admin/suppliers/new">Add supplier</Link> : null}</section> : null}
     {!loading && !error && result && result.total > 0 ? <>
       <div aria-live="polite" className="supplier-results-count">{result.total} supplier{result.total === 1 ? "" : "s"}</div>
       <div className={admin ? "supplier-admin-results" : "supplier-card-grid"}>
         {admin ? <div aria-hidden="true" className="supplier-table-head"><span>Supplier</span><span>Category</span><span>Campus area</span><span>Status</span><span>Actions</span></div> : null}
         {result.items.map((item) => <article className={admin ? "supplier-admin-row" : "supplier-card"} key={item.id}>
           {!admin ? <div aria-hidden="true" className="supplier-card-icon"><SupplierIcon size={22} /></div> : null}
-          <div className="supplier-card-main"><h2>{item.name}</h2><p>{item.building_area}{item.floor ? ` · Floor ${item.floor}` : ""}</p><p>{item.categories.map((code) => names.get(code) ?? code).join(" / ")}</p>{!admin ? <p className="supplier-card-hours">{hours(item)}</p> : null}</div>
-          {admin ? <><div className="supplier-admin-area">{item.building_area}</div><span className={`supplier-status ${item.status.toLowerCase()}`}>{item.status === "ACTIVE" ? "Active" : "Inactive"}</span><div className="supplier-admin-actions"><Link to={`/admin/suppliers/${item.id}`}>View</Link><Link to={`/admin/suppliers/${item.id}/edit`}>Edit</Link></div></> : <><span className="supplier-status active">Active</span><Link aria-label={`View ${item.name}`} className="supplier-card-link" to={`/suppliers/${item.id}`}>View supplier <span aria-hidden="true">→</span></Link></>}
+          <div className="supplier-card-main"><h2>{item.name}</h2>{!admin ? <><p>{item.building_area}{item.floor ? ` · Floor ${item.floor}` : ""}</p><p>{item.categories.map((code) => names.get(code) ?? code).join(" / ")}</p><p className="supplier-card-hours">{hours(item)}</p></> : null}</div>
+          {admin ? <><div className="supplier-admin-category">{item.categories.map((code) => names.get(code) ?? code).join(" / ")}</div><div className="supplier-admin-area">{item.building_area}{item.floor ? ` · Floor ${item.floor}` : ""}</div><span className={`supplier-status ${item.status.toLowerCase()}`}>{item.status === "ACTIVE" ? "Active" : "Inactive"}</span><div className="supplier-admin-actions"><Link to={`/admin/suppliers/${item.id}`}>View</Link><Link to={`/admin/suppliers/${item.id}/edit`}>Edit</Link><SupplierStatusActions id={item.id} name={item.name} onChanged={(message) => { setNotice(message); setReload((value) => value + 1); }} status={item.status} /></div></> : <><span className="supplier-status active">Active</span><Link aria-label={`View ${item.name}`} className="supplier-card-link" to={`/suppliers/${item.id}`}>View supplier <span aria-hidden="true">→</span></Link></>}
         </article>)}
       </div>
       <div className="supplier-pagination"><span>Showing {from}–{to} of {result.total}</span><label>Per page <select aria-label="Suppliers per page" onChange={(event) => updateQuery({ page_size: event.target.value === "6" ? null : event.target.value })} value={String(query.pageSize)}>{[6, 12, 20, 50].map((size) => <option key={size} value={size}>{size}</option>)}</select></label><div className="supplier-page-buttons"><button disabled={result.page <= 1} onClick={() => updateQuery({ page: String(result.page - 1) })} type="button">Previous</button><span>Page {result.page} of {maxPage}</span><button disabled={result.page >= maxPage} onClick={() => updateQuery({ page: String(result.page + 1) })} type="button">Next</button></div></div>

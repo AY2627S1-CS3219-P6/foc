@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../app/auth-provider";
 
 export function SupplierIcon({ size = 20 }: { size?: number }) {
@@ -17,7 +17,9 @@ function ProfileIcon() {
 
 export function SupplierShell({ children }: PropsWithChildren) {
   const { user } = useAuth();
+  const { pathname } = useLocation();
   if (!user) return null;
+  const canManage = user.systemRole === "ADMIN" || user.systemRole === "SUPER_ADMIN";
   const firstName = user.displayName.split(/\s+/)[0] || user.displayName;
 
   return <div className="supplier-shell">
@@ -28,11 +30,13 @@ export function SupplierShell({ children }: PropsWithChildren) {
       </Link>
       <span className="supplier-rail-label">Explore</span>
       <NavLink className={({ isActive }) => `supplier-nav-link${isActive ? " active" : ""}`} end to="/suppliers"><SupplierIcon />Suppliers</NavLink>
+      {canManage ? <NavLink className={({ isActive }) => `supplier-nav-link${isActive ? " active" : ""}`} to="/admin/suppliers"><SupplierIcon />Manage suppliers</NavLink> : null}
       <span className="supplier-rail-label supplier-rail-account">Account</span>
       <NavLink className="supplier-nav-link" to="/profile"><ProfileIcon />Profile</NavLink>
     </aside>
     <div className="supplier-app">
       <header className="supplier-topbar">
+        <strong className="supplier-mobile-title">{pathname.startsWith("/admin/") ? "Manage suppliers" : "Campus suppliers"}</strong>
         <div className="supplier-topbar-greeting"><strong>Good to see you, {firstName}</strong><span>Find what you need around campus.</span></div>
         <Link aria-label="Open your profile" className="supplier-avatar" to="/profile">{user.displayName.slice(0, 1).toUpperCase()}</Link>
       </header>
@@ -40,6 +44,7 @@ export function SupplierShell({ children }: PropsWithChildren) {
     </div>
     <nav aria-label="Mobile navigation" className="supplier-bottom-nav">
       <NavLink className={({ isActive }) => isActive ? "active" : ""} end to="/suppliers"><SupplierIcon size={19} /><span>Suppliers</span></NavLink>
+      {canManage ? <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/admin/suppliers"><SupplierIcon size={19} /><span>Manage</span></NavLink> : null}
       <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/profile"><ProfileIcon /><span>Profile</span></NavLink>
     </nav>
   </div>;
