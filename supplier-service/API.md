@@ -1,10 +1,10 @@
 # Supplier Service API plan
 
-Status: design for Milestone D2 Supplier Service points 2 and 3. The supplier
-creation POST and update PATCH are implemented; other endpoints below remain planned. The
-Supplier Service is an independent FastAPI backend with its own Supabase
-PostgreSQL database. The frontend calls these APIs; it never connects to the
-database.
+Status: design for Milestone D2 Supplier Service points 2 and 3. Creation POST,
+update PATCH, and interim deactivation DELETE are implemented; read endpoints
+and permanent deletion remain planned. The Supplier Service is an independent
+FastAPI backend with its own Supabase PostgreSQL database. The frontend calls
+these APIs; it never connects to the database.
 
 Sources: `CS3219-Instructions-MilestoneD2.pdf`, page 3, and
 `CS3219-Milestone-Backlog-Latest.pdf`, pages 6–11 and 19–20. The existing
@@ -36,14 +36,14 @@ schema is in `supabase/migrations/20260923000000_create_suppliers.sql`.
 | `GET /api/v1/admin/suppliers/{supplier_id}` | Admin/Super Admin | Return full details for either status. | `200` |
 | `POST /api/v1/admin/suppliers` | Admin/Super Admin | Create a supplier and all category assignments atomically. | `201` + full record |
 | `PATCH /api/v1/admin/suppliers/{supplier_id}` | Admin/Super Admin | Partially update fields and replace categories when supplied. | `200` + full record |
-| `DELETE /api/v1/admin/suppliers/{supplier_id}` | Admin/Super Admin | Permanently delete only if never referenced by an errand; otherwise deactivate. | `200` + outcome |
+| `DELETE /api/v1/admin/suppliers/{supplier_id}` | Admin/Super Admin | Currently retain the row and set `INACTIVE`; permanent deletion awaits an Errand Service reference contract. | `200` + `DEACTIVATED` outcome |
 
 `PATCH` with `{"status":"INACTIVE"}` deactivates a supplier, and
 `{"status":"ACTIVE"}` reactivates one. No separate status endpoint is needed.
 Supplier Service asks User Service for `SUPPLIER_DEACTIVATE` when a PATCH sets
 `INACTIVE`, and `SUPPLIER_UPDATE` for other PATCH requests.
-The `DELETE` route's reference check is planned for sprint 2 in the backlog;
-its safe behavior and dependency are specified below.
+The `DELETE` route currently performs only safe deactivation. Its reference
+check and permanent-delete branch remain planned for sprint 2.
 
 ### List and search contract
 
@@ -136,32 +136,35 @@ must leave the previous record intact. Return success only after commit.
 
 ### Delete contract and errand references
 
-`DELETE` returns `{"id":"...","outcome":"DELETED"}` if an independent,
-reliable contract proves the supplier has never been referenced by an errand.
-If it has ever been referenced, retain the row, set status to `INACTIVE`, and
-return `{"id":"...","outcome":"DEACTIVATED"}`. Normal listings must then
-exclude it; existing errand pickup information remains with the errand.
+The implemented `DELETE` returns `{"id":"...","outcome":"DEACTIVATED"}`
+after retaining the supplier row and setting status to `INACTIVE`. Repeating
+it for an inactive supplier returns the same outcome without another write.
+Once the Errand Service contract exists, `DELETE` should instead return
+`{"id":"...","outcome":"DELETED"}` only when that contract reliably proves
+the supplier has never been referenced. Referenced suppliers remain inactive.
+Normal listings must exclude inactive suppliers; existing errand pickup
+information remains with the errand.
 
 The Supplier Service must not read another service's database. Before hard
 deletion is implemented, agree on a versioned reference-check contract with
 the errand owner that also prevents a new reference racing the deletion. Until
-that contract is available, the safe D2 behavior is to deactivate and report
-`DEACTIVATED`; never hard-delete based on an unavailable or inconclusive
-reference check. This is an interim implementation of the sprint-2 backlog
-removal rule, not evidence that permanent deletion is complete.
+that contract is available, the implemented behavior is to deactivate and
+report `DEACTIVATED`; never hard-delete based on an unavailable or inconclusive
+reference check. M2F1.3.1 remains pending. M2F1.3.2 also needs the normal
+active-only listing and Errand Service selection guard before it is complete.
 
 ## Authentication, authorization, and auditing
 
 - Accept a bearer token issued through the platform's User Service flow.
   Verify identity and current permissions using its published contract;
   never trust a caller-supplied role header or a user ID in a request body.
-- Centralize this check in FastAPI dependencies: one for authenticated reads,
-  one for Admin/Super Admin operations. Verify permission **before** any write,
+- Centralize management authorization in one shared helper and use FastAPI
+  dependencies for authenticated reads. Verify permission **before** any write,
   including activation, deactivation, and deletion. If verification is
   unavailable, fail closed without changing supplier data.
 - The User Service's published v1 supplier authorization contract specifies
   JWT verification through JWKS and a fresh internal authorization decision
-  for each management operation. The creation POST uses this contract;
+  for each management operation. POST, PATCH, and interim DELETE use this contract;
   management checks never rely on stale role claims or User Service tables.
 - Administrative supplier actions also need an audit entry with actor ID,
   supplier ID, action, outcome, and timestamp (backlog M1F5.4.3–4). Agree on
@@ -212,28 +215,28 @@ same API errors; rollback before responding.
    replacement, full resulting-record validation, immutable fields, and
    `updated_at`. Test invalid updates leave every field unchanged and that a
    deactivated supplier leaves normal listings promptly.
-5. **Delete and audit integration:** implement safe deactivation first. Finish
+5. **Delete and audit integration:** safe deactivation is implemented. Finish
    the versioned reference and audit contracts before claiming the backlog's
-   permanent-delete behavior. Test deleted versus deactivated outcomes and
-   that an inconclusive reference result never causes a hard delete.
+   permanent-delete behavior. Then test both outcomes and that an inconclusive
+   reference result never causes a hard delete.
 6. **D2 API demo:** run the backend against its own hosted database and show
    list, search/filter, detail, create, update, activation/deactivation, and
    deletion calls with an API client while the UI is stopped. Show valid-user,
    admin, and denied requests. This supplies evidence for D2 points 2–3 and
    prepares the point-4 end-to-end flow.
 
-The first external decision before implementing authorization is the User
-Service's published token/permission contract. The later deletion and audit
-steps need their own versioned inter-service contracts. None require shared
-database tables or another service's codebase.
+The User Service's published contract supplies current management decisions.
+Permanent deletion and audit still need their own versioned inter-service
+contracts. None require shared database tables or another service's codebase.
 
 ## Requirement traceability
 
 Each testable Supplier Service FR and NFR from the final backlog appears below.
 Parent headings (such as `M2F1.1` and `M2NFR3`) are covered by their listed
 children. These are **planned acceptance checks** for the full API; the creation
-POST and update PATCH checks are implemented, while checks for the remaining
-routes are still planned. The existing migration supplies some database safeguards.
+POST, update PATCH, and interim DELETE checks are implemented, while checks for
+the remaining routes and permanent deletion are still planned. The existing
+migration supplies some database safeguards.
 The backlog schedules deletion requirements for sprint 2 and performance and
 scale targets for sprint 4. Other Supplier Service rows are planned for sprint
 1 unless the backlog states otherwise. The backlog has a separate priority
@@ -257,9 +260,9 @@ column.
 | `M2F1.2.5` | Database refreshes `updated_at`, including category changes. | Field edit and category-only edit each advance `updated_at`. |
 | `M2F1.2.6` | Explicit `null` removes optional fields; status remains required. | Remove floor, coordinate pair, hours, and URL; `status: null` fails. |
 | `M2F1.2.7` | Reject missing supplier or invalid/duplicate resulting data atomically. | `404`, `422`, or `409` with reason; compare entire row and categories before/after. |
-| `M2F1.3.1` | Sprint 2: hard delete only after a reliable versioned contract proves no errand has ever referenced the ID. | Integration test proves unreferenced case; unknown result never hard-deletes. |
-| `M2F1.3.2` | Sprint 2: referenced supplier is retained and set `INACTIVE`; normal list hides it. | Delete referenced ID; verify row/errand history remain and active list excludes it. |
-| `M2F1.3.3` | `DELETE` response names `DELETED` or `DEACTIVATED`. | Assert outcome matches the persisted result. |
+| `M2F1.3.1` | Pending Errand Service contract: hard delete only when never referenced. Interim DELETE always retains the row. | Future integration test proves unreferenced case; unknown result never hard-deletes. |
+| `M2F1.3.2` | Interim DELETE sets `INACTIVE` and retains row/categories. Active-only listing and Errand Service selection guard remain pending. | Database test verifies retained row/status; future end-to-end test verifies new errands cannot select it. |
+| `M2F1.3.3` | Interim DELETE reports `DEACTIVATED`; report `DELETED` only when hard deletion is implemented. | HTTP and database tests assert `DEACTIVATED` matches the persisted result. |
 
 ### Listing, detail, search, and filters
 

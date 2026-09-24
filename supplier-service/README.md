@@ -1,6 +1,6 @@
 # Supplier Service
 
-## Create and update supplier APIs
+## Create, update, and deactivate supplier APIs
 
 `POST /api/v1/admin/suppliers` validates a new supplier, asks User Service for
 a current `SUPPLIER_CREATE` admin decision, and inserts the supplier and
@@ -8,6 +8,10 @@ categories in one PostgreSQL transaction. It returns `201`. The
 `PATCH /api/v1/admin/suppliers/{supplier_id}` route checks the current admin role
 again, merges supplied fields with the stored record, validates the complete
 result, and commits supplier and category changes together. It returns `200`.
+`DELETE /api/v1/admin/suppliers/{supplier_id}` currently retains the supplier
+and marks it `INACTIVE`, returning `{"id":"...","outcome":"DEACTIVATED"}`.
+Permanent deletion awaits the Errand Service reference contract described in
+[API.md](API.md#delete-contract-and-errand-references).
 
 This service keeps Supabase CLI `2.117.0` as a development dependency. Run
 `npm ci` once after cloning, then use `npx supabase` from this folder for local
@@ -65,6 +69,20 @@ both operating times together. `status: INACTIVE` uses User Service's current
 `SUPPLIER_DEACTIVATE` authorization decision. A missing ID returns `404`, an
 invalid resulting record `422`, and a normalized duplicate `409`.
 
+To deactivate a supplier, send DELETE with the same administrator token:
+
+```sh
+curl -i -X DELETE http://127.0.0.1:8001/api/v1/admin/suppliers/YOUR_SUPPLIER_UUID \
+  -H "Authorization: Bearer YOUR_ADMIN_ACCESS_TOKEN"
+```
+
+The Supplier Service asks User Service for a current `SUPPLIER_DEACTIVATE`
+decision. A missing supplier returns `404`. Repeating DELETE on an already
+inactive supplier returns `DEACTIVATED` again. The row and its category links
+remain in Supplier PostgreSQL. Normal-user listing and Errand Service selection
+checks are still planned, so this interim route does not complete every part
+of backlog M2F1.3.
+
 The User Service's published contract is
 [`../user-service/docs/supplier-authorization-contract.md`](../user-service/docs/supplier-authorization-contract.md).
 The Supplier Service verifies the access JWT using User Service's public JWKS,
@@ -99,9 +117,9 @@ User Service containers remain running. The CI workflow also builds the image
 after the Supplier Service HTTP tests.
 
 Run the HTTP tests with `.venv/bin/python -m pytest -q`. The optional database
-update test runs when `SUPPLIER_TEST_DATABASE_URL` points to the local Supplier
-database on port 55322; it creates and removes its own temporary suppliers.
-To check the live authenticated path, send POST and PATCH requests with an
+update and deactivation tests run when `SUPPLIER_TEST_DATABASE_URL` points to
+the local Supplier database on port 55322; they remove their temporary suppliers.
+To check the live authenticated path, send POST, PATCH, and DELETE requests with an
 administrator token and confirm the changes in the Supplier Service database.
 Seed SQL verifies the migration and sample data, but it does not exercise the
 API.

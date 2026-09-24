@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from app.config import Settings, get_settings
 from app.errors import ApiError, validation_fields
-from app.schemas import SupplierCreate, SupplierPatch, SupplierResponse
+from app.schemas import SupplierCreate, SupplierPatch, SupplierRemovalResponse, SupplierResponse
 
 
 SUPPLIER_COLUMNS = (
@@ -201,6 +201,30 @@ class SupplierRepository:
             raise ApiError(409, "DUPLICATE_SUPPLIER", "A supplier with this name, area, and floor already exists") from error
         except (psycopg.errors.CheckViolation, psycopg.errors.ForeignKeyViolation) as error:
             raise ApiError(422, "VALIDATION_ERROR", "Supplier data is invalid") from error
+        except psycopg.Error as error:
+            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
+
+    def deactivate(self, supplier_id: UUID) -> SupplierRemovalResponse:
+        """Retain the row until Errand Service can prove hard deletion is safe."""
+        if not self.database_url:
+            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
+        try:
+            with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT status FROM supplier_service.suppliers WHERE id = %s FOR UPDATE",
+                        (supplier_id,),
+                    )
+                    row = cursor.fetchone()
+                    if row is None:
+                        raise ApiError(404, "SUPPLIER_NOT_FOUND", "Supplier not found")
+                    if row["status"] != "INACTIVE":
+                        cursor.execute(
+                            "UPDATE supplier_service.suppliers SET status = 'INACTIVE' WHERE id = %s",
+                            (supplier_id,),
+                        )
+
+            return SupplierRemovalResponse(id=supplier_id, outcome="DEACTIVATED")
         except psycopg.Error as error:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
 
