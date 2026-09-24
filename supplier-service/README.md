@@ -15,7 +15,7 @@ Permanent deletion awaits the Errand Service reference contract described in
 Authenticated users can also call `GET /api/v1/categories` to read supported
 category codes and display names directly from the lookup table.
 `GET /api/v1/suppliers` lists only active suppliers. It accepts `q`, repeated
-`category`, `building_area`, `sort`, `page`, and `page_size` query parameters;
+`category`, `sort`, `page`, and `page_size` query parameters;
 the response includes `items`, `page`, `page_size`, and `total`. For example:
 
 ```sh
@@ -283,7 +283,6 @@ absolute `timestamptz` values; display them in Singapore time when needed.
 | Detail by ID | `id = ?` | Primary key. |
 | Normal listing | `status = ACTIVE`, ordered by name and ID | Scan and sort initially; add an index if measurements justify it. |
 | Management listing | Both statuses, optionally filtered by status | Sort the small result set; add an index if measurements justify it. |
-| Building filter | Case-insensitive exact building/area match | Scan initially; add an expression index if measurements justify it. |
 | Category filter | `EXISTS` on `supplier_categories` for any selected code, so each supplier appears once | Category/supplier index. |
 | Search | Case-insensitive partial match on name, building/area, or pickup description | Scan initially; consider `pg_trgm` indexes if measured search latency requires them. |
 

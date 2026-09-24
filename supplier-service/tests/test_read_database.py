@@ -54,7 +54,7 @@ def sample_suppliers():
 
 
 def _filters(marker, **changes):
-    values = {"q": marker, "categories": [], "building_area": None, "sort": "asc", "page": 1, "page_size": 20}
+    values = {"q": marker, "categories": [], "sort": "asc", "page": 1, "page_size": 20}
     values.update(changes)
     return SupplierListFilters(**values)
 
@@ -70,13 +70,11 @@ def test_normal_list_search_filter_sort_and_page(sample_suppliers):
 
     assert [item.id for item in repository.list_active_suppliers(_filters(f"northhub{marker.upper()}")).items] == [third.id]
     assert [item.id for item in repository.list_active_suppliers(_filters(f"pickupspot{marker.upper()}")).items] == [third.id]
-    area = f"  CENTRAL   {marker.upper()}  "
-    assert [item.id for item in repository.list_active_suppliers(_filters(marker, building_area=area)).items] == [first.id, second.id]
 
     by_categories = repository.list_active_suppliers(_filters(marker, categories=["FOOD", "COFFEE", "PRINTING"]))
     assert by_categories.total == 2
     assert [item.id for item in by_categories.items] == [first.id, second.id]
-    combined = repository.list_active_suppliers(_filters(marker, categories=["FOOD"], building_area=area))
+    combined = repository.list_active_suppliers(_filters(marker, categories=["FOOD"]))
     assert [item.id for item in combined.items] == [first.id]
 
     assert [item.id for item in repository.list_active_suppliers(_filters(marker, sort="desc")).items] == [third.id, second.id, first.id]

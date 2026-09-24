@@ -42,17 +42,21 @@ def list_categories(
 
 
 def supplier_list_filters(
+    request: Request,
     q: str | None = None,
     category: Annotated[list[str] | None, Query()] = None,
-    building_area: str | None = None,
     sort: Literal["asc", "desc"] = "asc",
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> SupplierListFilters:
+    if "building_area" in request.query_params:
+        raise ApiError(
+            422, "VALIDATION_ERROR", "Supplier query is invalid",
+            [{"field": "building_area", "message": "Building/area filtering is not supported"}],
+        )
     return SupplierListFilters(
         q=q,
         categories=category or [],
-        building_area=building_area,
         sort=sort,
         page=page,
         page_size=page_size,

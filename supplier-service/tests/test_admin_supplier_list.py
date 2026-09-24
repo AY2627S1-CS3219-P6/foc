@@ -58,3 +58,24 @@ def test_admin_list_denies_user_and_invalid_requests(read_auth):
         assert client.get("/api/v1/admin/suppliers", params={"status": "DISABLED"}, headers=headers).status_code == 422
     assert repository.calls == 0
     assert actions == ["SUPPLIER_UPDATE", "SUPPLIER_UPDATE"]
+
+
+def test_admin_list_rejects_removed_area_filter(read_auth):
+    token, decision, _actions = read_auth
+    decision.update(systemRole="ADMIN", allowed=True)
+
+    class FakeRepository:
+        def list_admin_suppliers(self, _filters, _status):
+            raise AssertionError("An unsupported filter must not read suppliers")
+
+    app.dependency_overrides[get_repository] = lambda: FakeRepository()
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/admin/suppliers",
+            params={"building_area": "Central Library"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    assert response.status_code == 422
+    assert response.json()["error"]["fields"] == [
+        {"field": "building_area", "message": "Building/area filtering is not supported"}
+    ]
