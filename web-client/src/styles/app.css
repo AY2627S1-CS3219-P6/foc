@@ -8,7 +8,7 @@ body {
   min-width: 320px;
 }
 
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 
 button, a { -webkit-tap-highlight-color: transparent; }
 
@@ -156,12 +156,16 @@ a { color: var(--primary); font-weight: 700; text-decoration-thickness: 1px; tex
 .mobile-topbar { align-items: center; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; min-height: 64px; padding: .8rem 1rem; }
 .mobile-brand { align-items: center; color: var(--ink); display: flex; font-size: .92rem; font-weight: 800; gap: .6rem; }
 .mobile-content { margin: 0 auto; max-width: 40rem; padding: 1.7rem 1rem 2.75rem; }
+.mobile-account-nav { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; gap: 1.15rem; padding: .55rem 1rem; }
+.mobile-account-nav a { color: var(--muted); font-size: .8rem; text-decoration: none; }
+.mobile-account-nav a[aria-current="page"] { color: var(--primary); text-decoration: underline; text-underline-offset: 4px; }
 
 .profile-heading { margin-bottom: 1.5rem; }
 .section-label { color: var(--muted); font-size: .74rem; font-weight: 800; letter-spacing: .045em; margin: 0 0 .45rem; text-transform: uppercase; }
 .profile-heading h1 { color: var(--ink); font-size: clamp(1.8rem, 5vw, 2.2rem); letter-spacing: -.04em; line-height: 1.08; margin: 0; }
 .profile-heading > p:last-child { color: var(--muted); line-height: 1.55; margin: .65rem 0 0; max-width: 42rem; }
 .profile-workspace { display: grid; gap: 1rem; }
+.profile-primary-column { display: grid; gap: 1rem; }
 .profile-card, .danger-zone { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow); padding: 1rem; }
 .profile-identity { align-items: center; display: flex; gap: .85rem; padding-bottom: 1rem; }
 .profile-identity h2 { color: var(--ink); font-size: 1.05rem; margin: 0 0 .2rem; }
@@ -175,12 +179,46 @@ a { color: var(--primary); font-weight: 700; text-decoration-thickness: 1px; tex
 .identity-list dd { color: var(--ink); font-size: .88rem; font-weight: 750; margin: 0; overflow-wrap: anywhere; text-align: right; }
 .profile-actions, .inline-actions { align-items: center; display: flex; flex-wrap: wrap; gap: .85rem; margin-top: 1.2rem; }
 .profile-edit-form { border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 1.1rem; }
+.security-zone { align-items: center; background: #f4f8fc; border: 1px solid #caddec; border-radius: var(--radius-panel); display: flex; gap: 1rem; justify-content: space-between; padding: 1rem; }
+.security-zone h2 { color: var(--ink); font-size: 1.06rem; margin: 0 0 .45rem; }
+.security-zone p:not(.section-label) { color: var(--muted); font-size: .88rem; line-height: 1.5; margin: 0; max-width: 33rem; }
+.security-zone .button { flex: 0 0 auto; }
 .danger-zone { background: var(--danger-surface); border-color: #f2d4cb; box-shadow: none; }
 .danger-zone .section-label, .danger-zone h2 { color: var(--danger); }
 .danger-zone h2 { font-size: 1.06rem; margin: 0 0 .45rem; }
 .danger-zone p:not(.section-label) { color: #774e45; font-size: .88rem; line-height: 1.5; margin: 0 0 1rem; }
 .danger-zone .button { width: 100%; }
 .profile-note { color: var(--muted); font-size: .78rem; line-height: 1.45; margin: 1.1rem 0 0; }
+
+.management-heading { max-width: 46rem; }
+.management-search-card, .admin-account-result { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow); padding: 1rem; }
+.management-search-form { align-items: end; display: grid; gap: .9rem; }
+.search-field-select { display: grid; gap: .45rem; }
+.search-field-select label { color: var(--ink); font-size: .88rem; font-weight: 700; }
+.search-field-select select { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--ink); min-height: 48px; padding: .72rem .86rem; width: 100%; }
+.management-search-form .form-field { margin: 0; }
+.management-search-button { width: 100%; }
+.management-search-card .form-error { margin: 1rem 0 0; }
+.admin-account-result { border-top: 4px solid var(--primary); margin-top: 1rem; }
+.admin-account-result-heading { align-items: flex-start; border-bottom: 1px solid var(--border); display: flex; gap: 1rem; justify-content: space-between; padding-bottom: 1rem; }
+.admin-account-result-heading h2 { color: var(--ink); font-size: 1.2rem; margin: 0 0 .2rem; }
+.admin-account-result-heading p:not(.section-label) { color: var(--muted); font-size: .88rem; margin: 0; }
+.account-status { background: var(--success-surface); border-radius: 999px; color: var(--success); flex: 0 0 auto; font-size: .76rem; font-weight: 800; padding: .36rem .6rem; }
+.account-status-suspended, .account-status-deleted { background: var(--danger-surface); color: var(--danger); }
+.admin-identity-list { display: grid; gap: .65rem; margin: 0; padding-top: 1rem; }
+.admin-identity-list > div { align-items: baseline; display: flex; gap: 1rem; justify-content: space-between; }
+.admin-identity-list dt { color: var(--muted); font-size: .84rem; }
+.admin-identity-list dd { color: var(--ink); font-size: .88rem; font-weight: 750; margin: 0; overflow-wrap: anywhere; text-align: right; }
+.role-management-zone { border-top: 1px solid var(--border); margin-top: 1.1rem; padding-top: 1.1rem; }
+.role-management-zone h3 { color: var(--ink); font-size: 1.05rem; margin: 0 0 .4rem; }
+.role-management-zone > div > p:not(.section-label) { color: var(--muted); font-size: .88rem; line-height: 1.5; margin: 0; max-width: 38rem; }
+.role-management-form { align-items: end; display: grid; gap: .7rem; margin-top: 1rem; }
+.role-management-form label { color: var(--ink); font-size: .88rem; font-weight: 700; }
+.role-management-form select { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--ink); min-height: 48px; padding: .72rem .86rem; width: 100%; }
+.role-management-form .button { width: 100%; }
+.role-management-feedback { margin-top: 1rem; }
+.role-change-dialog { max-width: 34rem; }
+.role-change-session-note { background: #f4f8fc; border-left: 3px solid #4c88ba; color: #3c5871 !important; font-size: .88rem; padding: .75rem .85rem; }
 
 .dialog-backdrop { align-items: center; background: rgb(20 38 56 / 45%); display: flex; inset: 0; justify-content: center; padding: 1.25rem; position: fixed; z-index: 10; }
 .dialog { background: var(--surface); border-radius: var(--radius-panel); box-shadow: 0 24px 80px rgb(21 43 64 / 28%); max-width: 32rem; padding: 1.4rem; width: 100%; }
@@ -216,7 +254,11 @@ a { color: var(--primary); font-weight: 700; text-decoration-thickness: 1px; tex
   .rail-brand strong { display: block; font-size: .81rem; line-height: 1.2; text-transform: uppercase; }
   .rail-brand span { color: #bcd4e7; display: block; font-size: .65rem; margin-top: .18rem; text-transform: uppercase; }
   .rail-group-label { color: #9ec0da; font-size: .65rem; font-weight: 800; letter-spacing: .055em; margin: 0 .6rem .65rem; text-transform: uppercase; }
-  .rail-profile-link { align-items: center; background: rgb(255 255 255 / 15%); border-left: 3px solid #f4ad43; border-radius: 8px; color: #fff; display: flex; font-size: .9rem; font-weight: 750; gap: .65rem; padding: .72rem .8rem; }
+  .rail-navigation { display: grid; }
+  .rail-group-label-spaced { margin-top: 1.75rem; }
+  .rail-profile-link { align-items: center; border-left: 3px solid transparent; border-radius: 8px; color: #d5e6f3; display: flex; font-size: .9rem; font-weight: 750; gap: .65rem; padding: .72rem .8rem; text-decoration: none; }
+  .rail-profile-link:hover { background: rgb(255 255 255 / 10%); color: #fff; }
+  .rail-profile-link-active { background: rgb(255 255 255 / 15%); border-left-color: #f4ad43; color: #fff; }
   .rail-footnote { color: #bcd4e7; font-size: .75rem; line-height: 1.5; margin: auto .45rem .25rem; }
   .desktop-main { min-width: 0; }
   .desktop-topbar { align-items: center; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; min-height: 72px; padding: .8rem clamp(1.5rem, 4vw, 4rem); }
@@ -228,17 +270,26 @@ a { color: var(--primary); font-weight: 700; text-decoration-thickness: 1px; tex
   .profile-heading h1 { font-size: 2rem; }
   .profile-workspace { align-items: start; grid-template-columns: minmax(0, 640px) minmax(260px, 330px); }
   .profile-card, .danger-zone { padding: 1.2rem; }
+  .management-search-form { grid-template-columns: minmax(11rem, .7fr) minmax(0, 1.8fr) auto; }
+  .management-search-button { min-width: 9rem; width: auto; }
+  .management-search-card, .admin-account-result { max-width: 760px; padding: 1.2rem; }
+  .role-management-form { grid-template-columns: minmax(12rem, 1fr) auto; }
+  .role-management-form label { grid-column: 1 / -1; }
+  .role-management-form .button { min-width: 11rem; width: auto; }
 }
 
 @media (min-width: 1024px) and (max-width: 1210px) {
   .profile-workspace { grid-template-columns: minmax(0, 640px); }
   .danger-zone { max-width: 640px; }
+  .management-search-form { grid-template-columns: minmax(11rem, .7fr) minmax(0, 1.8fr) auto; }
 }
 
 @media (max-width: 540px) {
   .form-row { grid-template-columns: 1fr; }
   .dialog-actions > .button { flex: 1 1 100%; }
   .verification-actions { align-items: flex-start; flex-direction: column; }
+  .security-zone { align-items: flex-start; flex-direction: column; }
+  .security-zone .button { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

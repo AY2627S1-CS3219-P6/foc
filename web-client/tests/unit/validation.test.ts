@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { passwordFormatError, validateRegistration } from "../../src/api/validation";
+import {
+  passwordFormatError,
+  validatePasswordChange,
+  validateRegistration,
+} from "../../src/api/validation";
 
 const baseRegistration = {
   username: "CampusUser",
@@ -19,5 +23,25 @@ describe("registration password validation", () => {
     expect(
       validateRegistration({ ...baseRegistration, password: "onlylowercasepassword", passwordConfirmation: "onlylowercasepassword" }),
     ).toMatchObject({ password: passwordFormatError });
+  });
+});
+
+describe("password change validation", () => {
+  it("requires a different, confirmed replacement password", () => {
+    expect(
+      validatePasswordChange({
+        currentPassword: "CurrentPass1!",
+        newPassword: "CurrentPass1!",
+        passwordConfirmation: "CurrentPass1!",
+      }),
+    ).toMatchObject({ newPassword: "Choose a password that is different from the current password." });
+
+    expect(
+      validatePasswordChange({
+        currentPassword: "CurrentPass1!",
+        newPassword: "ReplacementPass1!",
+        passwordConfirmation: "DifferentPass1!",
+      }),
+    ).toMatchObject({ passwordConfirmation: "Passwords do not match." });
   });
 });

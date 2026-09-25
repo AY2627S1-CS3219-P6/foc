@@ -59,6 +59,16 @@ async def require_self_access(
     return principal
 
 
+async def require_admin(
+    principal: Annotated[AuthenticatedPrincipal, Depends(get_current_principal)],
+) -> AuthenticatedPrincipal:
+    """Allow the inherited administrative role tier to view safe account details."""
+
+    if not has_minimum_role(principal.user.system_role, SystemRole.ADMIN):
+        raise ApiError(403, "INSUFFICIENT_ROLE", "Admin access is required.")
+    return principal
+
+
 async def require_super_admin(
     principal: Annotated[AuthenticatedPrincipal, Depends(get_current_principal)],
 ) -> AuthenticatedPrincipal:

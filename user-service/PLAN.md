@@ -66,12 +66,14 @@ All application responses use a consistent error shape containing a stable code,
 | `DELETE /v1/auth/sessions/current` | authenticated/refresh cookie | Revoke the current session and clear the cookie. |
 | `GET /v1/users/me` | authenticated | Return only the caller's safe profile. |
 | `PATCH /v1/users/me` | authenticated | Update only `displayName`; reapply validation and reject protected fields. |
+| `PATCH /v1/users/me/password` | authenticated | Verify the current password, validate and bcrypt-hash a different new password, revoke every session, and clear the refresh cookie so the user signs in again. |
 | `DELETE /v1/users/me` | authenticated | Require current password and an explicit deletion acknowledgement; transactionally anonymize the profile into a terminal `DELETED` tombstone, delete credentials/sessions, and retain the stable ID unless doing so would remove the last active Super Admin. |
+| `GET /v1/admin/users?username=...` or `?email=...` | current `ADMIN` or `SUPER_ADMIN` | Perform one exact, normalized username or email lookup and return only safe account information: ID, username, display name, email, verification status, account status, system role, and registration timestamp. |
 | `PATCH /v1/admin/users/{userId}/system-role` | current `SUPER_ADMIN` | Promote or demote another account among `USER`, `ADMIN`, and `SUPER_ADMIN`; record an audit entry and invalidate old role state. Self role changes are rejected. |
 | `GET /.well-known/jwks.json` | service/public key distribution | Return public JWT-signing keys only, with a stable key ID for local signature verification and rotation. |
 | `POST /v1/internal/authorization-decisions` | authenticated Supplier Service identity | Return the current authenticated subject ID, status, role, and allow/deny decision for the declared administrative action. It is fail-closed and contains no profile or credential data. |
 
-The immediate role/lifecycle endpoint is deliberately limited to Super Admin and another target user. It does not expose the future account-search, suspension, reactivation, password-change, or password-reset interfaces before they are needed.
+The role-lifecycle endpoint remains deliberately limited to a Super Admin and another target user. It does not expose suspension, reactivation, or password-reset interfaces before they are needed.
 
 ## Incremental implementation phases
 
@@ -133,11 +135,37 @@ Each phase ends with a human-verifiable result and automated tests. Do not start
 
 **Human check:** inspect a RabbitMQ event after verification and confirm it contains the four safe fields only. Run the D2 demo path end-to-end: bootstrap Super Admin, register/verify a normal user, authenticate, update/toggle profile, prove protected changes and forbidden roles fail, promote an Admin, and show the Supplier authorization decision changes accordingly.
 
+### Phase 7 - password change and administrator account lookup
+
+- Add authenticated password change at `PATCH /v1/users/me/password`. The request requires the current password and a different new password that passes the existing password validation policy. In one transaction, verify the bcrypt hash, replace it using the configured work factor, update `password_changed_at`, revoke every active session for the caller, and clear the refresh cookie. The client clears its in-memory access token and returns the user to sign-in; no password, hash, token, or other secret is logged or returned.
+- Add `GET /v1/admin/users` for current `ADMIN` and `SUPER_ADMIN` callers. Require exactly one of `username` or `email`, normalize it using the same registration rules, and perform an exact unique lookup through the existing normalized unique indexes. Return only `userId`, `username`, `displayName`, `email`, `emailVerified`, `accountStatus`, `systemRole`, and `createdAt`; return clear validation, authorization, and not-found errors without revealing credentials, OTPs, reset material, or session data. No schema migration is needed because the normalized identifiers are already uniquely indexed.
+- Add the companion web-client flows: a profile security dialog with current password, new password, confirmation, password-requirements help, and field/error/loading states; and an `/admin/users` management route with role-gated navigation, explicit username/email search selection, and responsive safe-account results. Use the established account and management-table design, without adding another service's UI.
+- Cover password validation, current-password rejection, hash replacement, all-session invalidation, fresh login with only the new password, lookup access guards, normalized username/email matches, safe response shape, and lookup validation/not-found cases. Cover the browser request payloads, forced sign-out, lookup states, and the 375, 768, 1024, and 1440 pixel layouts.
+
+**Human check:** change a password from the authenticated profile and show that the current browser session and every prior session are rejected until a new sign-in uses the new password. As an Admin and a Super Admin, find an account by either username or email and verify the displayed safe fields; a User cannot access the lookup route or API.
+
+### Phase 8 - Super Admin role-management frontend
+
+- Extend the Phase 7 user-management result view for Super Admins only. Reuse `PATCH /v1/admin/users/{userId}/system-role`; no new role-lifecycle API or database behavior is introduced in this phase.
+- Present a different target role from `USER`, `ADMIN`, and `SUPER_ADMIN`, then require an explicit confirmation naming the target and before/after role. Hide all role controls from Admins and never offer a Super Admin a control for their own account. Keep the server as the authority for every request.
+- Preserve and explain lifecycle failures returned by the existing backend: insufficient role, self-change, missing or inactive target, unchanged role, and last-active-Super-Admin protection. On success, retain the lookup result and update its displayed role from the response; the target's server-side session invalidation and immutable audit entry remain the existing backend behavior.
+- Add browser/component coverage that proves Admins remain view-only, Super Admins alone see the role controls, confirmation precedes the request, success updates the result, and each backend failure is actionable. Re-run the existing integration coverage for audit logging, session revocation, self-change prevention, and last-Super-Admin concurrency protection.
+
+#### Phase 8 implementation breakdown
+
+1. Extend the web-client User Service API client and authenticated context with a typed `PATCH /v1/admin/users/{userId}/system-role` call. It sends only the requested `systemRole`, keeps the actor's access token in memory, and continues to rely on the server for every authorization and lifecycle decision.
+2. Add a role-management control to the existing account-result view. It is rendered only when the signed-in caller is a `SUPER_ADMIN` and the found account is not the caller. The control presents the three fixed roles, requires a choice different from the current role, and does not make Admins or a Super Admin's own account actionable.
+3. Before sending the request, open an accessible confirmation dialog that names the target account and its current and requested roles, and explains that the target's active sessions will be revoked. Cancellation sends no request.
+4. On success, preserve the lookup result, update its displayed role from the API response, and show a concise success message. Map every existing lifecycle error to the API's clear server-provided message so the user can correct the action without losing the result.
+5. Add focused browser/client tests for the request payload, Admin view-only behavior, Super Admin confirmation and success update, self-target hiding, and actionable lifecycle failure rendering. Re-run the existing backend lifecycle integration tests; no migration or new backend role endpoint is introduced.
+
+**Human check:** as a Super Admin, locate another active account, promote it, then demote it and confirm the account's existing session is rejected after each change. Verify that an Admin cannot see or invoke role controls, a Super Admin cannot modify their own role, and the final active Super Admin cannot be demoted.
+
 ## Deferred User Service work after D2
 
-These remain explicitly planned so Sprint 1 does not accidentally claim them complete:
+These remain explicitly planned after the expanded Sprint 1 scope:
 
-- **Sprint 2:** authenticated password change, email password-reset request/confirmation, session invalidation after password reset, administrator user lookup/listing by ID/username/display name/email, safe account-information views, suspension/reactivation, and the remaining administration audit actions. These complete M1F3.2, M1F5.3, and the remaining M1F5.4 requirements.
+- **Sprint 2:** email password-reset request/confirmation, session invalidation after password reset, suspension/reactivation, and the remaining administration lifecycle and audit actions. These complete the remaining password-reset and administrative requirements not delivered by Phases 7 and 8.
 - **Sprint 3-4:** execute the specified scale/performance/load tests, key-rotation rehearsal, recovery testing, AWS deployment evidence, and operational dashboards/alerts. Preserve the same User Service API and data-ownership boundary.
 
 ## Acceptance mapping
@@ -150,3 +178,5 @@ These remain explicitly planned so Sprint 1 does not accidentally claim them com
 | 4. Supplier integration | JWKS plus fail-closed internal current-authorization decision contract for the Supplier Service owner. |
 | 5. Protected profiles | Allow-listed profile DTO, self-only endpoints, protected-field rejection, and deletion confirmation with transactional PII anonymization, credential/session removal, stable-ID preservation, and identifier reuse. |
 | 6. Administrator lifecycle | One-shot secure bootstrap, Super Admin promotion API, audit record, session/role invalidation, and last-Super-Admin concurrency protection. |
+| 7. Password lifecycle and administrator lookup | Authenticated current-password change with complete session invalidation, plus Admin/Super Admin exact safe-account lookup by username or email. |
+| 8. Super Admin role-management interface | Dedicated user-management UI with Super Admin-only, confirmed role transitions backed by the existing protected lifecycle endpoint. |

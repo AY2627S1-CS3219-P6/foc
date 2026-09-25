@@ -10,7 +10,12 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.authentication import REFRESH_COOKIE_NAME
-from app.api.schemas import AccountDeletionRequest, CurrentUserResponse, ProfileUpdateRequest
+from app.api.schemas import (
+    AccountDeletionRequest,
+    CurrentUserResponse,
+    PasswordChangeRequest,
+    ProfileUpdateRequest,
+)
 from app.auth.dependencies import AuthenticatedPrincipal, require_self_access
 from app.db import get_db_session
 from app.profile.service import ProfileService
@@ -68,6 +73,32 @@ async def delete_current_user(
         session,
         user_id=principal.user.id,
         current_password=body.current_password,
+    )
+    response.delete_cookie(
+        key=REFRESH_COOKIE_NAME,
+        path="/v1/auth",
+        httponly=True,
+        secure=request.app.state.settings.environment == "production",
+        samesite="lax",
+    )
+
+
+@router.patch("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_current_user_password(
+    body: PasswordChangeRequest,
+    request: Request,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    principal: Annotated[AuthenticatedPrincipal, Depends(require_self_access)],
+) -> None:
+    """Replace the caller's password and require a fresh sign-in on every device."""
+
+    await ProfileService().change_password(
+        session,
+        user_id=principal.user.id,
+        current_password=body.current_password,
+        new_password=body.new_password,
+        bcrypt_rounds=request.app.state.settings.bcrypt_rounds,
     )
     response.delete_cookie(
         key=REFRESH_COOKIE_NAME,

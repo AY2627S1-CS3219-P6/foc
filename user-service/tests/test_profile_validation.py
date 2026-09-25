@@ -3,7 +3,12 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.api.schemas import AccountDeletionRequest, ProfileUpdateRequest
+from app.api.schemas import (
+    AccountDeletionRequest,
+    AdminUserLookupRequest,
+    PasswordChangeRequest,
+    ProfileUpdateRequest,
+)
 
 
 def test_profile_update_accepts_only_mutable_validated_fields() -> None:
@@ -55,3 +60,44 @@ def test_account_deletion_accepts_a_true_explicit_acknowledgement() -> None:
 
     assert request.current_password == "SecurePass1!"
     assert request.acknowledge_deletion is True
+
+
+def test_password_change_validates_only_a_current_and_valid_replacement_password() -> None:
+    request = PasswordChangeRequest.model_validate(
+        {"currentPassword": "CurrentPassword1!", "newPassword": "ReplacementPassword1!"}
+    )
+
+    assert request.current_password == "CurrentPassword1!"
+    assert request.new_password == "ReplacementPassword1!"
+
+    with pytest.raises(ValidationError):
+        PasswordChangeRequest.model_validate(
+            {"currentPassword": "CurrentPassword1!", "newPassword": "weak"}
+        )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"username": "CampusUser"},
+        {"email": "campus@u.nus.edu"},
+    ],
+)
+def test_admin_lookup_accepts_one_valid_unique_identifier(payload: dict[str, object]) -> None:
+    request = AdminUserLookupRequest.model_validate(payload)
+
+    assert (request.username is None) != (request.email is None)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"username": "CampusUser", "email": "campus@u.nus.edu"},
+        {"username": "invalid username"},
+        {"email": "campus@example.com"},
+    ],
+)
+def test_admin_lookup_requires_one_valid_identifier(payload: dict[str, object]) -> None:
+    with pytest.raises(ValidationError):
+        AdminUserLookupRequest.model_validate(payload)

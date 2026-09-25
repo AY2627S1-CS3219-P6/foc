@@ -10,8 +10,12 @@ import {
 import { ApiRequestError, isApiRequestError } from "../api/client";
 import {
   type AccessSession,
+  type AdminLookupField,
+  type AdminUserAccount,
   type CurrentUser,
   type ProfileChanges,
+  type SystemRole,
+  type SystemRoleUpdate,
   userService,
 } from "../api/user-service";
 
@@ -23,6 +27,9 @@ type AuthContextValue = {
   withCurrentAccess: <T,>(operation: (token: string) => Promise<T>) => Promise<T>;
   signIn: (email: string, password: string) => Promise<void>;
   updateProfile: (changes: ProfileChanges) => Promise<CurrentUser>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  findUserAccount: (field: AdminLookupField, value: string) => Promise<AdminUserAccount>;
+  updateUserSystemRole: (userId: string, systemRole: SystemRole) => Promise<SystemRoleUpdate>;
   signOut: () => Promise<void>;
   deleteAccount: (currentPassword: string) => Promise<void>;
 };
@@ -111,6 +118,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [withCurrentAccess],
   );
 
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      await withCurrentAccess((token) => userService.changeCurrentPassword(currentPassword, newPassword, token));
+      clearSession();
+    },
+    [clearSession, withCurrentAccess],
+  );
+
+  const findUserAccount = useCallback(
+    (field: AdminLookupField, value: string) =>
+      withCurrentAccess((token) => userService.findUserAccount(field, value, token)),
+    [withCurrentAccess],
+  );
+
+  const updateUserSystemRole = useCallback(
+    (userId: string, systemRole: SystemRole) =>
+      withCurrentAccess((token) => userService.updateUserSystemRole(userId, systemRole, token)),
+    [withCurrentAccess],
+  );
+
   const signOut = useCallback(async () => {
     try {
       await withCurrentAccess((token) => userService.revokeCurrentSession(token));
@@ -128,8 +155,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, withCurrentAccess, signIn, updateProfile, signOut, deleteAccount }),
-    [deleteAccount, signIn, signOut, status, updateProfile, user, withCurrentAccess],
+    () => ({
+      status,
+      user,
+      withCurrentAccess,
+      signIn,
+      updateProfile,
+      changePassword,
+      findUserAccount,
+      updateUserSystemRole,
+      signOut,
+      deleteAccount,
+    }),
+    [
+      changePassword,
+      deleteAccount,
+      findUserAccount,
+      signIn,
+      signOut,
+      status,
+      updateProfile,
+      updateUserSystemRole,
+      user,
+      withCurrentAccess,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

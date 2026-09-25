@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
-import { validateDisplayName } from "../api/validation";
+import { validateDisplayName, validatePasswordChange } from "../api/validation";
 import { useAuth } from "../app/auth-provider";
+import { ChangePasswordDialog } from "../components/change-password-dialog";
 import { DeleteAccountDialog } from "../components/delete-account-dialog";
 import { DesktopAppShell } from "../components/desktop-app-shell";
 import { FormField } from "../components/form-field";
 import { MobileAppShell } from "../components/mobile-app-shell";
 
 function ProfileContent() {
-  const { user, updateProfile, signOut, deleteAccount } = useAuth();
+  const { user, updateProfile, changePassword, signOut, deleteAccount } = useAuth();
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [fieldError, setFieldError] = useState<string>();
@@ -21,6 +22,13 @@ function ProfileContent() {
   const [deleteAcknowledged, setDeleteAcknowledged] = useState(false);
   const [deleteError, setDeleteError] = useState<string>();
   const [deleting, setDeleting] = useState(false);
+  const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [passwordFieldErrors, setPasswordFieldErrors] = useState<Record<string, string>>({});
+  const [passwordChangeError, setPasswordChangeError] = useState<string>();
+  const [changingPassword, setChangingPassword] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -78,6 +86,41 @@ function ProfileContent() {
     }
   }
 
+  function closePasswordChange() {
+    setPasswordChangeOpen(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setPasswordConfirmation("");
+    setPasswordFieldErrors({});
+    setPasswordChangeError(undefined);
+  }
+
+  async function confirmPasswordChange() {
+    const errors = validatePasswordChange({ currentPassword, newPassword, passwordConfirmation });
+    setPasswordFieldErrors(errors);
+    setPasswordChangeError(undefined);
+    if (Object.keys(errors).length > 0) return;
+
+    setChangingPassword(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      closePasswordChange();
+      navigate("/sign-in", { replace: true, state: { message: "Password changed. Sign in with your new password." } });
+    } catch (requestError) {
+      if (isApiRequestError(requestError)) {
+        const errorsByField = Object.fromEntries(
+          requestError.fieldErrors.map((item) => [item.field, item.message]),
+        );
+        setPasswordFieldErrors(errorsByField);
+        setPasswordChangeError(requestError.fieldErrors.length > 0 ? undefined : requestError.message);
+      } else {
+        setPasswordChangeError("We could not change your password. Try again.");
+      }
+    } finally {
+      setChangingPassword(false);
+    }
+  }
+
   return (
     <>
       <header className="profile-heading">
@@ -87,37 +130,49 @@ function ProfileContent() {
       </header>
       {success ? <p className="form-success" role="status">{success}</p> : null}
       <div className="profile-workspace">
-        <section className="profile-card">
-          <div className="profile-identity">
-            <span className="avatar avatar-large">{user.displayName.slice(0, 1).toUpperCase()}</span>
-            <div>
-              <h2>{user.displayName}</h2>
-            </div>
-          </div>
-          <dl className="identity-list">
-            <div><dt>NUS email</dt><dd>{user.email}</dd></div>
-            <div><dt>Username</dt><dd>{user.username}</dd></div>
-            <div><dt>Display name</dt><dd>{user.displayName}</dd></div>
-            <div><dt>Account status</dt><dd>{user.accountStatus === "ACTIVE" ? "Active" : user.accountStatus}</dd></div>
-          </dl>
-          {editing ? (
-            <div className="profile-edit-form">
-              <FormField error={fieldError} label="Display name" onChange={(event) => setDisplayName(event.target.value)} value={displayName} />
-              {formError ? <p className="form-error" role="alert">{formError}</p> : null}
-              <div className="inline-actions">
-                <button className="button button-primary" disabled={busy} onClick={saveProfile} type="button">
-                  {busy ? "Saving…" : "Save changes"}
-                </button>
-                <button className="button button-secondary" disabled={busy} onClick={() => setEditing(false)} type="button">Cancel</button>
+        <div className="profile-primary-column">
+          <section className="profile-card">
+            <div className="profile-identity">
+              <span className="avatar avatar-large">{user.displayName.slice(0, 1).toUpperCase()}</span>
+              <div>
+                <h2>{user.displayName}</h2>
               </div>
             </div>
-          ) : (
-            <div className="profile-actions">
-              <button className="button button-primary" onClick={() => setEditing(true)} type="button">Edit profile</button>
-              <button className="text-button" onClick={handleSignOut} type="button">Sign out</button>
+            <dl className="identity-list">
+              <div><dt>NUS email</dt><dd>{user.email}</dd></div>
+              <div><dt>Username</dt><dd>{user.username}</dd></div>
+              <div><dt>Display name</dt><dd>{user.displayName}</dd></div>
+              <div><dt>Account status</dt><dd>{user.accountStatus === "ACTIVE" ? "Active" : user.accountStatus}</dd></div>
+            </dl>
+            {editing ? (
+              <div className="profile-edit-form">
+                <FormField error={fieldError} label="Display name" onChange={(event) => setDisplayName(event.target.value)} value={displayName} />
+                {formError ? <p className="form-error" role="alert">{formError}</p> : null}
+                <div className="inline-actions">
+                  <button className="button button-primary" disabled={busy} onClick={saveProfile} type="button">
+                    {busy ? "Saving…" : "Save changes"}
+                  </button>
+                  <button className="button button-secondary" disabled={busy} onClick={() => setEditing(false)} type="button">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="profile-actions">
+                <button className="button button-primary" onClick={() => setEditing(true)} type="button">Edit profile</button>
+                <button className="text-button" onClick={handleSignOut} type="button">Sign out</button>
+              </div>
+            )}
+          </section>
+          <section className="security-zone">
+            <div>
+              <p className="section-label">Security</p>
+              <h2>Keep your account secure</h2>
+              <p>Change your password whenever you need to. This signs you out on every device.</p>
             </div>
-          )}
-        </section>
+            <button className="button button-secondary" onClick={() => setPasswordChangeOpen(true)} type="button">
+              Change password
+            </button>
+          </section>
+        </div>
         <aside className="danger-zone">
           <p className="section-label">Danger zone</p>
           <h2>Delete your account</h2>
@@ -136,6 +191,20 @@ function ProfileContent() {
         onPasswordChange={setDeletePassword}
         open={deleteOpen}
         password={deletePassword}
+      />
+      <ChangePasswordDialog
+        busy={changingPassword}
+        currentPassword={currentPassword}
+        error={passwordChangeError}
+        errors={passwordFieldErrors}
+        newPassword={newPassword}
+        onCancel={closePasswordChange}
+        onConfirm={confirmPasswordChange}
+        onCurrentPasswordChange={setCurrentPassword}
+        onNewPasswordChange={setNewPassword}
+        onPasswordConfirmationChange={setPasswordConfirmation}
+        open={passwordChangeOpen}
+        passwordConfirmation={passwordConfirmation}
       />
     </>
   );

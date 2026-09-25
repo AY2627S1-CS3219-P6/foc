@@ -150,11 +150,59 @@ class ProfileUpdateRequest(ApiModel):
         return self
 
 
+class PasswordChangeRequest(ApiModel):
+    """A current-password-verified replacement credential for the caller."""
+
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_replacement_password(cls, value: str) -> str:
+        return validate_password(value)
+
+
 class AccountDeletionRequest(ApiModel):
     """Explicit self-deletion confirmation; no protected profile fields are accepted."""
 
     current_password: str = Field(min_length=1, max_length=128)
     acknowledge_deletion: Literal[True]
+
+
+class AdminUserLookupRequest(ApiModel):
+    """One exact, normalized administrative account lookup criterion."""
+
+    username: str | None = Field(default=None, min_length=1, max_length=64)
+    email: str | None = Field(default=None, min_length=3, max_length=254)
+
+    @field_validator("username")
+    @classmethod
+    def validate_lookup_username(cls, value: str | None) -> str | None:
+        return None if value is None else validate_username(value)
+
+    @field_validator("email")
+    @classmethod
+    def validate_lookup_email(cls, value: str | None) -> str | None:
+        return None if value is None else validate_email(value)
+
+    @model_validator(mode="after")
+    def require_exactly_one_identity(self) -> AdminUserLookupRequest:
+        if (self.username is None) == (self.email is None):
+            raise ValueError("Supply exactly one of username or email.")
+        return self
+
+
+class AdminUserLookupResponse(ApiModel):
+    """The safe identity details available to authorised administrators."""
+
+    user_id: UUID
+    username: str
+    display_name: str
+    email: str
+    email_verified: bool
+    account_status: AccountStatus
+    system_role: SystemRole
+    created_at: datetime
 
 
 class SystemRoleUpdateRequest(ApiModel):
