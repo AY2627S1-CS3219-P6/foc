@@ -1,11 +1,13 @@
 import { requestJson } from "./client";
 
+export type SystemRole = "USER" | "ADMIN" | "SUPER_ADMIN";
+
 export type CurrentUser = {
   userId: string;
   username: string;
   email: string;
   displayName: string;
-  systemRole: "USER" | "ADMIN" | "SUPER_ADMIN";
+  systemRole: SystemRole;
   accountStatus: "ACTIVE" | "SUSPENDED" | "DELETED";
 };
 
@@ -39,6 +41,25 @@ export type RegistrationPayload = {
 };
 
 export type ProfileChanges = Pick<CurrentUser, "displayName">;
+
+export type AdminUserAccount = {
+  userId: string;
+  username: string;
+  displayName: string;
+  email: string;
+  emailVerified: boolean;
+  accountStatus: "ACTIVE" | "SUSPENDED" | "DELETED";
+  systemRole: SystemRole;
+  createdAt: string;
+};
+
+export type AdminLookupField = "username" | "email";
+
+export type SystemRoleUpdate = {
+  userId: string;
+  systemRole: SystemRole;
+  roleVersion: number;
+};
 
 export const userService = {
   startRegistration: (payload: RegistrationPayload) =>
@@ -80,10 +101,29 @@ export const userService = {
       accessToken,
     ),
 
+  changeCurrentPassword: (currentPassword: string, newPassword: string, accessToken: string) =>
+    requestJson<void>(
+      "/users/me/password",
+      { method: "PATCH", body: JSON.stringify({ currentPassword, newPassword }) },
+      accessToken,
+    ),
+
   deleteCurrentUser: (currentPassword: string, accessToken: string) =>
     requestJson<void>(
       "/users/me",
       { method: "DELETE", body: JSON.stringify({ currentPassword, acknowledgeDeletion: true }) },
+      accessToken,
+    ),
+
+  findUserAccount: (field: AdminLookupField, value: string, accessToken: string) => {
+    const search = new URLSearchParams({ [field]: value });
+    return requestJson<AdminUserAccount>(`/admin/users?${search.toString()}`, { method: "GET" }, accessToken);
+  },
+
+  updateUserSystemRole: (userId: string, systemRole: SystemRole, accessToken: string) =>
+    requestJson<SystemRoleUpdate>(
+      `/admin/users/${encodeURIComponent(userId)}/system-role`,
+      { method: "PATCH", body: JSON.stringify({ systemRole }) },
       accessToken,
     ),
 };

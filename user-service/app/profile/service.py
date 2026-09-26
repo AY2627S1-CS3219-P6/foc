@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 import bcrypt
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.lifecycle import acquire_lifecycle_lock, ensure_not_last_active_super_admin
@@ -82,6 +82,53 @@ class ProfileService:
             user.account_status = AccountStatus.DELETED
             user.deleted_at = now
 
+    async def change_password(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: UUID,
+        current_password: str,
+        new_password: str,
+        bcrypt_rounds: int,
+    ) -> None:
+        """Replace a caller's credential and revoke every existing session atomically."""
+
+        now = datetime.now(UTC)
+        async with session.begin():
+            row = (
+                await session.execute(
+                    select(User, Credential)
+                    .join(Credential, Credential.user_id == User.id)
+                    .where(User.id == user_id)
+                    .with_for_update()
+                )
+            ).one_or_none()
+            if row is None:
+                raise self._invalid_access_error()
+            _, credential = row
+            if not self._password_matches(current_password, credential.password_hash):
+                raise ApiError(
+                    403,
+                    "INVALID_CURRENT_PASSWORD",
+                    "The current password is not valid.",
+                )
+            if self._password_matches(new_password, credential.password_hash):
+                raise ApiError(
+                    409,
+                    "PASSWORD_UNCHANGED",
+                    "Choose a password that is different from the current password.",
+                )
+            credential.password_hash = self._hash_password(
+                new_password,
+                bcrypt_rounds=bcrypt_rounds,
+            )
+            credential.password_changed_at = now
+            await session.execute(
+                update(UserSession)
+                .where(UserSession.user_id == user_id, UserSession.revoked_at.is_(None))
+                .values(revoked_at=now)
+            )
+
     @staticmethod
     async def _locked_user(session: AsyncSession, *, user_id: UUID) -> User:
         user = (
@@ -97,6 +144,13 @@ class ProfileService:
             return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("ascii"))
         except ValueError:
             return False
+
+    @staticmethod
+    def _hash_password(password: str, *, bcrypt_rounds: int) -> str:
+        return bcrypt.hashpw(
+            password.encode("utf-8"),
+            bcrypt.gensalt(rounds=bcrypt_rounds),
+        ).decode("ascii")
 
     @staticmethod
     def _invalid_access_error() -> ApiError:
