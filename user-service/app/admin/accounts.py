@@ -2,16 +2,33 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.errors import ApiError
-from app.models import User
+from app.models import AccountStatus, SystemRole, User
 from app.registration.validation import normalize_email, normalize_username
 
 
 class AdminAccountService:
-    """Read one existing account without touching credentials or session state."""
+    """Read administrative identities without touching credentials or session state."""
+
+    async def list_admins(self, session: AsyncSession) -> list[User]:
+        """List non-deleted administrators, ordered by role and normalized username."""
+
+        statement = (
+            select(User)
+            .where(
+                User.system_role.in_((SystemRole.SUPER_ADMIN, SystemRole.ADMIN)),
+                User.account_status != AccountStatus.DELETED,
+            )
+            .order_by(
+                case((User.system_role == SystemRole.SUPER_ADMIN, 0), else_=1),
+                User.normalized_username.asc(),
+            )
+        )
+        async with session.begin():
+            return list((await session.scalars(statement)).all())
 
     async def find_by_identity(
         self,

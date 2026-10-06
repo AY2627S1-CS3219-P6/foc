@@ -24,7 +24,7 @@ describe("RoleManagementControls", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Review role change" })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("New access level")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Change access level")).not.toBeInTheDocument();
   });
 
   it("requires confirmation before sending a Super Admin role change and reports success", async () => {
@@ -38,7 +38,7 @@ describe("RoleManagementControls", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("New access level"), { target: { value: "ADMIN" } });
+    fireEvent.change(screen.getByLabelText("Change access level"), { target: { value: "ADMIN" } });
     fireEvent.click(screen.getByRole("button", { name: "Review role change" }));
 
     const confirmation = screen.getByRole("dialog", { name: "Change Campus Helper’s role?" });
@@ -67,7 +67,7 @@ describe("RoleManagementControls", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("New access level"), { target: { value: "ADMIN" } });
+    fireEvent.change(screen.getByLabelText("Change access level"), { target: { value: "ADMIN" } });
     fireEvent.click(screen.getByRole("button", { name: "Review role change" }));
     fireEvent.click(screen.getByRole("button", { name: "Change access level" }));
 

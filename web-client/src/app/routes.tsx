@@ -47,6 +47,15 @@ function AdminRoute({ children, denied }: { children: ReactNode; denied?: ReactN
     : (denied ?? <Navigate replace to="/profile" />);
 }
 
+function SuperAdminRoute({ children }: { children: ReactNode }) {
+  const { status, user } = useAuth();
+  if (status === "restoring") return <SessionLoading />;
+  if (status !== "authenticated") return <Navigate replace to="/sign-in" />;
+  return user?.systemRole === "SUPER_ADMIN"
+    ? children
+    : <Navigate replace to="/profile" />;
+}
+
 function FallbackRoute() {
   const { status } = useAuth();
   if (status === "restoring") return <SessionLoading />;
@@ -64,7 +73,7 @@ export function AppRoutes() {
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         <Route path="/suppliers" element={<ProtectedRoute><SupplierListPage /></ProtectedRoute>} />
         <Route path="/suppliers/:supplierId" element={<ProtectedRoute><SupplierDetailPage /></ProtectedRoute>} />
-        <Route path="/admin/users" element={<AdminRoute><AdminUserManagementPage /></AdminRoute>} />
+        <Route path="/admin/users" element={<SuperAdminRoute><AdminUserManagementPage /></SuperAdminRoute>} />
         <Route path="/admin/suppliers" element={<ProtectedRoute><AdminRoute denied={<SupplierAccessDenied />}><SupplierListPage admin /></AdminRoute></ProtectedRoute>} />
         <Route path="/admin/suppliers/new" element={<ProtectedRoute><AdminRoute denied={<SupplierAccessDenied />}><SupplierFormPage /></AdminRoute></ProtectedRoute>} />
         <Route path="/admin/suppliers/:supplierId/edit" element={<ProtectedRoute><AdminRoute denied={<SupplierAccessDenied />}><SupplierFormPage /></AdminRoute></ProtectedRoute>} />

@@ -13,23 +13,43 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.admin.accounts import AdminAccountService
 from app.admin.lifecycle import AdminLifecycleService
 from app.api.schemas import (
+    AdminAccountSummary,
     AdminUserLookupRequest,
     AdminUserLookupResponse,
     SystemRoleUpdateRequest,
     SystemRoleUpdateResponse,
 )
-from app.auth.dependencies import AuthenticatedPrincipal, require_admin, require_super_admin
+from app.auth.dependencies import AuthenticatedPrincipal, require_super_admin
 from app.core.correlation import get_correlation_id
 from app.db import get_db_session
 
 router = APIRouter(prefix="/v1/admin", tags=["administration"])
 
 
+@router.get("/admins", response_model=list[AdminAccountSummary])
+async def list_admins(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    _: Annotated[AuthenticatedPrincipal, Depends(require_super_admin)],
+) -> list[AdminAccountSummary]:
+    """Return the current administrator identities without deleted tombstones."""
+
+    users = await AdminAccountService().list_admins(session)
+    return [
+        AdminAccountSummary(
+            user_id=user.id,
+            username=user.username,
+            email=user.email,
+            system_role=user.system_role,
+        )
+        for user in users
+    ]
+
+
 @router.get("/users", response_model=AdminUserLookupResponse)
 async def find_user_account(
     criteria: Annotated[AdminUserLookupRequest, Query()],
     session: Annotated[AsyncSession, Depends(get_db_session)],
-    _: Annotated[AuthenticatedPrincipal, Depends(require_admin)],
+    _: Annotated[AuthenticatedPrincipal, Depends(require_super_admin)],
 ) -> AdminUserLookupResponse:
     """Return only the requested account's safe administrative profile fields."""
 

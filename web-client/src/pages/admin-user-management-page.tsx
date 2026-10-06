@@ -1,6 +1,6 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { isApiRequestError } from "../api/client";
-import type { AdminLookupField, AdminUserAccount, SystemRole } from "../api/user-service";
+import type { AdminAccountSummary, AdminLookupField, AdminUserAccount, SystemRole } from "../api/user-service";
 import { useAuth } from "../app/auth-provider";
 import { canManageSystemRole } from "../app/role-access";
 import { DesktopAppShell } from "../components/desktop-app-shell";
@@ -24,13 +24,47 @@ function formattedTimestamp(value: string): string {
   }).format(new Date(value));
 }
 
+function compareAdmins(left: AdminAccountSummary, right: AdminAccountSummary): number {
+  if (left.systemRole !== right.systemRole) return left.systemRole === "SUPER_ADMIN" ? -1 : 1;
+  const leftUsername = left.username.toLowerCase();
+  const rightUsername = right.username.toLowerCase();
+  return leftUsername < rightUsername ? -1 : leftUsername > rightUsername ? 1 : 0;
+}
+
 function UserManagementContent() {
-  const { user, findUserAccount, updateUserSystemRole } = useAuth();
+  const { user, findUserAccount, listAdmins, updateUserSystemRole } = useAuth();
   const [field, setField] = useState<AdminLookupField>("username");
   const [value, setValue] = useState("");
   const [result, setResult] = useState<AdminUserAccount>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [admins, setAdmins] = useState<AdminAccountSummary[]>([]);
+  const [adminsLoading, setAdminsLoading] = useState(true);
+  const [adminListError, setAdminListError] = useState<string>();
+  const adminListRequest = useRef(0);
+
+  const loadAdmins = useCallback(async () => {
+    const request = ++adminListRequest.current;
+    setAdminsLoading(true);
+    setAdminListError(undefined);
+    try {
+      const currentAdmins = await listAdmins();
+      if (request === adminListRequest.current) setAdmins(currentAdmins);
+    } catch (requestError) {
+      if (request === adminListRequest.current) {
+        setAdminListError(isApiRequestError(requestError)
+          ? requestError.message
+          : "We could not load the current admins. Try again.");
+      }
+    } finally {
+      if (request === adminListRequest.current) setAdminsLoading(false);
+    }
+  }, [listAdmins]);
+
+  useEffect(() => {
+    void loadAdmins();
+    return () => { adminListRequest.current += 1; };
+  }, [loadAdmins]);
 
   useEffect(() => {
     setValue("");
@@ -60,23 +94,37 @@ function UserManagementContent() {
     }
   }
 
-  async function changeRole(requestedRole: SystemRole) {
-    if (!result) return;
-    const targetUserId = result.userId;
+  async function changeRole(targetUserId: string, requestedRole: SystemRole) {
     const updated = await updateUserSystemRole(targetUserId, requestedRole);
     setResult((currentResult) => (
       currentResult?.userId === targetUserId
         ? { ...currentResult, systemRole: updated.systemRole }
         : currentResult
     ));
+    setAdmins((currentAdmins) => {
+      const remaining = currentAdmins.filter((admin) => admin.userId !== targetUserId);
+      const systemRole = updated.systemRole;
+      if (systemRole === "USER") return remaining;
+      const account = currentAdmins.find((admin) => admin.userId === targetUserId)
+        ?? (result?.userId === targetUserId ? result : undefined);
+      if (!account) return remaining;
+      return [...remaining, {
+        userId: targetUserId,
+        username: account.username,
+        email: account.email,
+        systemRole,
+      }].sort(compareAdmins);
+    });
+    // A refresh failure must not turn an already committed role change into a save error.
+    await loadAdmins();
   }
 
   return (
     <>
       <header className="profile-heading management-heading">
         <p className="section-label">Administration</p>
-        <h1>Manage user accounts</h1>
-        <p>Find one FoC account by its unique username or NUS email address.</p>
+        <h1>Manage admins</h1>
+        <p>Find any FoC account by its unique username or NUS email address and change their role in FoC</p>
       </header>
       <section className="management-search-card">
         <form className="management-search-form" onSubmit={search}>
@@ -125,10 +173,40 @@ function UserManagementContent() {
             accountName={result.displayName}
             canManage={canManageSystemRole(user.systemRole, user.userId, result.userId)}
             currentRole={result.systemRole}
-            onChangeRole={changeRole}
+            onChangeRole={(requestedRole) => changeRole(result.userId, requestedRole)}
           />
         </section>
       ) : null}
+      <section aria-busy={adminsLoading} aria-labelledby="current-admins-heading" className="current-admins-section">
+        <h2 id="current-admins-heading">Current super admins / admins</h2>
+        {adminsLoading ? <p className="current-admins-feedback" role="status">Loading current admins…</p> : null}
+        {adminListError ? (
+          <div className="current-admins-feedback">
+            <p className="form-error" role="alert">{adminListError}</p>
+            <button className="button button-secondary" onClick={() => void loadAdmins()} type="button">Retry loading admins</button>
+          </div>
+        ) : null}
+        {!adminsLoading && !adminListError && admins.length === 0 ? (
+          <p className="current-admins-feedback">No current super admins or admins found.</p>
+        ) : null}
+        <ul className="current-admin-list">
+          {admins.map((admin) => (
+            <li aria-label={admin.username} className="current-admin-card" key={admin.userId}>
+              <h3>{admin.username}</h3>
+              <dl className="admin-identity-list">
+                <div><dt>NUS email</dt><dd>{admin.email}</dd></div>
+                <div><dt>System role</dt><dd>{humanize(admin.systemRole)}</dd></div>
+              </dl>
+              <RoleManagementControls
+                accountName={admin.username}
+                canManage={canManageSystemRole(user.systemRole, user.userId, admin.userId)}
+                currentRole={admin.systemRole}
+                onChangeRole={(requestedRole) => changeRole(admin.userId, requestedRole)}
+              />
+            </li>
+          ))}
+        </ul>
+      </section>
     </>
   );
 }

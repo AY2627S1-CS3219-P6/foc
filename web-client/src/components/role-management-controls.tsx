@@ -55,12 +55,7 @@ export function RoleManagementControls({
   }
 
   return (
-    <section aria-labelledby={`${selectId}-heading`} className="role-management-zone">
-      <div>
-        <p className="section-label">Super Admin action</p>
-        <h3 id={`${selectId}-heading`}>Change access level</h3>
-        <p>Choose the level this account needs. The person will need to sign in again after a change.</p>
-      </div>
+    <div className="role-management-zone">
       <form
         className="role-management-form"
         onSubmit={(event) => {
@@ -70,7 +65,7 @@ export function RoleManagementControls({
           setConfirmationOpen(true);
         }}
       >
-        <label htmlFor={selectId}>New access level</label>
+        <label htmlFor={selectId}>Change access level</label>
         <select
           id={selectId}
           onChange={(event) => setRequestedRole(event.target.value as SystemRole)}
@@ -107,6 +102,6 @@ export function RoleManagementControls({
           </section>
         </div>
       ) : null}
-    </section>
+    </div>
   );
 }
