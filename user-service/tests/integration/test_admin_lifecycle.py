@@ -10,7 +10,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import DBAPIError
 
 from app.admin.lifecycle import (
@@ -28,9 +28,12 @@ from app.models import (
     AccountStatus,
     AdminAuditEntry,
     Credential,
+    OutboxEvent,
+    OutboxEventState,
     SystemRole,
     User,
 )
+from app.outbox.events import USER_REGISTERED_EVENT_TYPE
 
 
 def admin_settings(test_id: str) -> Settings:
@@ -147,6 +150,10 @@ async def test_super_admin_bootstrap_role_lifecycle_and_last_admin_protection(
             database,
             select(AdminAuditEntry).where(AdminAuditEntry.target_user_id == bootstrap_user_id),
         )
+        bootstrap_event = await read_one(
+            database,
+            select(OutboxEvent).where(OutboxEvent.aggregate_id == bootstrap_user_id),
+        )
         assert bootstrap_user is not None
         assert bootstrap_user.system_role == SystemRole.SUPER_ADMIN
         assert bootstrap_user.email_verified_at is not None
@@ -159,6 +166,11 @@ async def test_super_admin_bootstrap_role_lifecycle_and_last_admin_protection(
         assert bootstrap_audit.action == "SUPER_ADMIN_BOOTSTRAPPED"
         assert bootstrap_audit.role_before is None
         assert bootstrap_audit.role_after == SystemRole.SUPER_ADMIN
+        assert bootstrap_event is not None
+        assert bootstrap_event.event_type == USER_REGISTERED_EVENT_TYPE
+        assert bootstrap_event.state == OutboxEventState.PENDING
+        assert bootstrap_event.aggregate_id == bootstrap_user_id
+        assert bootstrap_event.occurred_at == bootstrap_user.email_verified_at
 
         async for session in database.session():
             with pytest.raises(BootstrapAlreadyCompletedError):
@@ -167,6 +179,13 @@ async def test_super_admin_bootstrap_role_lifecycle_and_last_admin_protection(
                     credentials=BootstrapCredentials.from_settings(settings),
                     correlation_id="second-bootstrap-test",
                 )
+
+        assert await read_one(
+            database,
+            select(func.count())
+            .select_from(OutboxEvent)
+            .where(OutboxEvent.aggregate_id == bootstrap_user_id),
+        ) == 1
 
         first_target_email = f"first-target-{test_id}@u.nus.edu"
         second_target_email = f"second-target-{test_id}@u.nus.edu"
