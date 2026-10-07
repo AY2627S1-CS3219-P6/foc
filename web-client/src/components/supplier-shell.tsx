@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { useAuth } from "../app/auth-provider";
+import { useAuth } from "../app/use-auth";
 
 export function SupplierIcon({ size = 20 }: { size?: number }) {
   return <svg aria-hidden="true" fill="none" height={size} viewBox="0 0 24 24" width={size}>

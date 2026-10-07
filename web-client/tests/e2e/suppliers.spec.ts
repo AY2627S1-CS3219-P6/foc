@@ -54,23 +54,126 @@ test("search and filters apply automatically without losing one another", async 
   expect(query.get("sort")).toBe("desc");
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.getByRole("searchbox", { name: "Search suppliers" })).toHaveValue("");
-  expect(new URL(page.url()).search).toBe("");
+  expect(new URL(page.url()).searchParams.get("sort")).toBe("desc");
+  expect(new URL(page.url()).searchParams.has("q")).toBe(false);
+  expect(new URL(page.url()).searchParams.has("category")).toBe(false);
 });
 
-test("pagination appears only when results span more than one page", async ({ page }) => {
+test("clearing supplier filters keeps the selected page size and sort order", async ({ page }) => {
   await mockSupplierSession(page);
-  await page.goto("/suppliers");
+  await page.goto("/suppliers?q=cool&category=FOOD&page_size=50&sort=desc");
   await expect(page.getByRole("heading", { name: "Cool Spot" })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Suppliers per page" })).toHaveCount(0);
-  await page.route((url) => url.pathname === "/api/v1/suppliers", (route) => route.fulfill({ json: {
-    items: [{ id: supplierId, name: "Cool Spot", categories: ["FOOD"], building_area: "Com2", floor: null, status: "ACTIVE", opening_time: null, closing_time: null }],
-    page: Number(new URL(route.request().url()).searchParams.get("page") ?? 1), page_size: 6, total: 7,
-  } }));
-  await page.reload();
-  await expect(page.getByRole("combobox", { name: "Suppliers per page" })).toBeVisible();
-  await page.getByRole("button", { name: "Next" }).click();
-  await expect(page).toHaveURL(/page=2/);
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(page.getByRole("combobox", { name: "Suppliers per page" })).toHaveValue("50");
+  await expect(page.getByRole("combobox", { name: "Sort suppliers" })).toHaveValue("desc");
+  await expect(page.getByRole("searchbox", { name: "Search suppliers" })).toHaveValue("");
+  const params = new URL(page.url()).searchParams;
+  expect(params.get("page_size")).toBe("50");
+  expect(params.get("sort")).toBe("desc");
+  expect(params.has("q")).toBe(false);
+  expect(params.has("category")).toBe(false);
 });
+
+for (const admin of [false, true]) {
+  test(`out-of-range supplier pages recover in ${admin ? "admin" : "user"} view`, async ({ page }) => {
+    await mockSupplierSession(page, admin ? "ADMIN" : "USER");
+    const endpoint = admin ? "/api/v1/admin/suppliers" : "/api/v1/suppliers";
+    await page.route((url) => url.pathname === endpoint, (route) => {
+      const params = new URL(route.request().url()).searchParams;
+      const currentPage = Number(params.get("page") ?? 1);
+      const items = currentPage === 1 ? [{
+        id: supplierId, name: "Cool Spot", categories: ["FOOD"], building_area: "Com2", floor: null,
+        status: "ACTIVE", opening_time: null, closing_time: null,
+      }] : [];
+      return route.fulfill({ json: { items, page: currentPage, page_size: 6, total: 1 } });
+    });
+    await page.goto(`${admin ? "/admin" : ""}/suppliers?page=2&category=FOOD&sort=desc`);
+    await expect(page.getByRole("heading", { name: "Cool Spot" })).toBeVisible();
+    await expect(page.getByText("Showing 1–1 of 1", { exact: true })).toBeVisible();
+    await expect(page.getByText("Page 1 of 1", { exact: true })).toBeVisible();
+    const params = new URL(page.url()).searchParams;
+    expect(params.has("page")).toBe(false);
+    expect(params.getAll("category")).toEqual(["FOOD"]);
+    expect(params.get("sort")).toBe("desc");
+  });
+}
+
+for (const admin of [false, true]) {
+  test(`long supplier labels and selected categories fit mobile ${admin ? "admin" : "user"} view`, async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await mockSupplierSession(page, admin ? "ADMIN" : "USER");
+    await page.route("**/api/v1/categories", (route) => route.fulfill({ json: [
+      { code: "FOOD", display_name: "Food and takeaway meals" },
+      { code: "COFFEE", display_name: "Coffee and refreshments" },
+      { code: "STATIONERY", display_name: "Books and stationery" },
+    ] }));
+    const endpoint = admin ? "/api/v1/admin/suppliers" : "/api/v1/suppliers";
+    await page.route((url) => url.pathname === endpoint, (route) => route.fulfill({ json: {
+      items: [{ id: supplierId, name: "CampusSupplier".repeat(8), categories: ["FOOD", "COFFEE", "STATIONERY"],
+        building_area: "CampusBuilding".repeat(8), floor: null, status: "ACTIVE", opening_time: null, closing_time: null }],
+      page: 1, page_size: 6, total: 1,
+    } }));
+    await page.goto(`${admin ? "/admin" : ""}/suppliers`);
+    await expect(page.getByRole("heading", { name: "CampusSupplier".repeat(8) })).toBeVisible();
+    await page.locator(".supplier-category-picker summary").click();
+    for (const name of ["Food and takeaway meals", "Coffee and refreshments", "Books and stationery"]) {
+      const checkbox = page.getByRole("checkbox", { name });
+      await checkbox.click();
+      await expect(checkbox).toBeChecked();
+    }
+    await expect(page).toHaveURL(/category=STATIONERY/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+}
+
+for (const admin of [false, true]) {
+  test(`supplier page size remains available for every option in ${admin ? "admin" : "user"} view`, async ({ page }) => {
+    await mockSupplierSession(page, admin ? "ADMIN" : "USER");
+    const endpoint = admin ? "/api/v1/admin/suppliers" : "/api/v1/suppliers";
+    const suppliers = Array.from({ length: 13 }, (_, index) => ({
+      id: `supplier-${index}`, name: `Supplier ${index + 1}`, categories: ["FOOD"], building_area: "Com2", floor: null,
+      status: "ACTIVE", opening_time: null, closing_time: null,
+    }));
+    await page.route((url) => url.pathname === endpoint, (route) => {
+      const params = new URL(route.request().url()).searchParams;
+      const currentPage = Number(params.get("page") ?? 1);
+      const pageSize = Number(params.get("page_size") ?? 6);
+      const matches = params.get("q") ? [] : suppliers;
+      return route.fulfill({ json: {
+        items: matches.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+        page: currentPage, page_size: pageSize, total: matches.length,
+      } });
+    });
+    await page.goto(admin ? "/admin/suppliers" : "/suppliers");
+    const selector = page.getByRole("combobox", { name: "Suppliers per page" });
+    const previous = page.getByRole("button", { name: "Previous", exact: true });
+    const next = page.getByRole("button", { name: "Next", exact: true });
+    await expect(selector).toBeVisible();
+    await next.click();
+    await expect(page.getByText("Page 2 of 3", { exact: true })).toBeVisible();
+
+    for (const size of [12, 20, 50, 6]) {
+      await selector.selectOption(String(size));
+      await expect(selector).toBeVisible();
+      await expect(selector).toBeEnabled();
+      await expect(selector).toHaveValue(String(size));
+      await expect(page.getByText(`Page 1 of ${Math.ceil(suppliers.length / size)}`, { exact: true })).toBeVisible();
+      await expect(previous).toBeDisabled();
+      if (size >= suppliers.length) await expect(next).toBeDisabled();
+      else await expect(next).toBeEnabled();
+      expect(new URL(page.url()).searchParams.has("page")).toBe(false);
+    }
+
+    await page.getByRole("searchbox", { name: "Search suppliers" }).fill("no matches");
+    await expect(page.getByRole("heading", { name: "No suppliers found" })).toBeVisible();
+    await expect(selector).toBeVisible();
+    await selector.selectOption("50");
+    await expect(selector).toBeEnabled();
+    await expect(selector).toHaveValue("50");
+    await expect(previous).toBeDisabled();
+    await expect(next).toBeDisabled();
+  });
+}
 
 test("normal users cannot open Supplier management pages", async ({ page }) => {
   await mockSupplierSession(page);

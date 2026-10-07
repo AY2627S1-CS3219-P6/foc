@@ -2,7 +2,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
 import { type Category, type Supplier, type SupplierInput, type SupplierStatus, supplierService } from "../api/supplier-service";
-import { useAuth } from "../app/auth-provider";
+import { useAuth } from "../app/use-auth";
 import { FormField } from "../components/form-field";
 import { SupplierShell } from "../components/supplier-shell";
 

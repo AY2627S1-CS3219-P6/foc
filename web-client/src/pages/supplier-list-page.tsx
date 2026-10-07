@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
 import { type Category, type SupplierList, type SupplierListItem, type SupplierQuery, supplierService } from "../api/supplier-service";
-import { useAuth } from "../app/auth-provider";
+import { useAuth } from "../app/use-auth";
 import { SupplierIcon, SupplierShell } from "../components/supplier-shell";
 import { SupplierStatusActions } from "../components/supplier-status-actions";
 
@@ -68,11 +68,21 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
     setLoading(true);
     setError(null);
     withCurrentAccess((token) => supplierService.list(query, token, admin))
-      .then((data) => { if (active) setResult(data); })
+      .then((data) => {
+        if (!active) return;
+        const lastPage = Math.max(1, Math.ceil(data.total / data.page_size));
+        if (data.page > lastPage) {
+          const next = new URLSearchParams(queryKey);
+          if (lastPage === 1) next.delete("page"); else next.set("page", String(lastPage));
+          setSearchParams(next, { replace: true });
+          return;
+        }
+        setResult(data);
+      })
       .catch((failure) => { if (active) { setResult(null); setError(isApiRequestError(failure) ? failure.message : "We could not load suppliers. Try again."); } })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [admin, query, reload, withCurrentAccess]);
+  }, [admin, query, queryKey, reload, setSearchParams, withCurrentAccess]);
 
   function updateQuery(changes: Record<string, string | null>, categoryCodes?: string[]) {
     // Read the current URL at action time so consecutive filter changes do not
@@ -123,7 +133,7 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
         </details>
         <label className="supplier-select-label"><span className="sr-only">Sort suppliers</span><select onChange={(event) => updateQuery({ sort: event.target.value === "desc" ? "desc" : null })} value={query.sort}><option value="asc">Sort: Name A–Z</option><option value="desc">Sort: Name Z–A</option></select></label>
         {admin ? <label className="supplier-select-label"><span className="sr-only">Supplier status</span><select onChange={(event) => updateQuery({ status: event.target.value || null })} value={query.status ?? ""}><option value="">Status: All</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label> : <span className="supplier-active-note">Active suppliers only</span>}
-        {hasFilters ? <button className="supplier-inline-button" onClick={() => { setSearch(""); setSearchParams(new URLSearchParams()); }} type="button">Clear filters</button> : null}
+        {hasFilters ? <button className="supplier-inline-button" onClick={() => { setSearch(""); updateQuery({ q: null, status: null }, []); }} type="button">Clear filters</button> : null}
       </div>
     </section>
 
@@ -140,7 +150,15 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
           {admin ? <><div className="supplier-admin-category">{item.categories.map((code) => names.get(code) ?? code).join(" / ")}</div><div className="supplier-admin-area">{item.building_area}{item.floor ? ` · Floor ${item.floor}` : ""}</div><span className={`supplier-status ${item.status.toLowerCase()}`}>{item.status === "ACTIVE" ? "Active" : "Inactive"}</span><div className="supplier-admin-actions"><Link to={`/admin/suppliers/${item.id}`}>View</Link><Link to={`/admin/suppliers/${item.id}/edit`}>Edit</Link><SupplierStatusActions id={item.id} name={item.name} onChanged={(message) => { setNotice(message); setReload((value) => value + 1); }} status={item.status} /></div></> : <><span className="supplier-status active">Active</span><Link aria-label={`View ${item.name}`} className="supplier-card-link" to={`/suppliers/${item.id}`}>View supplier <span aria-hidden="true">→</span></Link></>}
         </article>)}
       </div>
-      {maxPage > 1 || result.page > 1 ? <div className="supplier-pagination"><span>Showing {from}–{to} of {result.total}</span><label>Per page <select aria-label="Suppliers per page" onChange={(event) => updateQuery({ page_size: event.target.value === "6" ? null : event.target.value })} value={String(query.pageSize)}>{[6, 12, 20, 50].map((size) => <option key={size} value={size}>{size}</option>)}</select></label><div className="supplier-page-buttons"><button disabled={result.page <= 1} onClick={() => updateQuery({ page: String(result.page - 1) })} type="button">Previous</button><span>Page {result.page} of {maxPage}</span><button disabled={result.page >= maxPage} onClick={() => updateQuery({ page: String(result.page + 1) })} type="button">Next</button></div></div> : null}
     </> : null}
+    {!error && result ? <div className="supplier-pagination">
+      <span>Showing {from}–{to} of {result.total}</span>
+      <label>Per page <select aria-label="Suppliers per page" disabled={loading} onChange={(event) => updateQuery({ page_size: event.target.value === "6" ? null : event.target.value })} value={String(query.pageSize)}>{[6, 12, 20, 50].map((size) => <option key={size} value={size}>{size}</option>)}</select></label>
+      <div className="supplier-page-buttons">
+        <button disabled={loading || result.page <= 1} onClick={() => updateQuery({ page: String(result.page - 1) })} type="button">Previous</button>
+        <span>Page {result.page} of {maxPage}</span>
+        <button disabled={loading || result.page >= maxPage} onClick={() => updateQuery({ page: String(result.page + 1) })} type="button">Next</button>
+      </div>
+    </div> : null}
   </SupplierShell>;
 }

@@ -11,7 +11,7 @@ const auth = vi.hoisted(() => ({
   updateUserSystemRole: vi.fn(),
 }));
 
-vi.mock("../../src/app/auth-provider", () => ({ useAuth: () => auth }));
+vi.mock("../../src/app/use-auth", () => ({ useAuth: () => auth }));
 
 const initialAdmins: AdminAccountSummary[] = [
   { userId: "self", username: "SuperSelf", email: "self@u.nus.edu", systemRole: "SUPER_ADMIN" },

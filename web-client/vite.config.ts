@@ -9,7 +9,7 @@ export default defineConfig({
         target: "http://localhost:8000",
         changeOrigin: true,
       },
-      "^/api/v1/(categories|suppliers|admin/suppliers)(/|$)": {
+      "^/api/v1/(categories|suppliers|admin/suppliers)([/?]|$)": {
         target: "http://localhost:8001",
         changeOrigin: true,
       },

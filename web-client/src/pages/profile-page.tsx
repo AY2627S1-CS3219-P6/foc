@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
 import { validateDisplayName, validatePasswordChange } from "../api/validation";
-import { useAuth } from "../app/auth-provider";
+import { useAuth } from "../app/use-auth";
 import { ChangePasswordDialog } from "../components/change-password-dialog";
 import { DeleteAccountDialog } from "../components/delete-account-dialog";
 import { DesktopAppShell } from "../components/desktop-app-shell";
@@ -37,6 +37,14 @@ function ProfileContent() {
   }, [user]);
 
   if (!user) return null;
+
+  function setProfileEditing(nextEditing: boolean) {
+    setDisplayName(user?.displayName ?? "");
+    setFieldError(undefined);
+    setFormError(undefined);
+    setSuccess(undefined);
+    setEditing(nextEditing);
+  }
 
   async function saveProfile() {
     const nameError = validateDisplayName(displayName);
@@ -152,12 +160,12 @@ function ProfileContent() {
                   <button className="button button-primary" disabled={busy} onClick={saveProfile} type="button">
                     {busy ? "Saving…" : "Save changes"}
                   </button>
-                  <button className="button button-secondary" disabled={busy} onClick={() => setEditing(false)} type="button">Cancel</button>
+                  <button className="button button-secondary" disabled={busy} onClick={() => setProfileEditing(false)} type="button">Cancel</button>
                 </div>
               </div>
             ) : (
               <div className="profile-actions">
-                <button className="button button-primary" onClick={() => setEditing(true)} type="button">Edit profile</button>
+                <button className="button button-primary" onClick={() => setProfileEditing(true)} type="button">Edit profile</button>
                 <button className="text-button" onClick={handleSignOut} type="button">Sign out</button>
               </div>
             )}

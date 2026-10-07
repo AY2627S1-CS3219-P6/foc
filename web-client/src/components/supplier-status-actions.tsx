@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { isApiRequestError } from "../api/client";
 import { type SupplierStatus, supplierService } from "../api/supplier-service";
-import { useAuth } from "../app/auth-provider";
+import { useAuth } from "../app/use-auth";
 
 type Action = "activate" | "deactivate";
 

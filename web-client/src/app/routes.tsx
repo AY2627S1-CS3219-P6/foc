@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { useAuth } from "./auth-provider";
+import { useAuth } from "./use-auth";
 import { AdminUserManagementPage } from "../pages/admin-user-management-page";
 import { ProfilePage } from "../pages/profile-page";
 import { RegistrationPage } from "../pages/registration-page";

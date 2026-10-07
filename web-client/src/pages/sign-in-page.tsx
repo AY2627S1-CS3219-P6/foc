@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
-import { useAuth } from "../app/auth-provider";
+import { useAuth } from "../app/use-auth";
 import { FormField } from "../components/form-field";
 
 type SignInLocationState = {
