@@ -9,12 +9,15 @@ import jwt
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
-from jwt.exceptions import InvalidTokenError, PyJWKClientConnectionError, PyJWKClientError
+from jwt.exceptions import (
+    InvalidTokenError,
+    PyJWKClientConnectionError,
+    PyJWKClientError,
+)
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from app.config import Settings, get_settings
 from app.errors import ApiError
-
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -23,7 +26,7 @@ class AuthorizationDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     subjectId: UUID
-    accountStatus: Literal["ACTIVE", "SUSPENDED", "DELETED"]
+    accountStatus: Literal["ACTIVE", "DELETED"]
     systemRole: Literal["USER", "ADMIN", "SUPER_ADMIN"]
     allowed: bool
 

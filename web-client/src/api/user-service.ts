@@ -8,7 +8,7 @@ export type CurrentUser = {
   email: string;
   displayName: string;
   systemRole: SystemRole;
-  accountStatus: "ACTIVE" | "SUSPENDED" | "DELETED";
+  accountStatus: "ACTIVE" | "DELETED";
 };
 
 export type AccessSession = {
@@ -48,7 +48,7 @@ export type AdminUserAccount = {
   displayName: string;
   email: string;
   emailVerified: boolean;
-  accountStatus: "ACTIVE" | "SUSPENDED" | "DELETED";
+  accountStatus: "ACTIVE" | "DELETED";
   systemRole: SystemRole;
   createdAt: string;
 };

@@ -27,7 +27,7 @@ def test_profile_update_accepts_only_mutable_validated_fields() -> None:
         {"username": "replacement"},
         {"activeParticipationMode": "COURIER"},
         {"systemRole": "ADMIN"},
-        {"accountStatus": "SUSPENDED"},
+        {"accountStatus": "DELETED"},
         {"id": "00000000-0000-0000-0000-000000000001"},
     ],
 )

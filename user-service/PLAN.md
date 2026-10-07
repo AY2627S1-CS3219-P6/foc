@@ -26,7 +26,7 @@ Initialize and link the local project from `user-service/` using `npx supabase i
 
 | Table | Essential fields and constraints | Purpose |
 | --- | --- | --- |
-| `users` | `id` UUID PK; nullable original and normalized unique `username`; nullable normalized `email`; `display_name`; `system_role` enum (`USER`, `ADMIN`, `SUPER_ADMIN`); `account_status` enum (`ACTIVE`, `SUSPENDED`, `DELETED`); nullable `email_verified_at`; `role_version`; `deleted_at`; timestamps | Active identity and safe profile fields, plus de-identified account tombstones. Every public identifier is the immutable `id`. |
+| `users` | `id` UUID PK; nullable original and normalized unique `username`; nullable normalized `email`; `display_name`; `system_role` enum (`USER`, `ADMIN`, `SUPER_ADMIN`); `account_status` enum (`ACTIVE`, `DELETED`); nullable `email_verified_at`; `role_version`; `deleted_at`; timestamps | Active identity and safe profile fields, plus de-identified account tombstones. Every public identifier is the immutable `id`. |
 | `credentials` | one-to-one `user_id`; bcrypt password hash; password-change timestamp | Separates credentials from public profile queries. Passwords are never retrievable. |
 | `registration_challenges` | proposed username/email/display name; bcrypt password hash; HMAC-peppered OTP hash; expiry; attempt and resend counters | Holds a pending registration until an OTP succeeds, so only verified accounts are activated and published. |
 | `sessions` | `id`; `user_id`; hashed rotating refresh token; issued/expiry/revoked timestamps; token family | Supports logout, refresh rotation, and per-session revocation without persisting a raw refresh token. |
@@ -73,7 +73,7 @@ All application responses use a consistent error shape containing a stable code,
 | `GET /.well-known/jwks.json` | service/public key distribution | Return public JWT-signing keys only, with a stable key ID for local signature verification and rotation. |
 | `POST /v1/internal/authorization-decisions` | authenticated Supplier Service identity | Return the current authenticated subject ID, status, role, and allow/deny decision for the declared administrative action. It is fail-closed and contains no profile or credential data. |
 
-The role-lifecycle endpoint remains deliberately limited to a Super Admin and another target user. It does not expose suspension, reactivation, or password-reset interfaces before they are needed.
+The role-lifecycle endpoint remains deliberately limited to a Super Admin and another target user. Password-reset interfaces remain deferred. Account status supports only `ACTIVE` and terminal `DELETED` tombstones.
 
 ## Incremental implementation phases
 
@@ -123,7 +123,7 @@ Each phase ends with a human-verifiable result and automated tests. Do not start
 
 - Add a one-shot `bootstrap-super-admin` command/profile. It runs only when no active Super Admin exists, requires explicit non-source-controlled bootstrap credentials, validates them, creates a verified `SUPER_ADMIN`, writes a redacted audit record, and exits. It refuses to run if an active Super Admin already exists.
 - Implement Super Admin-only promotion/demotion of *another* user. Every role update increments `roleVersion`, revokes that target's existing sessions, records an immutable audit row, and is committed atomically.
-- Enforce lifecycle invariants in a transaction with a lock: Admins cannot modify administrative roles; no user can self-change a system role; a request that would demote, suspend, tombstone-delete, or revoke the last active Super Admin is rejected, including concurrent requests. A non-last Super Admin may tombstone-delete their own account only after the normal password/acknowledgement confirmation.
+- Enforce lifecycle invariants in a transaction with a lock: Admins cannot modify administrative roles; no user can self-change a system role; a request that would demote, tombstone-delete, or revoke the last active Super Admin is rejected, including concurrent requests. A non-last Super Admin may tombstone-delete their own account only after the normal password/acknowledgement confirmation.
 
 **Human check:** bootstrap exactly one Super Admin without public registration. Promote a User to Admin, observe the audit record, then prove Admin cannot promote anyone. Attempt self-demotion and tombstone deletion of the sole active Super Admin (both fail); add a second Super Admin and confirm the first can tombstone-delete their own account. Run simultaneous last-Super-Admin demotion attempts and confirm all are denied.
 
@@ -165,7 +165,7 @@ Each phase ends with a human-verifiable result and automated tests. Do not start
 
 These remain explicitly planned after the expanded Sprint 1 scope:
 
-- **Sprint 2:** email password-reset request/confirmation, session invalidation after password reset, suspension/reactivation, and the remaining administration lifecycle and audit actions. These complete the remaining password-reset and administrative requirements not delivered by Phases 7 and 8.
+- **Sprint 2:** email password-reset request/confirmation, session invalidation after password reset, and the remaining administration lifecycle and audit actions. These complete the remaining password-reset and administrative requirements not delivered by Phases 7 and 8.
 - **Sprint 3-4:** execute the specified scale/performance/load tests, key-rotation rehearsal, recovery testing, AWS deployment evidence, and operational dashboards/alerts. Preserve the same User Service API and data-ownership boundary.
 
 ## Acceptance mapping

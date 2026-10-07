@@ -204,7 +204,7 @@ a { color: var(--primary); font-weight: 700; text-decoration-thickness: 1px; tex
 .admin-account-result-heading h2 { color: var(--ink); font-size: 1.2rem; margin: 0 0 .2rem; }
 .admin-account-result-heading p:not(.section-label) { color: var(--muted); font-size: .88rem; margin: 0; }
 .account-status { background: var(--success-surface); border-radius: 999px; color: var(--success); flex: 0 0 auto; font-size: .76rem; font-weight: 800; padding: .36rem .6rem; }
-.account-status-suspended, .account-status-deleted { background: var(--danger-surface); color: var(--danger); }
+.account-status-deleted { background: var(--danger-surface); color: var(--danger); }
 .admin-identity-list { display: grid; gap: .65rem; margin: 0; padding-top: 1rem; }
 .admin-identity-list > div { align-items: baseline; display: flex; gap: 1rem; justify-content: space-between; }
 .admin-identity-list dt { color: var(--muted); font-size: .84rem; }

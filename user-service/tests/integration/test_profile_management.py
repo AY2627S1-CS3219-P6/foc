@@ -213,7 +213,7 @@ async def test_profile_management_rejects_protected_fields_and_tombstones_accoun
                 "username": "replacement",
                 "activeParticipationMode": "COURIER",
                 "systemRole": "ADMIN",
-                "accountStatus": "SUSPENDED",
+                "accountStatus": "DELETED",
                 "id": str(uuid4()),
             }
             for field, value in protected_field_values.items():
