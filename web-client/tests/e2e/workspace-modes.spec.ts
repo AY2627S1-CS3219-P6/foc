@@ -128,14 +128,17 @@ for (const role of ["ADMIN", "SUPER_ADMIN"] as const) {
       await expect(page.getByRole("button", { name: /Activate|Deactivate/ })).toHaveCount(0);
       await expect(page.getByRole("link", { name: "Profile", exact: true })).toBeVisible();
       await expectNoOverflow(page);
-      expect(await navigationLayout(page, width)).toEqual(profileNavigation);
+      await expect.poll(() => navigationLayout(page, width)).toEqual(profileNavigation);
       await expect(page.getByRole("link", { name: "Suppliers", exact: true })).toHaveAttribute("aria-current", "page");
       if (role === "SUPER_ADMIN") await page.screenshot({ path: test.info().outputPath(`user-mode-${width}.png`), fullPage: true });
 
       await page.getByRole("link", { name: "View Cool Spot" }).click();
+      await expect(page).toHaveURL(`/suppliers/${activeSupplier.id}`);
+      await expect(page.getByRole("heading", { name: "Supplier information", exact: true })).toBeVisible();
       await expectMode(page, "User");
       await expect(page.getByRole("link", { name: "Edit supplier" })).toHaveCount(0);
-      expect(await navigationLayout(page, width)).toEqual(profileNavigation);
+      // Route changes replace the shell; retry geometry reads made during that commit.
+      await expect.poll(() => navigationLayout(page, width)).toEqual(profileNavigation);
       await expect(page.getByRole("link", { name: "Suppliers", exact: true })).toHaveAttribute("aria-current", "page");
 
       if (role === "SUPER_ADMIN") {
@@ -144,12 +147,12 @@ for (const role of ["ADMIN", "SUPER_ADMIN"] as const) {
         await expect(page.getByRole("group", { name: "Workspace mode" })).toHaveCount(0);
         await expect(manageAdmins).toHaveAttribute("aria-current", "page");
         await expect(page.getByRole("link", { name: "Profile", exact: true })).not.toHaveAttribute("aria-current", "page");
-        expect(await navigationLayout(page, width)).toEqual(profileNavigation);
+        await expect.poll(() => navigationLayout(page, width)).toEqual(profileNavigation);
       }
       await page.getByRole("link", { name: "Profile", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Profile and security" })).toBeVisible();
       await expect(page.getByRole("group", { name: "Workspace mode" })).toHaveCount(0);
-      expect(await navigationLayout(page, width)).toEqual(profileNavigation);
+      await expect.poll(() => navigationLayout(page, width)).toEqual(profileNavigation);
     });
   }
 }
