@@ -29,19 +29,22 @@ class EventCapture:
     connection: Any
     queue: Any
 
-    async def receive_payload(self) -> dict[str, str]:
+    async def receive_payload(self, *, expected_user_id: str) -> dict[str, str]:
         async with asyncio.timeout(15):
             async with self.queue.iterator() as iterator:
                 async for message in iterator:
                     async with message.process():
                         payload = json.loads(message.body)
-                    break
+                    expected_fields = {"eventId", "eventType", "userId", "occurredAt"}
+                    if (
+                        set(payload) == expected_fields
+                        and payload["eventType"] == USER_REGISTERED_EVENT_TYPE
+                        and payload["userId"] == expected_user_id
+                    ):
+                        return payload
                 else:
                     raise RuntimeError("RabbitMQ did not deliver the registration event.")
-        expected_fields = {"eventId", "eventType", "userId", "occurredAt"}
-        if set(payload) != expected_fields or payload["eventType"] != USER_REGISTERED_EVENT_TYPE:
-            raise RuntimeError("The registration event did not match the safe v1 contract.")
-        return payload
+        raise RuntimeError("RabbitMQ did not deliver the expected registration event.")
 
     async def close(self) -> None:
         await self.connection.close()
@@ -140,11 +143,7 @@ async def run_demo(arguments: argparse.Namespace) -> None:
                     201,
                     "email verification",
                 )
-                safe_event = await event_capture.receive_payload()
-                if safe_event["userId"] != verified["userId"]:
-                    raise RuntimeError(
-                        "The registration event user ID did not match the verified account."
-                    )
+                await event_capture.receive_payload(expected_user_id=verified["userId"])
 
                 user_login = await assert_status(
                     await service_client.post(

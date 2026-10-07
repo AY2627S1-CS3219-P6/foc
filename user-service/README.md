@@ -13,9 +13,10 @@ verifies normal access tokens locally and asks User Service for a current,
 fail-closed supplier-management decision immediately before an administrative
 operation.
 
-Verified registration also writes a durable `user.registered.v1` outbox record
-in the same database transaction as the User and credential. The independently
-restartable `outbox-publisher` Compose service publishes exactly `eventId`,
+Verified registration and Super Admin bootstrap both write a durable
+`user.registered.v1` outbox record in the same database transaction as the
+User and credential. The independently restartable `outbox-publisher` Compose
+service publishes exactly `eventId`,
 `eventType`, `userId`, and `occurredAt` to the durable `foc.events` RabbitMQ
 topic exchange. It stores no password, profile, OTP, refresh token, or other
 credential data in the event path. Consumer services must treat `eventId` and

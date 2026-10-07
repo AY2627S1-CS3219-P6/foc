@@ -4,7 +4,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -36,10 +36,13 @@ class RecordingOtpSender:
 @dataclass
 class RecordingPublisher:
     failures_remaining: int = 0
+    failure_event_id: UUID | None = None
     events: list[SafeOutboxEvent] = field(default_factory=list)
 
     async def publish(self, event: SafeOutboxEvent) -> None:
-        if self.failures_remaining:
+        if self.failures_remaining and (
+            self.failure_event_id is None or event.event_id == self.failure_event_id
+        ):
             self.failures_remaining -= 1
             raise RuntimeError("simulated publish outage")
         self.events.append(event)
@@ -52,6 +55,24 @@ async def read_one(database: Database, statement):
     async for session in database.session():
         return await session.scalar(statement)
     raise AssertionError("The test database did not provide a session.")
+
+
+async def publish_until_attempted(
+    database: Database,
+    worker: OutboxWorker,
+    event_id: UUID,
+    *,
+    attempts: int = 1,
+) -> OutboxEvent:
+    """Allow bootstrap and other registrations to precede the test event."""
+    while True:
+        assert await worker.publish_available_once()
+        event = await read_one(
+            database, select(OutboxEvent).where(OutboxEvent.event_id == event_id),
+        )
+        assert event is not None
+        if event.publish_attempts >= attempts:
+            return event
 
 
 async def register_and_verify(database: Database, sender: RecordingOtpSender) -> tuple[str, str]:
@@ -102,18 +123,14 @@ async def test_outbox_publishes_only_safe_registration_fields_after_verification
         assert event.publish_attempts == 0
 
         worker = OutboxWorker(database, publisher, Settings(_env_file=None))
-        assert await worker.publish_available_once()
-
-        published = await read_one(
-            database,
-            select(OutboxEvent).where(OutboxEvent.event_id == event.event_id),
-        )
+        published = await publish_until_attempted(database, worker, event.event_id)
         assert published is not None
         assert published.state == OutboxEventState.PUBLISHED
         assert published.publish_attempts == 1
         assert published.published_at is not None
-        assert len(publisher.events) == 1
-        payload = publisher.events[0].payload()
+        matching_events = [item for item in publisher.events if item.event_id == event.event_id]
+        assert len(matching_events) == 1
+        payload = matching_events[0].payload()
         assert set(payload) == {"eventId", "eventType", "userId", "occurredAt"}
         assert payload["eventId"] == str(event.event_id)
         assert payload["userId"] == user_id
@@ -145,13 +162,10 @@ async def test_outbox_retry_retains_event_and_reuses_its_event_id() -> None:
             select(OutboxEvent).where(OutboxEvent.aggregate_id == user_id),
         )
         assert event is not None
+        publisher.failure_event_id = event.event_id
         worker = OutboxWorker(database, publisher, settings)
 
-        assert await worker.publish_available_once()
-        retried = await read_one(
-            database,
-            select(OutboxEvent).where(OutboxEvent.event_id == event.event_id),
-        )
+        retried = await publish_until_attempted(database, worker, event.event_id)
         assert retried is not None
         assert retried.state == OutboxEventState.PENDING
         assert retried.publish_attempts == 1
@@ -167,15 +181,13 @@ async def test_outbox_retry_retains_event_and_reuses_its_event_id() -> None:
                     .values(next_attempt_at=datetime.now(UTC))
                 )
             break
-        assert await worker.publish_available_once()
-
-        published = await read_one(
-            database,
-            select(OutboxEvent).where(OutboxEvent.event_id == event.event_id),
+        published = await publish_until_attempted(
+            database, worker, event.event_id, attempts=2,
         )
         assert published is not None
         assert published.state == OutboxEventState.PUBLISHED
         assert published.publish_attempts == 2
-        assert publisher.events[0].event_id == event.event_id
+        matching_events = [item for item in publisher.events if item.event_id == event.event_id]
+        assert len(matching_events) == 1
     finally:
         await database.dispose()
