@@ -31,6 +31,8 @@ The permitted `action` values are `SUPPLIER_CREATE`, `SUPPLIER_UPDATE`, and
 }
 ```
 
+The only supported `accountStatus` values are `ACTIVE` and `DELETED`.
+
 Supplier Service performs the operation only when the response status is 200,
 `allowed` is `true`, and `accountStatus` is `ACTIVE`. It fails closed (deny the
 operation) on every other status, malformed response, network error, timeout,

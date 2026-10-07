@@ -29,7 +29,6 @@ class SystemRole(enum.StrEnum):
 
 class AccountStatus(enum.StrEnum):
     ACTIVE = "ACTIVE"
-    SUSPENDED = "SUSPENDED"
     DELETED = "DELETED"
 
 
