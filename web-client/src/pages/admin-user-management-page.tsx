@@ -1,7 +1,7 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { isApiRequestError } from "../api/client";
 import type { AdminAccountSummary, AdminLookupField, AdminUserAccount, SystemRole } from "../api/user-service";
-import { useAuth } from "../app/auth-provider";
+import { useAuth } from "../app/use-auth";
 import { canManageSystemRole } from "../app/role-access";
 import { DesktopAppShell } from "../components/desktop-app-shell";
 import { FormField } from "../components/form-field";

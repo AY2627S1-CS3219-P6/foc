@@ -5,6 +5,8 @@ import { userService } from "../api/user-service";
 import { passwordFormatError, validateRegistration } from "../api/validation";
 import { FormField } from "../components/form-field";
 import { PasswordRequirements, passwordHintText } from "../components/password-requirements";
+import { APP_NAME } from "../app/branding";
+import { AppBrandMark } from "../components/app-brand";
 
 type RegistrationForm = {
   username: string;
@@ -73,7 +75,7 @@ export function RegistrationPage() {
     <main className="auth-page">
       <section className="auth-story auth-story-register" aria-hidden="true">
         <div className="auth-story-inner">
-          <p className="auth-kicker">Friend on Campus</p>
+          <p className="auth-kicker">{APP_NAME}</p>
           <h1>A familiar face for every small errand.</h1>
           <p>Start with your verified NUS student account.</p>
         </div>
@@ -81,7 +83,7 @@ export function RegistrationPage() {
       <section className="auth-panel">
         <div className="auth-form-wrap auth-form-register">
           <div className="auth-heading">
-            <span className="foc-mark"><span /><span /></span>
+            <AppBrandMark />
             <div>
               <h1>Create your account</h1>
               <p>We’ll verify your NUS email before your account becomes active.</p>

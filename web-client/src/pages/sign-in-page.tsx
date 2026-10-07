@@ -1,8 +1,10 @@
 import { type FormEvent, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
-import { useAuth } from "../app/auth-provider";
+import { useAuth } from "../app/use-auth";
 import { FormField } from "../components/form-field";
+import { APP_NAME } from "../app/branding";
+import { AppBrandMark } from "../components/app-brand";
 
 type SignInLocationState = {
   email?: string;
@@ -37,7 +39,7 @@ export function SignInPage() {
     <main className="auth-page">
       <section className="auth-story" aria-hidden="true">
         <div className="auth-story-inner">
-          <p className="auth-kicker">Friend on Campus</p>
+          <p className="auth-kicker">{APP_NAME}</p>
           <h1>Campus errands work better together.</h1>
           <p>Sign in to request an errand or lend a hand nearby.</p>
         </div>
@@ -45,7 +47,7 @@ export function SignInPage() {
       <section className="auth-panel">
         <div className="auth-form-wrap">
           <div className="auth-heading">
-            <span className="foc-mark"><span /><span /></span>
+            <AppBrandMark />
             <div>
               <h1>Welcome back</h1>
               <p>Sign in to request errands or help someone nearby.</p>

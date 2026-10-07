@@ -41,3 +41,29 @@ test("registration fields are stacked in the requested order and align on deskto
   expect(new Set(geometry.map((input) => input.width)).size).toBe(1);
   expect(geometry.map((input) => input.y)).toEqual([...geometry.map((input) => input.y)].sort((a, b) => a - b));
 });
+
+for (const width of [375, 1440]) {
+  test(`cancelling a profile edit discards the draft and validation errors at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.route("**/v1/auth/sessions/refresh", (route) => route.fulfill({ json: {
+      accessToken: "test-token", tokenType: "Bearer", expiresAt: "2030-01-01T00:00:00Z",
+    } }));
+    await page.route("**/v1/users/me", (route) => route.fulfill({ json: {
+      userId: "user-id", username: "testuser", email: "testuser@u.nus.edu", displayName: "Test Student",
+      systemRole: "USER", accountStatus: "ACTIVE",
+    } }));
+    await page.goto("/profile");
+    await page.getByRole("button", { name: "Edit profile", exact: true }).click();
+    await page.getByRole("textbox", { name: "Display name", exact: true }).fill("Unsaved name");
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("button", { name: "Edit profile", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Display name", exact: true })).toHaveValue("Test Student");
+    await page.getByRole("textbox", { name: "Display name", exact: true }).fill("");
+    await page.getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("button", { name: "Edit profile", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Display name", exact: true })).toHaveValue("Test Student");
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  });
+}

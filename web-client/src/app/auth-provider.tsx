@@ -1,8 +1,6 @@
 import {
-  createContext,
   type PropsWithChildren,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -10,33 +8,13 @@ import {
 import { ApiRequestError, isApiRequestError } from "../api/client";
 import {
   type AccessSession,
-  type AdminAccountSummary,
   type AdminLookupField,
-  type AdminUserAccount,
   type CurrentUser,
   type ProfileChanges,
   type SystemRole,
-  type SystemRoleUpdate,
   userService,
 } from "../api/user-service";
-
-type AuthStatus = "restoring" | "anonymous" | "authenticated";
-
-type AuthContextValue = {
-  status: AuthStatus;
-  user: CurrentUser | null;
-  withCurrentAccess: <T,>(operation: (token: string) => Promise<T>) => Promise<T>;
-  signIn: (email: string, password: string) => Promise<void>;
-  updateProfile: (changes: ProfileChanges) => Promise<CurrentUser>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
-  listAdmins: () => Promise<AdminAccountSummary[]>;
-  findUserAccount: (field: AdminLookupField, value: string) => Promise<AdminUserAccount>;
-  updateUserSystemRole: (userId: string, systemRole: SystemRole) => Promise<SystemRoleUpdate>;
-  signOut: () => Promise<void>;
-  deleteAccount: (currentPassword: string) => Promise<void>;
-};
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+import { AuthContext, type AuthContextValue, type AuthStatus } from "./auth-context";
 
 function isUnauthorized(error: unknown): boolean {
   return isApiRequestError(error) && error.status === 401;
@@ -191,10 +169,4 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth(): AuthContextValue {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used inside AuthProvider.");
-  return context;
 }

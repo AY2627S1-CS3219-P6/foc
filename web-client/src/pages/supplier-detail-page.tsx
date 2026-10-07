@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
 import { type Supplier, supplierService } from "../api/supplier-service";
-import { useAuth } from "../app/auth-provider";
+import { useAuth } from "../app/use-auth";
 import { SupplierShell } from "../components/supplier-shell";
 import { SupplierStatusActions } from "../components/supplier-status-actions";
 

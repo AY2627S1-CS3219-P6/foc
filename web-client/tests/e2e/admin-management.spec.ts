@@ -32,6 +32,7 @@ for (const width of [375, 768, 1024, 1440]) {
     await page.goto("/admin/users");
     await expect(page.getByRole("heading", { name: "Manage admins", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Manage admins" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Workspace mode" })).toHaveCount(0);
     const roster = page.getByRole("region", { name: "Current super admins / admins" });
     await expect(roster.getByRole("listitem")).toHaveCount(3);
     const rows = await roster.getByRole("listitem").evaluateAll((elements) => elements.map((element) => {

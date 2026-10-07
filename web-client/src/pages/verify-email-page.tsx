@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
 import { userService } from "../api/user-service";
 import { FormField } from "../components/form-field";
+import { AppBrandMark } from "../components/app-brand";
 
 type VerificationLocationState = { email?: string; message?: string };
 
@@ -57,7 +58,7 @@ export function VerifyEmailPage() {
       <section className="auth-panel">
         <div className="auth-form-wrap verification-wrap">
           <div className="auth-heading">
-            <span className="foc-mark"><span /><span /></span>
+            <AppBrandMark />
             <div>
               <h1>Check your email</h1>
               <p>Enter the verification code sent to your NUS email.</p>

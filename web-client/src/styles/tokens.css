@@ -5,6 +5,7 @@
   text-rendering: optimizeLegibility;
   --canvas: #f7f8fc;
   --surface: #ffffff;
+  --sidebar-background: linear-gradient(164.5deg, #0b3d6e 0%, #082a4a 100%);
   --primary: #0b4f87;
   --primary-deep: #073d6a;
   --ink: #33506e;
