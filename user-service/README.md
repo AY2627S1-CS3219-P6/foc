@@ -229,6 +229,25 @@ the supplier-management operation. Supplier Service must not make an
 administrative decision from a JWT role claim or receive User Service database
 access.
 
+## Super Admin account management
+
+The web client's **Manage admins** page at `/admin/users` is available only to
+Super Admins. The exact username/email lookup at `GET /v1/admin/users` also
+requires Super Admin access; Admins and ordinary Users receive `403`.
+
+`GET /v1/admin/admins` returns the current non-deleted Super Admins and Admins,
+with only `userId`, `username`, `email`, and `systemRole`. Super Admins appear
+first, and each role group is sorted by normalized username ascending.
+Deleted account tombstones are excluded even though their historical role is
+retained. The page displays username, NUS email, and system role in vertically
+stacked rows, and allows confirmed role changes for other accounts through the
+existing role-update endpoint. It refreshes the list after changes made from
+either a search result or a list row.
+
+Removal of the `SUSPENDED` account status is planned separately. This feature
+leaves account-status definitions and role-lifecycle rules unchanged. Admins
+retain their existing Supplier management capabilities.
+
 ## Phase 5 administrator lifecycle smoke test
 
 The first Super Admin is deliberately not created through the public

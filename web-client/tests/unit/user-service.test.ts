@@ -25,6 +25,21 @@ describe("User Service Phase 7 client calls", () => {
     expect((request.headers as Headers).get("Authorization")).toBe("Bearer access-token");
   });
 
+  it("loads the current administrator list with bearer authentication", async () => {
+    const admins = [{ userId: "admin-1", username: "CampusAdmin", email: "admin@u.nus.edu", systemRole: "ADMIN" }];
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(admins), { headers: { "content-type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(userService.listAdmins("access-token")).resolves.toEqual(admins);
+
+    const [url, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/v1/admin/admins");
+    expect(request.method).toBe("GET");
+    expect((request.headers as Headers).get("Authorization")).toBe("Bearer access-token");
+  });
+
   it("uses one encoded administrative identity query", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ userId: "user-1" }), {

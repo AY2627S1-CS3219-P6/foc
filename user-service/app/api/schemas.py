@@ -192,6 +192,15 @@ class AdminUserLookupRequest(ApiModel):
         return self
 
 
+class AdminAccountSummary(ApiModel):
+    """The minimal identity fields in the Super Admin-only administrator list."""
+
+    user_id: UUID
+    username: str
+    email: str
+    system_role: Literal[SystemRole.ADMIN, SystemRole.SUPER_ADMIN]
+
+
 class AdminUserLookupResponse(ApiModel):
     """The safe identity details available to authorised administrators."""
 

@@ -210,13 +210,17 @@ a { color: var(--primary); font-weight: 700; text-decoration-thickness: 1px; tex
 .admin-identity-list dt { color: var(--muted); font-size: .84rem; }
 .admin-identity-list dd { color: var(--ink); font-size: .88rem; font-weight: 750; margin: 0; overflow-wrap: anywhere; text-align: right; }
 .role-management-zone { border-top: 1px solid var(--border); margin-top: 1.1rem; padding-top: 1.1rem; }
-.role-management-zone h3 { color: var(--ink); font-size: 1.05rem; margin: 0 0 .4rem; }
-.role-management-zone > div > p:not(.section-label) { color: var(--muted); font-size: .88rem; line-height: 1.5; margin: 0; max-width: 38rem; }
-.role-management-form { align-items: end; display: grid; gap: .7rem; margin-top: 1rem; }
+.role-management-form { align-items: end; display: grid; gap: .7rem; margin-top: 0; }
 .role-management-form label { color: var(--ink); font-size: .88rem; font-weight: 700; }
 .role-management-form select { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--ink); min-height: 48px; padding: .72rem .86rem; width: 100%; }
 .role-management-form .button { width: 100%; }
 .role-management-feedback { margin-top: 1rem; }
+.current-admins-section { margin-top: 2rem; max-width: 760px; }
+.current-admins-section > h2 { color: var(--ink); font-size: 1.3rem; margin: 0 0 1rem; }
+.current-admin-list { display: flex; flex-direction: column; gap: 1rem; list-style: none; margin: 0; padding: 0; }
+.current-admin-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); box-shadow: var(--shadow); min-width: 0; padding: 1rem; }
+.current-admin-card > h3 { color: var(--ink); font-size: 1.1rem; margin: 0; overflow-wrap: anywhere; }
+.current-admins-feedback { color: var(--muted); margin: 0 0 1rem; }
 .role-change-dialog { max-width: 34rem; }
 .role-change-session-note { background: #f4f8fc; border-left: 3px solid #4c88ba; color: #3c5871 !important; font-size: .88rem; padding: .75rem .85rem; }
 

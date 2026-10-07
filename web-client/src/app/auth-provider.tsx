@@ -10,6 +10,7 @@ import {
 import { ApiRequestError, isApiRequestError } from "../api/client";
 import {
   type AccessSession,
+  type AdminAccountSummary,
   type AdminLookupField,
   type AdminUserAccount,
   type CurrentUser,
@@ -28,6 +29,7 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<void>;
   updateProfile: (changes: ProfileChanges) => Promise<CurrentUser>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  listAdmins: () => Promise<AdminAccountSummary[]>;
   findUserAccount: (field: AdminLookupField, value: string) => Promise<AdminUserAccount>;
   updateUserSystemRole: (userId: string, systemRole: SystemRole) => Promise<SystemRoleUpdate>;
   signOut: () => Promise<void>;
@@ -126,6 +128,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [clearSession, withCurrentAccess],
   );
 
+  const listAdmins = useCallback(
+    () => withCurrentAccess((token) => userService.listAdmins(token)),
+    [withCurrentAccess],
+  );
+
   const findUserAccount = useCallback(
     (field: AdminLookupField, value: string) =>
       withCurrentAccess((token) => userService.findUserAccount(field, value, token)),
@@ -162,6 +169,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signIn,
       updateProfile,
       changePassword,
+      listAdmins,
       findUserAccount,
       updateUserSystemRole,
       signOut,
@@ -171,6 +179,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       changePassword,
       deleteAccount,
       findUserAccount,
+      listAdmins,
       signIn,
       signOut,
       status,

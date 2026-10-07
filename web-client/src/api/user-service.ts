@@ -55,6 +55,13 @@ export type AdminUserAccount = {
 
 export type AdminLookupField = "username" | "email";
 
+export type AdminAccountSummary = {
+  userId: string;
+  username: string;
+  email: string;
+  systemRole: "ADMIN" | "SUPER_ADMIN";
+};
+
 export type SystemRoleUpdate = {
   userId: string;
   systemRole: SystemRole;
@@ -114,6 +121,9 @@ export const userService = {
       { method: "DELETE", body: JSON.stringify({ currentPassword, acknowledgeDeletion: true }) },
       accessToken,
     ),
+
+  listAdmins: (accessToken: string) =>
+    requestJson<AdminAccountSummary[]>("/admin/admins", { method: "GET" }, accessToken),
 
   findUserAccount: (field: AdminLookupField, value: string, accessToken: string) => {
     const search = new URLSearchParams({ [field]: value });

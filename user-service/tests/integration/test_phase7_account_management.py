@@ -199,9 +199,7 @@ async def test_password_change_replaces_bcrypt_credential_and_revokes_all_sessio
         async for session in database.session():
             sessions = list(
                 (
-                    await session.scalars(
-                        select(UserSession).where(UserSession.user_id == user_id)
-                    )
+                    await session.scalars(select(UserSession).where(UserSession.user_id == user_id))
                 ).all()
             )
         assert len(sessions) == 3
@@ -212,7 +210,122 @@ async def test_password_change_replaces_bcrypt_credential_and_revokes_all_sessio
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_administrators_can_look_up_one_safe_account_by_normalized_identifier(
+async def test_current_admin_list_permissions_ordering_tombstones_and_role_updates(
+    jwt_key_pair: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
+) -> None:
+    database_url = os.getenv("USER_SERVICE_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("Set USER_SERVICE_TEST_DATABASE_URL or use the local Supabase test helper.")
+
+    database = Database(database_url)
+    test_id = uuid4().hex[:12]
+    password = "AdminListTestPass1!"
+    identities = [
+        (f"AlphaSuper{test_id}", SystemRole.SUPER_ADMIN),
+        (f"zULuSuper{test_id}", SystemRole.SUPER_ADMIN),
+        (f"aLpHaAdmin{test_id}", SystemRole.ADMIN),
+        (f"ZuluAdmin{test_id}", SystemRole.ADMIN),
+        (f"OrdinaryUser{test_id}", SystemRole.USER),
+    ]
+    user_ids = []
+    for username, role in identities:
+        user_ids.append(
+            await seed_active_user(
+                database,
+                username=username,
+                email=f"{username.lower()}@u.nus.edu",
+                password=password,
+                system_role=role,
+            )
+        )
+
+    tombstone_ids = [uuid4(), uuid4()]
+    async for session in database.session():
+        async with session.begin():
+            for user_id, role in zip(
+                tombstone_ids, (SystemRole.SUPER_ADMIN, SystemRole.ADMIN), strict=True
+            ):
+                session.add(
+                    User(
+                        id=user_id,
+                        display_name="Deleted User",
+                        system_role=role,
+                        account_status=AccountStatus.DELETED,
+                        deleted_at=datetime.now(UTC),
+                        role_version=2,
+                    )
+                )
+
+    settings = phase7_settings()
+    app = create_app(
+        settings=settings,
+        database=database,
+        authentication_service=phase7_authentication_service(settings, jwt_key_pair),
+    )
+
+    async def login_headers(client: AsyncClient, index: int) -> dict[str, str]:
+        response = await client.post(
+            "/v1/auth/sessions",
+            json={"email": f"{identities[index][0].lower()}@u.nus.edu", "password": password},
+        )
+        assert response.status_code == 200
+        return {"Authorization": f"Bearer {response.json()['accessToken']}"}
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            assert (await client.get("/v1/admin/admins")).status_code == 401
+            for index in (2, 4):
+                rejected = await client.get(
+                    "/v1/admin/admins", headers=await login_headers(client, index)
+                )
+                assert rejected.status_code == 403
+                assert rejected.json()["error"]["code"] == "INSUFFICIENT_ROLE"
+
+            super_headers = await login_headers(client, 0)
+            response = await client.get("/v1/admin/admins", headers=super_headers)
+            assert response.status_code == 200
+            accounts = response.json()
+            assert all(
+                set(account) == {"userId", "username", "email", "systemRole"}
+                for account in accounts
+            )
+            seeded_ids = {str(user_id) for user_id in user_ids}
+            seeded = [account for account in accounts if account["userId"] in seeded_ids]
+            assert [account["username"] for account in seeded] == [
+                username for username, _ in identities[:4]
+            ]
+            assert not {str(user_id) for user_id in tombstone_ids}.intersection(
+                account["userId"] for account in accounts
+            )
+
+            target_id = str(user_ids[4])
+            for requested_role in ("ADMIN", "SUPER_ADMIN", "USER"):
+                changed = await client.patch(
+                    f"/v1/admin/users/{target_id}/system-role",
+                    headers=super_headers,
+                    json={"systemRole": requested_role},
+                )
+                assert changed.status_code == 200
+                current = (await client.get("/v1/admin/admins", headers=super_headers)).json()
+                target = [account for account in current if account["userId"] == target_id]
+                if requested_role == "USER":
+                    assert target == []
+                else:
+                    assert target[0]["systemRole"] == requested_role
+                assert current == sorted(
+                    current,
+                    key=lambda account: (
+                        account["systemRole"] != "SUPER_ADMIN",
+                        account["username"].casefold(),
+                    ),
+                )
+    finally:
+        await database.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_only_super_admins_can_look_up_one_safe_account_by_normalized_identifier(
     jwt_key_pair: tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey],
 ) -> None:
     database_url = os.getenv("USER_SERVICE_TEST_DATABASE_URL")
@@ -282,9 +395,17 @@ async def test_administrators_can_look_up_one_safe_account_by_normalized_identif
             assert rejected.json()["error"]["code"] == "INSUFFICIENT_ROLE"
 
             admin_headers = await login_headers(client, admin_email)
+            rejected_admin = await client.get(
+                f"/v1/admin/users?username={target_username}",
+                headers=admin_headers,
+            )
+            assert rejected_admin.status_code == 403
+            assert rejected_admin.json()["error"]["code"] == "INSUFFICIENT_ROLE"
+
+            super_admin_headers = await login_headers(client, super_admin_email)
             by_username = await client.get(
                 f"/v1/admin/users?username={target_username.swapcase()}",
-                headers=admin_headers,
+                headers=super_admin_headers,
             )
             assert by_username.status_code == 200
             body = by_username.json()
@@ -307,7 +428,6 @@ async def test_administrators_can_look_up_one_safe_account_by_normalized_identif
                 "createdAt",
             }
 
-            super_admin_headers = await login_headers(client, super_admin_email)
             by_email = await client.get(
                 f"/v1/admin/users?email={target_email.upper()}",
                 headers=super_admin_headers,
@@ -315,18 +435,18 @@ async def test_administrators_can_look_up_one_safe_account_by_normalized_identif
             assert by_email.status_code == 200
             assert by_email.json()["userId"] == str(target_id)
 
-            no_criterion = await client.get("/v1/admin/users", headers=admin_headers)
+            no_criterion = await client.get("/v1/admin/users", headers=super_admin_headers)
             both_criteria = await client.get(
                 f"/v1/admin/users?username={target_username}&email={target_email}",
-                headers=admin_headers,
+                headers=super_admin_headers,
             )
             invalid_criterion = await client.get(
                 "/v1/admin/users?username=invalid%20username",
-                headers=admin_headers,
+                headers=super_admin_headers,
             )
             missing = await client.get(
                 f"/v1/admin/users?email=missing-{test_id}@u.nus.edu",
-                headers=admin_headers,
+                headers=super_admin_headers,
             )
             assert no_criterion.status_code == 422
             assert both_criteria.status_code == 422

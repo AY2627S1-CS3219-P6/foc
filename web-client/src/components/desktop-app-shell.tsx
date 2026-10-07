@@ -32,7 +32,7 @@ function UsersGlyph() {
 
 export function DesktopAppShell({ children, user }: PropsWithChildren<{ user: CurrentUser }>) {
   const firstName = user.displayName.split(/\s+/)[0] || user.displayName;
-  const canManageUsers = user.systemRole === "ADMIN" || user.systemRole === "SUPER_ADMIN";
+  const canManageAdmins = user.systemRole === "SUPER_ADMIN";
 
   return (
     <div className="desktop-shell">
@@ -51,12 +51,12 @@ export function DesktopAppShell({ children, user }: PropsWithChildren<{ user: Cu
             <span>Profile</span>
           </NavLink>
           <NavLink className="rail-supplier-link" to="/suppliers">Suppliers</NavLink>
-          {canManageUsers ? (
+          {canManageAdmins ? (
             <>
               <p className="rail-group-label rail-group-label-spaced">Administration</p>
               <NavLink className={({ isActive }) => `rail-profile-link${isActive ? " rail-profile-link-active" : ""}`} to="/admin/users">
                 <UsersGlyph />
-                <span>Manage users</span>
+                <span>Manage admins</span>
               </NavLink>
             </>
           ) : null}
