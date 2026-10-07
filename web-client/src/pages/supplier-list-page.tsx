@@ -3,7 +3,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
 import { type Category, type SupplierList, type SupplierListItem, type SupplierQuery, supplierService } from "../api/supplier-service";
 import { useAuth } from "../app/use-auth";
-import { SupplierIcon, SupplierShell } from "../components/supplier-shell";
+import { SupplierShell } from "../components/supplier-shell";
+import { SupplierIcon } from "../components/navigation-icons";
 import { SupplierStatusActions } from "../components/supplier-status-actions";
 
 function readQuery(params: URLSearchParams, admin: boolean): SupplierQuery {
