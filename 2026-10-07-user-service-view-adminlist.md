@@ -45,6 +45,6 @@ Restrict account management to Super Admins, rename it "Manage admins", and add 
 ## Assumptions and deferred work
 
 - Keep existing page and role-update URLs; rename the visible feature.
-- Removing `SUSPENDED` status is a separate, later implementation. This change leaves account-status definitions and existing lifecycle rules unchanged.
+- Account status supports only `ACTIVE` and terminal `DELETED` tombstones. Existing role-management lifecycle safeguards remain unchanged.
 - No schema migration or new dependency is needed.
 - Preserve existing local changes, especially those in the lifecycle module, tests, and README.

@@ -23,6 +23,13 @@ credential data in the event path. Consumer services must treat `eventId` and
 
 ## Local development
 
+Account status supports only `ACTIVE` and `DELETED`. Deletion remains terminal;
+registering again creates a new user ID. Apply committed database migrations
+before releasing the application and restart User Service afterward. The
+account-status migration recreates the enum while preserving existing active
+accounts and deleted tombstones, and aborts if any unsupported status is still
+in use. Applied migration history remains unchanged.
+
 Run these commands from this directory.
 
 1. Install the pinned Supabase CLI package and start the isolated local
@@ -72,6 +79,10 @@ To run the real database readiness integration test, start local Supabase and
 use the helper. It discovers the local database URL without echoing it:
 
     .\.venv\Scripts\python.exe scripts\run_tests_with_local_supabase.py
+
+Migration upgrade/rollback tests create and remove temporary databases using
+the local Supabase administrator connection. They require `CREATE DATABASE`
+privileges and leave the configured database's schema and data unchanged.
 
 The Supabase migration directory is the only migration history. Schema changes
 must be created with:
@@ -244,9 +255,9 @@ stacked rows, and allows confirmed role changes for other accounts through the
 existing role-update endpoint. It refreshes the list after changes made from
 either a search result or a list row.
 
-Removal of the `SUSPENDED` account status is planned separately. This feature
-leaves account-status definitions and role-lifecycle rules unchanged. Admins
-retain their existing Supplier management capabilities.
+Account status supports only `ACTIVE` and terminal `DELETED` tombstones.
+Existing role-lifecycle rules remain unchanged, and Admins retain their
+existing Supplier management capabilities.
 
 ## Phase 5 administrator lifecycle smoke test
 
