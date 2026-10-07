@@ -2,6 +2,7 @@ import { type PropsWithChildren } from "react";
 import { NavLink } from "react-router-dom";
 import type { CurrentUser } from "../api/user-service";
 import { Link } from "react-router-dom";
+import { AppBrand } from "./app-brand";
 
 export function MobileAppShell({ children, user }: PropsWithChildren<{ user: CurrentUser }>) {
   const canManageAdmins = user.systemRole === "SUPER_ADMIN";
@@ -9,10 +10,7 @@ export function MobileAppShell({ children, user }: PropsWithChildren<{ user: Cur
   return (
     <div className="mobile-shell">
       <header className="mobile-topbar">
-        <div className="mobile-brand">
-          <span aria-hidden="true" className="foc-mark foc-mark-small"><span /><span /></span>
-          <span>Friend on Campus</span>
-        </div>
+        <AppBrand variant="mobile" />
         <span aria-label="Current user" className="avatar avatar-small">{user.displayName.slice(0, 1).toUpperCase()}</span>
       </header>
       <nav aria-label="Account navigation" className="mobile-account-nav">

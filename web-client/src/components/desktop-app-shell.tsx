@@ -1,15 +1,8 @@
 import { type PropsWithChildren } from "react";
 import { NavLink } from "react-router-dom";
 import type { CurrentUser } from "../api/user-service";
-
-function FoCMark() {
-  return (
-    <span aria-hidden="true" className="foc-mark">
-      <span />
-      <span />
-    </span>
-  );
-}
+import { APP_NAME } from "../app/branding";
+import { AppBrand } from "./app-brand";
 
 function ProfileGlyph() {
   return (
@@ -38,11 +31,7 @@ export function DesktopAppShell({ children, user }: PropsWithChildren<{ user: Cu
     <div className="desktop-shell">
       <aside className="desktop-rail">
         <div className="rail-brand">
-          <FoCMark />
-          <div>
-            <strong>Friend on Campus</strong>
-            <span>NUS student community</span>
-          </div>
+          <AppBrand />
         </div>
         <nav aria-label="Account navigation" className="rail-navigation">
           <p className="rail-group-label">Account</p>
@@ -61,7 +50,7 @@ export function DesktopAppShell({ children, user }: PropsWithChildren<{ user: Cu
             </>
           ) : null}
         </nav>
-        <p className="rail-footnote">Your account is managed by Friend on Campus.</p>
+        <p className="rail-footnote">Your account is managed by {APP_NAME}.</p>
       </aside>
       <main className="desktop-main">
         <header className="desktop-topbar">

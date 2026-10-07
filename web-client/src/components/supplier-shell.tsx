@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../app/use-auth";
+import { AppBrand } from "./app-brand";
 
 export function SupplierIcon({ size = 20 }: { size?: number }) {
   return <svg aria-hidden="true" fill="none" height={size} viewBox="0 0 24 24" width={size}>
@@ -17,7 +18,6 @@ function ProfileIcon() {
 
 export function SupplierShell({ children }: PropsWithChildren) {
   const { user } = useAuth();
-  const { pathname } = useLocation();
   if (!user) return null;
   const canManage = user.systemRole === "ADMIN" || user.systemRole === "SUPER_ADMIN";
   const firstName = user.displayName.split(/\s+/)[0] || user.displayName;
@@ -25,8 +25,7 @@ export function SupplierShell({ children }: PropsWithChildren) {
   return <div className="supplier-shell">
     <aside className="supplier-rail">
       <Link className="supplier-brand" to="/suppliers">
-        <span aria-hidden="true" className="supplier-brand-mark"><SupplierIcon size={18} /></span>
-        <span><strong>Friends on Campus</strong><small>NUS student community</small></span>
+        <AppBrand />
       </Link>
       <span className="supplier-rail-label">Explore</span>
       <NavLink className={({ isActive }) => `supplier-nav-link${isActive ? " active" : ""}`} end to="/suppliers"><SupplierIcon />Suppliers</NavLink>
@@ -36,7 +35,7 @@ export function SupplierShell({ children }: PropsWithChildren) {
     </aside>
     <div className="supplier-app">
       <header className="supplier-topbar">
-        <strong className="supplier-mobile-title">{pathname.startsWith("/admin/") ? "Manage suppliers" : "Campus suppliers"}</strong>
+        <div className="supplier-mobile-brand"><AppBrand variant="mobile" /></div>
         <div className="supplier-topbar-greeting"><strong>Good to see you, {firstName}</strong><span>Find what you need around campus.</span></div>
         <Link aria-label="Open your profile" className="supplier-avatar" to="/profile">{user.displayName.slice(0, 1).toUpperCase()}</Link>
       </header>
