@@ -68,6 +68,11 @@ development.
 The repository already contains both `supabase/config.toml` files and all SQL
 migrations. Do not run `supabase init` again.
 
+User Service's local Supabase stack uses ports `15420`–`15429`, with PostgreSQL
+on `15422` and Studio on `15423`. Supplier Service uses its separate `5532x`
+ports. The User Service ports are below Windows' default dynamic port range,
+where virtual networking can reserve ports and prevent Docker from binding them.
+
 ### First-time setup
 
 Run these commands from the repository root in a macOS terminal.
@@ -146,7 +151,7 @@ Run these commands from the repository root in a macOS terminal.
 | `http://localhost:8000/health/ready` | User Service database readiness; expect HTTP 200 |
 | `http://localhost:8001/docs` | Supplier Service API documentation |
 | `http://localhost:8025` | Mailpit verification emails |
-| `http://localhost:54323` | User Service local Supabase Studio |
+| `http://localhost:15423` | User Service local Supabase Studio |
 | `http://localhost:55323` | Supplier Service local Supabase Studio |
 
 The web proxy sends `/v1/` to User Service and Supplier paths such as
@@ -158,6 +163,13 @@ supplier; permanent deletion awaits the Errand Service reference contract.
 Neither backend reads the other's database.
 
 ### Later starts and stops
+
+If your existing User Service setup used database port `54322`, run
+`npx supabase stop` from `user-service/` once before starting with the updated
+port configuration. In `user-service/.env`, change only the port in both
+`DATABASE_URL` and `DATABASE_URL_DOCKER` to `15422`; retain their hosts and
+credentials. The next start reuses the saved database volume. Keep your existing
+secrets and use the normal stop command, which preserves data.
 
 After the first setup, start the saved local databases and application
 containers with:

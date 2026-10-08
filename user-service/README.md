@@ -13,9 +13,10 @@ verifies normal access tokens locally and asks User Service for a current,
 fail-closed supplier-management decision immediately before an administrative
 operation.
 
-Verified registration also writes a durable `user.registered.v1` outbox record
-in the same database transaction as the User and credential. The independently
-restartable `outbox-publisher` Compose service publishes exactly `eventId`,
+Verified registration and Super Admin bootstrap both write a durable
+`user.registered.v1` outbox record in the same database transaction as the
+User and credential. The independently restartable `outbox-publisher` Compose
+service publishes exactly `eventId`,
 `eventType`, `userId`, and `occurredAt` to the durable `foc.events` RabbitMQ
 topic exchange. It stores no password, profile, OTP, refresh token, or other
 credential data in the event path. Consumer services must treat `eventId` and
@@ -31,6 +32,18 @@ accounts and deleted tombstones, and aborts if any unsupported status is still
 in use. Applied migration history remains unchanged.
 
 Run these commands from this directory.
+
+Local Supabase uses PostgreSQL port `15422` and Studio at
+`http://localhost:15423`. Its other local ports share the `1542x` range, below
+Windows' default dynamic port range to avoid virtual-networking reservations.
+
+For an existing setup that used database port `54322`, run `npx supabase stop`
+and update only the port in `.env`'s `DATABASE_URL` and `DATABASE_URL_DOCKER` to
+`15422`, keeping their hosts and credentials. Run `npx supabase start` again;
+the normal stop/start commands retain the database volume. Keep the existing
+development secrets. To apply pending migrations to that saved database, use
+`npx supabase migration up --local`; the reset below is for a disposable or new
+database.
 
 1. Install the pinned Supabase CLI package and start the isolated local
    PostgreSQL stack.

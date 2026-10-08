@@ -16,11 +16,13 @@ from app.models import (
     AccountStatus,
     AdminAuditEntry,
     Credential,
+    OutboxEvent,
     RegistrationChallenge,
     SystemRole,
     User,
     UserSession,
 )
+from app.outbox.events import USER_REGISTERED_EVENT_TYPE
 from app.registration.validation import (
     normalize_email,
     normalize_username,
@@ -246,6 +248,13 @@ class BootstrapSuperAdminService:
                         user_id=user.id,
                         password_hash=self._hash_password(credentials.password),
                         password_changed_at=now,
+                    )
+                )
+                session.add(
+                    OutboxEvent(
+                        event_type=USER_REGISTERED_EVENT_TYPE,
+                        aggregate_id=user.id,
+                        occurred_at=now,
                     )
                 )
                 session.add(
