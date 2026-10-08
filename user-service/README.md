@@ -33,6 +33,18 @@ in use. Applied migration history remains unchanged.
 
 Run these commands from this directory.
 
+Local Supabase uses PostgreSQL port `15422` and Studio at
+`http://localhost:15423`. Its other local ports share the `1542x` range, below
+Windows' default dynamic port range to avoid virtual-networking reservations.
+
+For an existing setup that used database port `54322`, run `npx supabase stop`
+and update only the port in `.env`'s `DATABASE_URL` and `DATABASE_URL_DOCKER` to
+`15422`, keeping their hosts and credentials. Run `npx supabase start` again;
+the normal stop/start commands retain the database volume. Keep the existing
+development secrets. To apply pending migrations to that saved database, use
+`npx supabase migration up --local`; the reset below is for a disposable or new
+database.
+
 1. Install the pinned Supabase CLI package and start the isolated local
    PostgreSQL stack.
 
