@@ -77,20 +77,14 @@ for (const role of ["ADMIN", "SUPER_ADMIN"] as const) {
       const requests = await mockWorkspace(page, role, false);
       await page.goto("/sign-in");
       await signIn(page);
-      await expect(page.getByRole("group", { name: "Workspace mode" })).toHaveCount(0);
+      await expectMode(page, "User");
       await expect(page.getByRole("link", { name: "Manage suppliers" })).toHaveCount(0);
       const manageAdmins = page.getByRole("link", { name: "Manage admins", exact: true });
-      if (role === "SUPER_ADMIN") {
-        await expect(manageAdmins).toBeVisible();
-        await expect(manageAdmins).toHaveAttribute("href", "/admin/users");
-      } else {
-        await expect(manageAdmins).toHaveCount(0);
-      }
+      await expect(manageAdmins).toHaveCount(0);
       await expectNoOverflow(page);
       expect(requests.getAdminRequests()).toBe(0);
       const profileNavigation = await navigationLayout(page, width);
-      expect(profileNavigation.map((item) => item.label)).toEqual(role === "SUPER_ADMIN"
-        ? ["Profile", "Suppliers", "Manage admins"] : ["Profile", "Suppliers"]);
+      expect(profileNavigation.map((item) => item.label)).toEqual(["Profile", "Suppliers"]);
       await expect(page.getByRole("link", { name: "Profile", exact: true })).toHaveAttribute("aria-current", "page");
       if (role === "SUPER_ADMIN") await page.screenshot({ path: test.info().outputPath(`profile-user-mode-${width}.png`), fullPage: true });
 
@@ -105,7 +99,12 @@ for (const role of ["ADMIN", "SUPER_ADMIN"] as const) {
       await expect(page.getByRole("link", { name: "Add supplier" })).toBeVisible();
       await expect(page.getByRole("link", { name: "Edit", exact: true })).toHaveCount(2);
       await expect(page.getByRole("link", { name: /^(Suppliers|Profile)$/ })).toHaveCount(0);
-      await expect(manageAdmins).toHaveCount(0);
+      if (role === "SUPER_ADMIN") {
+        await expect(manageAdmins).toBeVisible();
+        await expect(manageAdmins).toHaveAttribute("href", "/admin/users");
+      } else {
+        await expect(manageAdmins).toHaveCount(0);
+      }
       await expect(page.getByRole("link", { name: "Manage suppliers", exact: true })).toBeVisible();
       await expectNoOverflow(page);
       if (role === "SUPER_ADMIN") await page.screenshot({ path: test.info().outputPath(`admin-mode-${width}.png`), fullPage: true });
@@ -124,7 +123,7 @@ for (const role of ["ADMIN", "SUPER_ADMIN"] as const) {
       await expect(page.getByRole("heading", { name: "Cool Spot" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Campus Books" })).toHaveCount(0);
       await expect(page.getByRole("link", { name: /Manage suppliers|Add supplier|^Edit$/ })).toHaveCount(0);
-      await expect(manageAdmins).toHaveCount(role === "SUPER_ADMIN" ? 1 : 0);
+      await expect(manageAdmins).toHaveCount(0);
       await expect(page.getByRole("button", { name: /Activate|Deactivate/ })).toHaveCount(0);
       await expect(page.getByRole("link", { name: "Profile", exact: true })).toBeVisible();
       await expectNoOverflow(page);
@@ -142,32 +141,40 @@ for (const role of ["ADMIN", "SUPER_ADMIN"] as const) {
       await expect(page.getByRole("link", { name: "Suppliers", exact: true })).toHaveAttribute("aria-current", "page");
 
       if (role === "SUPER_ADMIN") {
+        await page.getByRole("button", { name: "Admin mode", exact: true }).click();
         await manageAdmins.click();
         await expect(page.getByRole("heading", { name: "Manage admins", exact: true })).toBeVisible();
-        await expect(page.getByRole("group", { name: "Workspace mode" })).toHaveCount(0);
+        await expectMode(page, "Admin");
         await expect(manageAdmins).toHaveAttribute("aria-current", "page");
-        await expect(page.getByRole("link", { name: "Profile", exact: true })).not.toHaveAttribute("aria-current", "page");
-        await expect.poll(() => navigationLayout(page, width)).toEqual(profileNavigation);
+        await expect(page.getByRole("link", { name: /^(Profile|Suppliers)$/ })).toHaveCount(0);
+        expect((await navigationLayout(page, width)).map((item) => item.label)).toEqual(["Manage suppliers", "Manage admins"]);
+        await expectNoOverflow(page);
+        await page.getByRole("button", { name: "User mode", exact: true }).click();
       }
       await page.getByRole("link", { name: "Profile", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Profile and security" })).toBeVisible();
-      await expect(page.getByRole("group", { name: "Workspace mode" })).toHaveCount(0);
+      await expectMode(page, "User");
       await expect.poll(() => navigationLayout(page, width)).toEqual(profileNavigation);
     });
   }
 }
 
 for (const width of [320, 768, 1024]) {
-  test(`mode switch appears only on supplier pages and fits at ${width}px`, async ({ page }) => {
+  test(`mode switch and navigation fit every authenticated route at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await mockWorkspace(page, "SUPER_ADMIN");
+    for (const path of ["/profile", "/suppliers", `/suppliers/${activeSupplier.id}`, "/admin/users", "/admin/suppliers", "/admin/suppliers/new", `/admin/suppliers/${activeSupplier.id}`, `/admin/suppliers/${activeSupplier.id}/edit`]) {
+      await page.goto(path);
+      const mode = path.startsWith("/admin/") ? "Admin" : "User";
+      await expectMode(page, mode);
+      await expect(page.getByRole("group", { name: "Workspace mode" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "User mode", exact: true })).toBeInViewport();
+      await expect(page.getByRole("button", { name: "Admin mode", exact: true })).toBeInViewport();
+      await expect(page.getByRole("link", { name: "Manage admins", exact: true })).toHaveCount(mode === "Admin" ? 1 : 0);
+      await expectNoOverflow(page);
+    }
     await page.goto("/profile");
-    await expect(page.getByRole("heading", { name: "Profile and security" })).toBeVisible();
-    await expect(page.getByRole("group", { name: "Workspace mode" })).toHaveCount(0);
-    await expectNoOverflow(page);
-    await page.getByRole("link", { name: "Suppliers", exact: true }).click();
-    await expect(page.getByRole("group", { name: "Workspace mode" })).toBeVisible();
-    await expectNoOverflow(page);
+    await expectMode(page, "User");
     await page.getByRole("button", { name: "Admin mode", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Cool Spot" })).toBeVisible();
     await expectNoOverflow(page);
@@ -195,19 +202,44 @@ test("direct admin links and browser history keep the mode correct; keyboard swi
   await expectMode(page, "User");
 });
 
+for (const width of [375, 1440]) {
+  test(`admin management stays in Admin mode across refresh and browser history at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mockWorkspace(page, "SUPER_ADMIN");
+    await page.goto("/admin/users");
+    await expect(page.getByRole("heading", { name: "Manage admins", exact: true })).toBeVisible();
+    await expectMode(page, "Admin");
+    await page.getByRole("button", { name: "Admin mode", exact: true }).click();
+    await expect(page).toHaveURL(/\/admin\/users$/);
+    await page.reload();
+    await expectMode(page, "Admin");
+    await expect(page.getByRole("link", { name: "Manage admins", exact: true })).toHaveAttribute("aria-current", "page");
+    await page.getByRole("button", { name: "User mode", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/suppliers$/);
+    await expectMode(page, "User");
+    await expect(page.getByRole("link", { name: "Manage admins", exact: true })).toHaveCount(0);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/admin\/users$/);
+    await expectMode(page, "Admin");
+    await page.goForward();
+    await expectMode(page, "User");
+  });
+}
+
 test("signing in again after using Admin mode starts in User mode", async ({ page }) => {
   await mockWorkspace(page, "SUPER_ADMIN");
   await page.goto("/admin/suppliers");
   await expectMode(page, "Admin");
   await page.getByRole("link", { name: "Open your profile" }).click();
   await expect(page.getByRole("heading", { name: "Profile and security" })).toBeVisible();
-  await expect(page.getByRole("group", { name: "Workspace mode" })).toHaveCount(0);
+  await expectMode(page, "User");
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
   await signIn(page);
-  await expect(page.getByRole("group", { name: "Workspace mode" })).toHaveCount(0);
+  await expectMode(page, "User");
   await expect(page.getByRole("link", { name: "Manage suppliers" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Manage admins", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Manage admins", exact: true })).toHaveCount(0);
   await page.getByRole("link", { name: "Suppliers", exact: true }).click();
   await expectMode(page, "User");
 });

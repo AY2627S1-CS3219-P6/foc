@@ -17,6 +17,9 @@ function navigationGroups(user: CurrentUser, mode: WorkspaceMode): NavigationGro
 
   if (isAdminMode) {
     administration.push({ label: "Manage suppliers", to: "/admin/suppliers", Icon: SupplierNavigationIcon });
+    if (user.systemRole === "SUPER_ADMIN") {
+      administration.push({ label: "Manage admins", to: "/admin/users", Icon: UsersIcon });
+    }
   } else {
     groups.push({ label: "Account", items: [
       { label: "Profile", to: "/profile", Icon: ProfileIcon },
@@ -24,9 +27,6 @@ function navigationGroups(user: CurrentUser, mode: WorkspaceMode): NavigationGro
     ] });
   }
 
-  if (!isAdminMode && user.systemRole === "SUPER_ADMIN") {
-    administration.push({ label: "Manage admins", to: "/admin/users", Icon: UsersIcon });
-  }
   if (administration.length) groups.push({ label: "Administration", items: administration });
   return groups;
 }

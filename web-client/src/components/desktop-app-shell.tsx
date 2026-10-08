@@ -1,26 +1,17 @@
 import { type PropsWithChildren } from "react";
 import type { CurrentUser } from "../api/user-service";
+import { useWorkspaceMode } from "../app/use-workspace-mode";
 import { AppSidebar } from "./app-navigation";
+import { WorkspaceTopbar } from "./workspace-topbar";
 
 export function DesktopAppShell({ children, user }: PropsWithChildren<{ user: CurrentUser }>) {
-  const firstName = user.displayName.split(/\s+/)[0] || user.displayName;
+  const { mode } = useWorkspaceMode(user);
 
   return (
     <div className="desktop-shell">
-      <AppSidebar user={user} />
+      <AppSidebar mode={mode} user={user} />
       <main className="desktop-main">
-        <header className="desktop-topbar">
-          <div className="desktop-topbar-greeting">
-            <p>Good to see you, {firstName}</p>
-            <span>Manage the details connected to your FoC account.</span>
-          </div>
-          <div className="workspace-header-actions">
-            <div aria-label="Current account" className="topbar-user">
-              <span className="avatar avatar-small">{user.displayName.slice(0, 1).toUpperCase()}</span>
-              <span>{user.displayName}</span>
-            </div>
-          </div>
-        </header>
+        <WorkspaceTopbar user={user} />
         <div className="desktop-content">{children}</div>
       </main>
     </div>

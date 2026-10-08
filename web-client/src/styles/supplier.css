@@ -14,9 +14,6 @@
 .supplier-shell button, .supplier-shell input, .supplier-shell select { font: inherit; }
 .supplier-shell button:disabled { cursor: not-allowed; opacity: .5; }
 .supplier-app { min-width: 0; }
-.supplier-topbar { align-items: center; background: #fff; border-bottom: 1px solid var(--supplier-line); display: flex; justify-content: space-between; min-height: 68px; padding: .7rem 1.2rem; }
-.supplier-topbar-greeting { display: none; }
-.supplier-avatar { align-items: center; background: #dce8f8; border-radius: 50%; color: var(--supplier-blue); display: inline-flex; font-size: .86rem; font-weight: 800; height: 36px; justify-content: center; width: 36px; }
 .supplier-main { margin: 0 auto; max-width: 1180px; padding: 1.4rem 1rem 7rem; }
 
 .supplier-page-heading { align-items: start; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; margin: .1rem 0 1.35rem; }
@@ -134,11 +131,6 @@
 
 @media (min-width: 1024px) {
   .supplier-shell { display: grid; grid-template-columns: 244px minmax(0, 1fr); }
-  .supplier-topbar { min-height: 73px; padding: .8rem clamp(1.5rem, 3vw, 3.5rem); }
-  .supplier-mobile-brand { display: none; }
-  .supplier-topbar-greeting { display: grid; gap: .2rem; }
-  .supplier-topbar-greeting strong { font-size: .83rem; }
-  .supplier-topbar-greeting span { color: var(--supplier-muted); font-size: .72rem; }
   .supplier-main { padding: 2.2rem clamp(1.5rem, 3vw, 3.5rem) 4rem; }
   .supplier-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .supplier-card { min-height: 190px; }
