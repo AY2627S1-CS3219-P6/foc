@@ -34,13 +34,20 @@ function currentAdmins() {
 async function searchAccount(account = searchedAccount) {
   auth.findUserAccount.mockResolvedValue(account);
   fireEvent.change(screen.getByLabelText("Username"), { target: { value: account.username } });
-  fireEvent.click(screen.getByRole("button", { name: "Search account" }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Search account" }));
+  });
   return (await screen.findByRole("heading", { name: account.displayName })).closest("section")!;
 }
 
-function reviewChange(container: HTMLElement, role: string) {
+async function reviewChange(container: HTMLElement, role: string) {
   fireEvent.change(within(container).getByLabelText("Change access level"), { target: { value: role } });
-  fireEvent.click(within(container).getByRole("button", { name: "Review role change" }));
+  const reviewButton = within(container).getByRole("button", { name: "Review role change" });
+  expect(reviewButton).toBeEnabled();
+  fireEvent.click(reviewButton);
+  const confirmation = await within(container).findByRole("dialog");
+  expect(confirmation).toBeVisible();
+  return confirmation;
 }
 
 describe("Manage admins", () => {
@@ -91,9 +98,9 @@ describe("Manage admins", () => {
     await renderPage();
     await screen.findByRole("listitem", { name: "CampusAdmin" });
     const result = await searchAccount();
-    reviewChange(result, "ADMIN");
+    const confirmation = await reviewChange(result, "ADMIN");
     expect(auth.updateUserSystemRole).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Change access level" }));
+    fireEvent.click(within(confirmation).getByRole("button", { name: "Change access level" }));
     expect(await screen.findByRole("listitem", { name: "NewAdmin" })).toBeVisible();
     await waitFor(() => expect(auth.listAdmins).toHaveBeenCalledTimes(2));
     expect(auth.updateUserSystemRole).toHaveBeenCalledWith("new-user", "ADMIN");
@@ -108,8 +115,8 @@ describe("Manage admins", () => {
     await renderPage();
     const row = await screen.findByRole("listitem", { name: "CampusAdmin" });
     const result = await searchAccount({ ...searchedAccount, ...initialAdmins[1], displayName: "FoundAdmin" });
-    reviewChange(row, "SUPER_ADMIN");
-    fireEvent.click(screen.getByRole("button", { name: "Change access level" }));
+    const confirmation = await reviewChange(row, "SUPER_ADMIN");
+    fireEvent.click(within(confirmation).getByRole("button", { name: "Change access level" }));
     await waitFor(() => expect(auth.listAdmins).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(within(currentAdmins()).getAllByRole("listitem")[0]).toHaveAttribute("aria-label", "CampusAdmin"));
     expect(within(result).getByText("Super Admin", { selector: "dd" })).toBeVisible();
@@ -120,8 +127,8 @@ describe("Manage admins", () => {
     auth.updateUserSystemRole.mockResolvedValue({ userId: "admin", systemRole: "USER", roleVersion: 2 });
     await renderPage();
     const row = await screen.findByRole("listitem", { name: "CampusAdmin" });
-    reviewChange(row, "USER");
-    fireEvent.click(screen.getByRole("button", { name: "Change access level" }));
+    const confirmation = await reviewChange(row, "USER");
+    fireEvent.click(within(confirmation).getByRole("button", { name: "Change access level" }));
     await waitFor(() => expect(screen.queryByRole("listitem", { name: "CampusAdmin" })).not.toBeInTheDocument());
     expect(auth.updateUserSystemRole).toHaveBeenCalledWith("admin", "USER");
     await waitFor(() => expect(auth.listAdmins).toHaveBeenCalledTimes(2));
@@ -133,8 +140,8 @@ describe("Manage admins", () => {
     auth.updateUserSystemRole.mockResolvedValue({ userId: "admin", systemRole: "SUPER_ADMIN", roleVersion: 2 });
     await renderPage();
     const row = await screen.findByRole("listitem", { name: "CampusAdmin" });
-    reviewChange(row, "SUPER_ADMIN");
-    fireEvent.click(screen.getByRole("button", { name: "Change access level" }));
+    const confirmation = await reviewChange(row, "SUPER_ADMIN");
+    fireEvent.click(within(confirmation).getByRole("button", { name: "Change access level" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("We could not load the current admins");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(within(row).getByRole("status")).toHaveTextContent("access level is now Super Admin");
@@ -148,8 +155,8 @@ describe("Manage admins", () => {
     auth.updateUserSystemRole.mockRejectedValue(new Error("unavailable"));
     await renderPage();
     const row = await screen.findByRole("listitem", { name: "CampusAdmin" });
-    reviewChange(row, "USER");
-    fireEvent.click(screen.getByRole("button", { name: "Change access level" }));
+    const confirmation = await reviewChange(row, "USER");
+    fireEvent.click(within(confirmation).getByRole("button", { name: "Change access level" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("We could not change this account's access level");
     expect(screen.getByRole("dialog")).toBeVisible();
     expect(screen.getByRole("listitem", { name: "CampusAdmin" })).toBeVisible();
@@ -163,8 +170,8 @@ describe("Manage admins", () => {
     auth.updateUserSystemRole.mockResolvedValue({ userId: "new-user", systemRole: "ADMIN", roleVersion: 2 });
     await renderPage();
     const result = await searchAccount();
-    reviewChange(result, "ADMIN");
-    fireEvent.click(screen.getByRole("button", { name: "Change access level" }));
+    const confirmation = await reviewChange(result, "ADMIN");
+    fireEvent.click(within(confirmation).getByRole("button", { name: "Change access level" }));
     await screen.findByRole("listitem", { name: "NewAdmin" });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await act(async () => { resolveInitial(initialAdmins); });
