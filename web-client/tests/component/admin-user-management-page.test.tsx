@@ -24,7 +24,7 @@ const searchedAccount: AdminUserAccount = {
 };
 
 async function renderPage() {
-  await act(async () => { render(<MemoryRouter><AdminUserManagementPage /></MemoryRouter>); });
+  await act(async () => { render(<MemoryRouter initialEntries={["/admin/users"]}><AdminUserManagementPage /></MemoryRouter>); });
 }
 
 function currentAdmins() {
@@ -67,6 +67,9 @@ describe("Manage admins", () => {
     expect(screen.getByRole("heading", { name: "Manage admins" })).toBeVisible();
     expect(screen.getByText("Find any FoC account by its unique username or NUS email address and change their role in FoC")).toBeVisible();
     expect(screen.getByRole("link", { name: "Manage admins" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Admin mode" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("link", { name: "Manage suppliers" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Profile" })).not.toBeInTheDocument();
     await screen.findByRole("listitem", { name: "CampusAdmin" });
     const roster = within(currentAdmins());
     expect(roster.getAllByRole("listitem").map((row) => row.getAttribute("aria-label"))).toEqual(["SuperSelf", "CampusAdmin"]);

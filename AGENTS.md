@@ -14,8 +14,9 @@
 
 ## User-interface design
 
-- For any User Service Sprint 1 web UI, use the [FoC Figma design](https://www.figma.com/design/1QaorStohl4p1T8PoC9YG5/CS3219---Project-6?node-id=294-6) as the visual source of truth. Implement only the User Service flows in scope: sign-in, registration, email/OTP verification, and the authenticated profile/account experience.
-- Do not implement or change Supplier, Errand, Message, or cross-service administration UI as part of User Service work. Preserve the Figma layout, typography, colours, responsive behaviour, states, and copy for the in-scope screens; add only accessibility and error/loading behaviour necessary to make those designs functional.
+- Reuse and extend existing shared web-client components, design tokens, and styles for future UI updates. Keep app shell, navigation, mode switch, avatar, and topbar styling shared across features; add page-specific styles only for unique page content.
+- Every authenticated desktop and mobile interface must use `WorkspaceTopbar` in `web-client/src/components/workspace-topbar.tsx`. Its layout, height, padding, typography, avatar, and responsive rules belong in `web-client/src/styles/workspace.css`. Supply page-specific copy through component props; do not duplicate topbar markup or introduce page-specific topbar classes or overrides.
+- For any UI design, use the [FoC Figma design](https://www.figma.com/design/1QaorStohl4p1T8PoC9YG5/CS3219---Project-6?node-id=294-6) as the visual source of truth.
 
 ## User Service database workflow
 
