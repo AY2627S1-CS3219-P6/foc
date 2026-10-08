@@ -37,6 +37,7 @@ include = ["app*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+pythonpath = ["."]
 testpaths = ["tests"]
 markers = [
   "integration: requires a configured local Supabase PostgreSQL test database",
