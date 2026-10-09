@@ -1,8 +1,8 @@
 # FoC Web Client
 
 The React, Vite, and TypeScript client uses same-origin `/v1/` requests for
-User Service and `/api/v1/` for Supplier Service. Both APIs own authentication
-and authorization decisions. The client does not connect to either database.
+User/Order Services and `/api/v1/` for Supplier Service. The APIs own authentication
+and authorization decisions. The client does not connect to any service database.
 
 ## Local development
 
@@ -13,8 +13,9 @@ npm ci
 npm run dev
 ```
 
-Vite listens on port 5173. It proxies `/v1/` to User Service on port 8000 and
-Supplier API requests to Supplier Service on port 8001. Start both services
+Vite listens on port 5173. It proxies Order paths under `/v1/` to port 8002,
+other `/v1/` paths to User Service on port 8000, and Supplier API requests to
+Supplier Service on port 8001. Start the required services
 and their local databases using the [root setup guide](../README.md) for the
 complete UI. Sign in before opening Supplier pages.
 
@@ -30,6 +31,80 @@ row. The API checks current permissions again for every management request.
 
 See [Supplier UI traceability](SUPPLIER_UI.md) for backlog and Milestone D2
 coverage and remaining service-level requirements.
+
+## Order create/browse UI
+
+Signed-in users can open `/orders` (available errands), `/orders/new` (create),
+`/orders/mine` (requester/courier lists) and `/orders/:orderId` (detail and
+participant-only history). The UI reuses the current shared workspace shell,
+navigation, design tokens and `WorkspaceTopbar`. The older supplied Figma screens
+are layout references, not a new visual system or feature specification.
+
+- Active suppliers use one searchable dropdown backed by Supplier Service, with
+  more results loaded inside the dropdown as you scroll. Open-order
+  lists support the backend's supplier filter and newest-first pagination only.
+- Dates entered/displayed by Order UI use Singapore time (UTC+08:00), irrespective
+  of the device timezone. The API receives offset-aware UTC timestamps.
+- Credit rewards are whole numbers. No balance is fabricated: successful creation
+  still requires the real Credit integration. With Credit unconfigured, expect
+  `CREDIT_UNAVAILABLE`, not an OPEN errand.
+- A 202 response is pending. Progress is checked every five seconds while this
+  page is open; `READY_TO_FINALIZE` requires clicking **Finish creating errand**,
+  using the current authenticated session and the original body/key.
+- A request and its idempotency key are saved in per-user `sessionStorage` before
+  POST. A lost response/reload reuses that same attempt. No tokens are stored
+  there. Do not close/clear the tab or start a separate request while its result
+  is unknown. Session storage is tab-local, not a cross-device recovery system;
+  avoid entering sensitive information on a shared computer. Corrupted/unavailable
+  storage blocks new submissions rather than silently forgetting a pending request.
+- No acceptance, cancellation, pickup, delivery, completion, failure, wallet or
+  chat controls are implemented in this UI slice. Admins may use the same normal
+  Order UI in User mode; there is no new admin dashboard.
+
+### Running with Vite
+
+Start the existing User/Supplier APIs and their databases, and Order's database
+and API on port 8002 as described in `order-service/README.md`. Run `npm run dev`
+here and open `http://localhost:5173/orders`. Vite sends only Order paths to 8002,
+User paths to 8000, and Supplier paths to 8001. Run the Order recovery worker for
+pending creation reconciliation. Changing UI code reloads the development page.
+
+### Running with Docker
+
+The root Compose file has an optional `order` profile so existing User/Supplier
+startup remains usable without Order configuration. For a fresh setup, copy
+`order-service/.env.docker.example` to the ignored `.env.docker` and populate only
+Order's own database connection. **Do not overwrite an existing local file.**
+The database hostname from Docker is `host.docker.internal`; Compose overrides
+User/Supplier origins with container DNS. Keep Credit settings blank until ready.
+
+Start the local Supabase stacks and apply reviewed Order migrations first
+(see Order README; do not reset an existing populated database). Then, from the
+repository root:
+
+```sh
+docker compose --env-file user-service/.env --profile order up --build -d
+```
+
+Open `http://localhost:3000/orders`. This starts the website, Order API and its
+recovery worker alongside the existing services. Nginx routes Order paths only;
+it makes no authentication or role decisions. A standalone Order process/container
+already using port 8002 must be stopped before starting the Compose Order API.
+API readiness does not prove the worker is healthy: inspect `order-recovery`
+status/logs as well. No database migration runs automatically on startup.
+
+### UI checks and mocked previews
+
+`npm run test:e2e -- orders.spec.ts --headed` shows the Order browser scenarios
+with **test-only mocked API responses** (including successful creation, unavailable
+Credit, pending/retry and closed attempts). They are UI previews/tests, not real
+reservations or proof of Order/Credit integration. There is no production or
+development runtime fake-credit switch. These tests need Playwright Chromium but
+not Docker; the default test setup starts Vite when no E2E_BASE_URL is supplied.
+
+Order advances M3F1/M3F2 and participant history in M3F7 at the UI layer. Automated
+browser checks do not establish the M5 usability-study or NFR load targets. Docker
+runtime/live dependency verification remains separate from these mock-backed tests.
 
 ## Checks
 

@@ -4,7 +4,7 @@ import type { CurrentUser } from "../api/user-service";
 import { APP_NAME } from "../app/branding";
 import type { WorkspaceMode } from "../app/use-workspace-mode";
 import { AppBrand } from "./app-brand";
-import { ProfileIcon, SupplierNavigationIcon, UsersIcon } from "./navigation-icons";
+import { OrderIcon, ProfileIcon, SupplierNavigationIcon, UsersIcon } from "./navigation-icons";
 
 type NavigationProps = { user: CurrentUser; mode?: WorkspaceMode };
 type NavigationItem = { label: string; to: string; Icon: ComponentType };
@@ -24,6 +24,8 @@ function navigationGroups(user: CurrentUser, mode: WorkspaceMode): NavigationGro
     groups.push({ label: "Account", items: [
       { label: "Profile", to: "/profile", Icon: ProfileIcon },
       { label: "Suppliers", to: "/suppliers", Icon: SupplierNavigationIcon },
+      { label: "Open errands", to: "/orders", Icon: OrderIcon },
+      { label: "My errands", to: "/orders/mine", Icon: OrderIcon },
     ] });
   }
 
@@ -39,7 +41,7 @@ export function AppSidebar({ user, mode = "user" }: NavigationProps) {
     <nav aria-label="Main navigation" className="app-sidebar-navigation">
       {groups.map((group) => <div className="app-navigation-group" key={group.label}>
         <p className="app-navigation-heading">{group.label}</p>
-        {group.items.map(({ label, to, Icon }) => <NavLink className={({ isActive }) => `app-navigation-link${isActive ? " active" : ""}`} key={to} to={to}>
+        {group.items.map(({ label, to, Icon }) => <NavLink end={to === "/orders"} className={({ isActive }) => `app-navigation-link${isActive ? " active" : ""}`} key={to} to={to}>
           <Icon /><span>{label}</span>
         </NavLink>)}
       </div>)}
@@ -50,7 +52,7 @@ export function AppSidebar({ user, mode = "user" }: NavigationProps) {
 
 export function AppMobileNavigation({ user, mode = "user" }: NavigationProps) {
   return <nav aria-label="Mobile navigation" className="app-mobile-navigation">
-    {navigationGroups(user, mode).flatMap((group) => group.items).map(({ label, to, Icon }) => <NavLink className={({ isActive }) => isActive ? "active" : ""} key={to} to={to}>
+    {navigationGroups(user, mode).flatMap((group) => group.items).map(({ label, to, Icon }) => <NavLink end={to === "/orders"} className={({ isActive }) => isActive ? "active" : ""} key={to} to={to}>
       <Icon /><span>{label}</span>
     </NavLink>)}
   </nav>;

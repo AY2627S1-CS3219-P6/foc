@@ -5,6 +5,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      "^/v1/(orders|order-creations|admin/orders)([/?]|$)": {
+        target: "http://localhost:8002",
+        changeOrigin: true,
+      },
       "/v1": {
         target: "http://localhost:8000",
         changeOrigin: true,

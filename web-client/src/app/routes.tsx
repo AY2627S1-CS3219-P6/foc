@@ -10,6 +10,9 @@ import { SupplierListPage } from "../pages/supplier-list-page";
 import { SupplierShell } from "../components/supplier-shell";
 import { SupplierFormPage } from "../pages/supplier-form-page";
 import { VerifyEmailPage } from "../pages/verify-email-page";
+import { OrderListPage } from "../pages/order-list-page";
+import { OrderCreatePage } from "../pages/order-create-page";
+import { OrderDetailPage } from "../pages/order-detail-page";
 
 function SessionLoading() {
   return <main className="session-loading"><span className="loading-dot" />Checking your session</main>;
@@ -71,6 +74,10 @@ export function AppRoutes() {
         <Route path="/register" element={<PublicRoute><RegistrationPage /></PublicRoute>} />
         <Route path="/verify-email" element={<PublicRoute><VerifyEmailPage /></PublicRoute>} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/orders" element={<ProtectedRoute><OrderListPage /></ProtectedRoute>} />
+        <Route path="/orders/new" element={<ProtectedRoute><OrderCreatePage /></ProtectedRoute>} />
+        <Route path="/orders/mine" element={<ProtectedRoute><OrderListPage mine /></ProtectedRoute>} />
+        <Route path="/orders/:orderId" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
         <Route path="/suppliers" element={<ProtectedRoute><SupplierListPage /></ProtectedRoute>} />
         <Route path="/suppliers/:supplierId" element={<ProtectedRoute><SupplierDetailPage /></ProtectedRoute>} />
         <Route path="/admin/users" element={<SuperAdminRoute><AdminUserManagementPage /></SuperAdminRoute>} />
