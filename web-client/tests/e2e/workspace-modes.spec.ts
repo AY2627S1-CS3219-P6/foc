@@ -84,7 +84,7 @@ for (const role of ["ADMIN", "SUPER_ADMIN"] as const) {
       await expectNoOverflow(page);
       expect(requests.getAdminRequests()).toBe(0);
       const profileNavigation = await navigationLayout(page, width);
-      expect(profileNavigation.map((item) => item.label)).toEqual(["Profile", "Suppliers"]);
+      expect(profileNavigation.map((item) => item.label)).toEqual(["Profile", "Suppliers", "Open errands", "My errands"]);
       await expect(page.getByRole("link", { name: "Profile", exact: true })).toHaveAttribute("aria-current", "page");
       if (role === "SUPER_ADMIN") await page.screenshot({ path: test.info().outputPath(`profile-user-mode-${width}.png`), fullPage: true });
 

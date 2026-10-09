@@ -1,3 +1,6 @@
+.workspace-shell { background: var(--canvas); color: var(--ink); min-height: 100vh; }
+.workspace-app { min-width: 0; }
+.workspace-main { margin: 0 auto; max-width: 1180px; padding: 1.4rem 1rem 7rem; }
 .app-sidebar { display: none; }
 .app-mobile-navigation { align-items: stretch; background: #fff; border-top: 1px solid var(--border); bottom: 0; display: flex; inset-inline: 0; min-height: 65px; padding-bottom: env(safe-area-inset-bottom); position: fixed; z-index: 8; }
 .app-mobile-navigation a { align-items: center; border-top: 3px solid transparent; color: var(--muted); display: flex; flex: 1; flex-direction: column; font-size: .7rem; font-weight: 750; gap: .2rem; justify-content: center; min-width: 0; padding: .5rem .25rem; text-align: center; text-decoration: none; }
@@ -7,6 +10,8 @@
 .mobile-shell .mobile-content { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
 
 @media (min-width: 1024px) {
+  .workspace-shell { display: grid; grid-template-columns: 244px minmax(0, 1fr); }
+  .workspace-main { padding: 2.2rem clamp(1.5rem, 3vw, 3.5rem) 4rem; }
   .app-sidebar { background: var(--sidebar-background); color: #fff; display: flex; flex-direction: column; min-height: 100vh; padding: 1.55rem 1rem; }
   .app-sidebar-brand { color: #fff; display: block; margin: 0 .25rem 2.6rem; text-decoration: none; }
   .app-sidebar-brand:hover { color: #fff; }

@@ -72,6 +72,40 @@ services:
       retries: 6
       start_period: 10s
 
+  # Optional until every teammate has configured Order's own local database.
+  # Enable with --profile order. No database migrations run on API startup.
+  order-service:
+    profiles: [order]
+    build: ./order-service
+    env_file: ./order-service/.env.docker
+    environment:
+      USER_SERVICE_BASE_URL: http://user-service:8000
+      SUPPLIER_SERVICE_BASE_URL: http://supplier-service:8001
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "127.0.0.1:8002:8002"
+    networks:
+      - edge
+
+  order-recovery:
+    profiles: [order]
+    build: ./order-service
+    command: [order-recovery]
+    env_file: ./order-service/.env.docker
+    environment:
+      USER_SERVICE_BASE_URL: http://user-service:8000
+      SUPPLIER_SERVICE_BASE_URL: http://supplier-service:8001
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      order-service:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    networks:
+      - edge
+
   outbox-publisher:
     build: ./user-service
     command: ["outbox-publisher"]
