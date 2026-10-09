@@ -119,7 +119,7 @@ image does not update an existing container: stop and remove that API container,
 then repeat `docker run`; the separate database volume is unaffected. Do not run
 the host API and container on port 8002 simultaneously.
 
-Root Compose, CI and frontend routing are intentionally unchanged. This is an
+Root Compose and frontend routing are intentionally unchanged. This is an
 independent F0 run, not the complete M7 one-command application deployment.
 
 ## Tests
@@ -141,6 +141,28 @@ your terminal environment to an isolated, migrated Order database URL, then run:
 The integration tests skip unless explicitly configured. They do not reset,
 populate or mutate the database. Migration-reset and container persistence tests
 are separate operator checks, not implied by a passing unit suite.
+
+## Continuous integration
+
+The shared GitHub Actions workflow validates Order on pull requests targeting
+`main` and pushes to `main` when `order-service/**` or the workflow file changes.
+It follows User Service's Python 3.13 setup and installs `.[dev]`, then runs:
+
+```bash
+ruff check app tests
+python -m pytest -m "not integration" -q
+```
+
+The existing shared Docker build step builds the Order image without publishing
+or deploying it. Order validation contributes to the shared `CI passed` result.
+Existing checks for other components are preserved; workflow edits also trigger
+Supplier validation under its existing change filter.
+
+No database credentials or local environment files are needed. The two current
+database integration tests are explicitly deselected, not counted as passing.
+CI does not start Supabase, apply/reset migrations, run the container or verify
+cross-service integration. Continue running those checks locally as described
+above; a green image build does not prove runtime database connectivity.
 
 ## Postman / HTTP smoke checks
 
