@@ -1,7 +1,11 @@
 # FoC Order Service
 
-Phase F0 is the runnable foundation only. It contains no order business tables,
-authentication, creation/lifecycle APIs, credit calls, events or frontend changes.
+Order creation and read APIs are implemented on top of the F0 foundation.
+Identity is checked through User; Supplier details are captured through its API.
+Credit HTTP calls follow the **proposed** contract in [API.md](API.md). Credit is
+not implemented in this checkout: real funded creation is not yet integrated.
+Test doubles exist only under tests. Later lifecycle actions, terminal events and
+frontend changes are outside this slice.
 
 ## Stack and boundaries
 
@@ -12,13 +16,15 @@ reads another service's database or imports its business logic.
 
 The application factory owns a connection pool and closes it on shutdown. Startup
 does not connect, migrate or seed the database. Readiness runs a bounded read-only
-check for access to `order_service`; it does not prove future business migrations
-or external service integrations are ready. Liveness remains independent of it.
+check for schema access and SELECT access to the three required tables. It does
+not prove external services are ready or replace migration validation. Liveness
+remains independent of it.
 
 ## Local setup
 
-Run from `order-service/`. Docker Desktop must already be running. These commands
-do not require User, Supplier, Credit or RabbitMQ to be running.
+Run from `order-service/`. Docker Desktop must already be running. Health checks
+need only Order's database. Protected APIs require User; creation also requires
+Supplier and a compatible Credit service. RabbitMQ is not used by this slice.
 
 1. Create an isolated Python environment using Python 3.13 and install dependencies.
 
@@ -51,9 +57,10 @@ do not require User, Supplier, Credit or RabbitMQ to be running.
 
    The local CLI's administrative database credential is for development only.
    The migration creates an `order_service_app` NOLOGIN role with schema USAGE,
-   but no business-table grants yet. Dedicated runtime login provisioning and
-   table-specific least-privilege grants must accompany future schema/deployment
-   work; this is not a production-credential setup.
+   with table-specific grants from the creation migration. A deployment operator
+   must provision a dedicated login that inherits this role and keep its password
+   local; no login/password is embedded in migrations. The local administrative
+   URL is not a production-credential setup.
 
 4. Start the API in that terminal:
 
@@ -71,14 +78,17 @@ do not require User, Supplier, Credit or RabbitMQ to be running.
 | Order Studio | `http://localhost:16423` (select `order_service`) |
 | Order PostgreSQL | `127.0.0.1:16422` (not a webpage) |
 
-F0's schema has no tables; an empty Studio table list is expected. Reserved local
+The schema contains `orders`, `order_history` and `creation_operations` after
+applying the creation migration. On an existing F0 database, review and run
+`npx supabase migration up --local` before expecting readiness to pass; do not
+reset existing data. Reserved local
 ports are in `1642x`, separate from User's configured `1542x` and Supplier's `5532x`.
 The existing User port migration is separate work, not a prerequisite for F0.
 
 ## Migrations and preserved data
 
-`supabase/migrations/` is the sole schema history. F0's timestamped SQL creates
-only the owned schema and role; it grants no access to Supabase browser roles.
+`supabase/migrations/` is the sole schema history. The migrations create the owned
+schema, role and tables; they grant no access to Supabase browser roles.
 Never use SQLAlchemy `create_all`, an additional migration framework or startup DDL.
 
 ```bash
@@ -138,9 +148,33 @@ your terminal environment to an isolated, migrated Order database URL, then run:
 .venv/Scripts/python.exe -m pytest -q
 ```
 
-The integration tests skip unless explicitly configured. They do not reset,
-populate or mutate the database. Migration-reset and container persistence tests
-are separate operator checks, not implied by a passing unit suite.
+The two foundation integration tests are read-only. Creation integration tests
+require a separate `ORDER_WRITE_TEST_DATABASE_URL` pointed at a **disposable,
+migrated Order-only database**; they insert generated test data and intentionally
+retain it for inspection. Never point that variable at production or another
+service's database. These tests skip unless explicitly configured. Neither suite
+runs migrations or resets automatically. Migration/container checks remain separate.
+
+## Creation recovery worker
+
+Install/update the package after pulling this slice (`pip install -e '.[dev]'`).
+In a separate terminal using Order's environment, run:
+
+```bash
+.venv/Scripts/python.exe -m app.orders.worker
+```
+
+The installed `order-recovery` command is equivalent. The API does not start a
+background worker implicitly. Run the worker alongside it to recover abandoned
+attempts after crashes/timeouts. It uses the same Order DB and dedicated Credit
+credential, never a persisted user token. Configure fixed User/Supplier/Credit
+origins using `.env.example`; do not overwrite an existing `.env` blindly.
+
+The worker marks unresolved reservations ready for an authenticated requester retry;
+it never creates orders using stale user authentication. At the acceptance deadline,
+it closes the creation intent and retries Credit compensation. See [API.md](API.md)
+for the required abort-fence contract. Without Credit, recovery remains pending.
+Health endpoints probe Order storage, not this independent worker's progress.
 
 ## Continuous integration
 
@@ -158,8 +192,8 @@ or deploying it. Order validation contributes to the shared `CI passed` result.
 Existing checks for other components are preserved; workflow edits also trigger
 Supplier validation under its existing change filter.
 
-No database credentials or local environment files are needed. The two current
-database integration tests are explicitly deselected, not counted as passing.
+No database credentials or local environment files are needed. All tests marked
+`integration` are explicitly deselected, not counted as passing.
 CI does not start Supabase, apply/reset migrations, run the container or verify
 cross-service integration. Continue running those checks locally as described
 above; a green image build does not prove runtime database connectivity.
@@ -190,7 +224,24 @@ use `verify-full` with a trusted certificate for verified remote connections.
 See [asyncpg connection options](https://magicstack.github.io/asyncpg/current/api/index.html)
 and [Supabase CLI configuration](https://supabase.com/docs/guides/local-development/cli/config).
 
-## F0 verification (2026-10-09)
+## Create/read verification (2026-10-09)
+
+- Full suite: 105 passed, including 12 real-PostgreSQL tests. CI selection:
+  93 passed, 12 deselected. Ruff and whitespace checks passed.
+- Canonical SQL migrations applied to a fresh disposable PostgreSQL 17 container
+  with Supabase role names bootstrapped for grants. This verifies PostgreSQL SQL,
+  not a new Supabase CLI reset; existing development databases were not migrated/reset.
+- Real-DB tests cover concurrent same-key creation, stale leases, rollback after
+  inserting an Order but before history, lost post-commit acknowledgment, recovery,
+  filtering and API queries. Credit/User/Supplier responses are test doubles.
+- Four creation/recovery/API tests also passed under a restricted login inheriting
+  `order_service_app`. The built non-root image returned 200 for live/ready/docs/
+  OpenAPI, remained ready after its restart, packaged `order-recovery`, and contained
+  no `.env` files. Only disposable test containers were used for these checks.
+- Real Credit integration and real User/Supplier runtime smoke, Postman GUI execution,
+  workload measurements and future lifecycle/events are not claimed by this evidence.
+
+## Historical F0 verification (2026-10-09)
 
 - 39 pytest tests passed, including two read-only real-PostgreSQL checks; Ruff passed.
 - The new empty Order database was rebuilt with `supabase db reset --local --yes`;

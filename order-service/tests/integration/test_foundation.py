@@ -30,26 +30,38 @@ async def test_migrated_database_is_ready(database_url):
             assert (await client.get("/health/ready")).json() == {"status": "ready"}
 
 
-async def test_migration_establishes_service_owned_schema_only(database_url):
+async def test_migration_establishes_service_owned_schema(database_url):
     database = Database(database_url)
     try:
         async for session in database.session():
-            assert await session.scalar(text(
-                "SELECT has_schema_privilege('order_service_app', 'order_service', 'USAGE')"
-            ))
-            assert not await session.scalar(text(
-                "SELECT has_schema_privilege('order_service_app', 'order_service', 'CREATE')"
-            ))
+            assert await session.scalar(
+                text("SELECT has_schema_privilege('order_service_app', 'order_service', 'USAGE')")
+            )
+            assert not await session.scalar(
+                text("SELECT has_schema_privilege('order_service_app', 'order_service', 'CREATE')")
+            )
             for role in ("anon", "authenticated", "service_role"):
-                assert not await session.scalar(text(
-                    "SELECT has_schema_privilege(:role, 'order_service', 'USAGE')"
-                ), {"role": role})
-            assert await session.scalar(text(
-                "SELECT count(*) FROM information_schema.tables WHERE table_schema='order_service'"
-            )) == 0
-            assert await session.scalar(text(
-                "SELECT count(*) FROM pg_namespace "
-                "WHERE nspname IN ('user_service', 'supplier_service', 'credit_service')"
-            )) == 0
+                assert not await session.scalar(
+                    text("SELECT has_schema_privilege(:role, 'order_service', 'USAGE')"),
+                    {"role": role},
+                )
+            assert (
+                await session.scalar(
+                    text(
+                        "SELECT count(*) FROM information_schema.tables "
+                        "WHERE table_schema='order_service'"
+                    )
+                )
+                == 3
+            )
+            assert (
+                await session.scalar(
+                    text(
+                        "SELECT count(*) FROM pg_namespace "
+                        "WHERE nspname IN ('user_service', 'supplier_service', 'credit_service')"
+                    )
+                )
+                == 0
+            )
     finally:
         await database.dispose()

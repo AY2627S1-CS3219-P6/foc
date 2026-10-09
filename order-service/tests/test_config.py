@@ -10,9 +10,9 @@ def test_empty_url_is_unconfigured(value):
 
 
 def test_settings_do_not_display_credentials():
-    settings = Settings(_env_file=None, database_url="postgresql://user:secret@example/db")
-    assert "secret" not in repr(settings)
-    assert "secret" not in settings.model_dump_json()
+    settings = Settings(_env_file=None, database_url="postgresql://user:test-password@example/db")
+    assert "test-password" not in repr(settings)
+    assert "test-password" not in settings.model_dump_json()
 
 
 @pytest.mark.parametrize("scheme", ["postgres", "postgresql", "postgresql+asyncpg"])

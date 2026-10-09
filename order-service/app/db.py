@@ -68,7 +68,13 @@ class Database:
                     # A reachable but unmigrated/wrong database is not ready for Order.
                     result = await connection.scalar(text(
                         "SELECT has_schema_privilege(current_user, "
-                        "to_regnamespace('order_service')::oid, 'USAGE')"
+                        "to_regnamespace('order_service')::oid, 'USAGE') "
+                        "AND has_table_privilege(current_user, "
+                        "to_regclass('order_service.orders')::oid, 'SELECT') "
+                        "AND has_table_privilege(current_user, "
+                        "to_regclass('order_service.order_history')::oid, 'SELECT') "
+                        "AND has_table_privilege(current_user, "
+                        "to_regclass('order_service.creation_operations')::oid, 'SELECT')"
                     ))
                     return result is True
         except (SQLAlchemyError, PostgresError, OSError, TimeoutError):
@@ -81,6 +87,11 @@ class Database:
             raise DatabaseUnavailableError("Order database is not configured.")
         async with self._sessions() as session:
             yield session
+
+    def session_context(self) -> AsyncSession:
+        if self._sessions is None:
+            raise DatabaseUnavailableError("Order database is not configured.")
+        return self._sessions()
 
     async def dispose(self) -> None:
         if self._engine is not None:

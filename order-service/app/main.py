@@ -1,24 +1,40 @@
-"""Order application factory and operational endpoints; no business APIs in F0."""
+"""Order application factory, operational endpoints and versioned business API."""
 
 import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
+import httpx
+from asyncpg import PostgresError
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings, get_settings
-from app.db import Database
+from app.db import Database, DatabaseUnavailableError
+from app.orders.api import router
+from app.orders.clients import ServiceClients
+from app.orders.errors import ApiError
+from app.orders.repository import OrderRepository
 
 _SAFE_REQUEST_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 
 
-def create_app(settings: Settings | None = None, database: Database | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    database: Database | None = None,
+    *,
+    clients=None,
+    repository=None,
+) -> FastAPI:
     service_settings = settings if settings is not None else get_settings()
     database_url = service_settings.database_url
-    service_database = database if database is not None else Database(
-        database_url.get_secret_value() if database_url else None
+    service_database = (
+        database
+        if database is not None
+        else Database(database_url.get_secret_value() if database_url else None)
     )
 
     @asynccontextmanager
@@ -27,6 +43,7 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
         try:
             yield
         finally:
+            await http.aclose()
             await service_database.dispose()
 
     app = FastAPI(
@@ -37,6 +54,70 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
         redoc_url=None,
     )
     app.state.database = service_database
+    http = httpx.AsyncClient(trust_env=False)
+    app.state.clients = clients if clients is not None else ServiceClients(service_settings, http)
+    app.state.repository = (
+        repository
+        if repository is not None
+        else OrderRepository(
+            lambda: service_database.session_context(),
+        )
+    )
+
+    @app.exception_handler(ApiError)
+    async def domain_error(request: Request, error: ApiError):
+        return JSONResponse(
+            status_code=error.status,
+            content={
+                "error": {
+                    "code": error.code,
+                    "message": error.message,
+                    "correlationId": request.state.correlation_id,
+                    "fieldErrors": [],
+                }
+            },
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, error: RequestValidationError):
+        # Never serialize Pydantic input/context: they may contain confidential payloads.
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "Check the request fields.",
+                    "correlationId": request.state.correlation_id,
+                    "fieldErrors": [
+                        {
+                            "field": ".".join(str(part) for part in item["loc"]),
+                            "message": "Invalid or unsupported field.",
+                        }
+                        for item in error.errors()
+                    ],
+                }
+            },
+        )
+
+    async def database_error(request: Request, error: Exception):
+        return await domain_error(
+            request,
+            ApiError(
+                503,
+                "DATABASE_UNAVAILABLE",
+                "Order storage is unavailable. Retry with the same key.",
+            ),
+        )
+
+    for error_type in (
+        SQLAlchemyError,
+        PostgresError,
+        DatabaseUnavailableError,
+        OSError,
+        TimeoutError,
+    ):
+        app.add_exception_handler(error_type, database_error)
+    app.include_router(router)
 
     @app.middleware("http")
     async def correlate_request(request: Request, call_next):
@@ -49,12 +130,17 @@ def create_app(settings: Settings | None = None, database: Database | None = Non
         return response
 
     def unavailable(request: Request) -> JSONResponse:
-        return JSONResponse(status_code=503, content={"error": {
-            "code": "SERVICE_NOT_READY",
-            "message": "The Order database is not ready.",
-            "correlationId": request.state.correlation_id,
-            "fieldErrors": [],
-        }})
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": {
+                    "code": "SERVICE_NOT_READY",
+                    "message": "The Order database is not ready.",
+                    "correlationId": request.state.correlation_id,
+                    "fieldErrors": [],
+                }
+            },
+        )
 
     @app.get("/health/live", tags=["Operations"])
     async def live() -> dict[str, str]:
