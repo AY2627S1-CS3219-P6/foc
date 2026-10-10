@@ -25,7 +25,12 @@ async def test_literal_middle_search_and_complete_keyset_traversal(chat_harness)
         expected.append((await h.seed_user(name), name))
     await h.seed_user("NameOnly-" + uuid4().hex[:12], display_name=fragment)
     await h.seed_user("EmailOnly-" + uuid4().hex[:12], email=f"{fragment}@u.nus.edu")
-    await h.seed_user("Deleted-" + fragment, deleted=True)
+    deleted_id = await h.seed_user("Deleted-" + fragment, deleted=True)
+    async for session in h.database.session():
+        async with session.begin():
+            legacy_tombstone = await session.get(User, deleted_id)
+            legacy_tombstone.username = "Deleted-" + fragment
+            legacy_tombstone.normalized_username = "deleted-" + fragment
     params = {"username": f"  {fragment.upper()}  ", "limit": 7}
     seen = []
     while True:
@@ -67,6 +72,8 @@ async def test_every_active_role_can_search_and_authenticate_first(chat_harness,
     h = chat_harness
     fragment = uuid4().hex[:10]
     headers = await h.login(await h.seed_user("Caller-" + fragment, role=role))
+    wanted_name = "Other-" + fragment
+    wanted_id = await h.seed_user(wanted_name)
     for bad_headers in (
         {},
         {"Authorization": headers["Authorization"]},
@@ -77,6 +84,10 @@ async def test_every_active_role_can_search_and_authenticate_first(chat_harness,
         assert denied.json()["error"]["code"] == "INVALID_SERVICE_IDENTITY"
     allowed = await h.client.get(PATH, headers=headers, params={"username": fragment})
     assert allowed.status_code == 200
+    assert allowed.json() == {
+        "items": [{"userId": str(wanted_id), "username": wanted_name}],
+        "nextCursor": None,
+    }
     missing_bearer = await h.client.get(
         PATH,
         headers={

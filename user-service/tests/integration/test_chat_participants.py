@@ -152,7 +152,7 @@ async def test_current_name_deletion_and_released_username_registration(chat_har
         async with session.begin():
             tombstone = await session.get(User, old_id)
             tombstone.display_name = "private-former-name"
-            tombstone.username = "private-former-username"
+            tombstone.username = "private-former-" + old_id.hex[:12]
     safe = await h.client.post(PATH, headers=SERVICE_HEADERS, json=body)
     assert safe.json()["items"][0]["displayName"] == "Deleted User"
     assert safe.json()["items"][0]["username"] is None

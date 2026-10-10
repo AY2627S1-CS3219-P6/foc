@@ -13,6 +13,12 @@ verifies normal access tokens locally and asks User Service for a current,
 fail-closed supplier-management decision immediately before an administrative
 operation.
 
+Chat Service uses the dedicated, private [chat identity interfaces](docs/chat-integration-contract.md)
+for caller-authorized partial username search and current participant lookup. Configure
+`CHAT_SERVICE_SHARED_SECRET` separately from Supplier Service's secret. The participant
+POST is a read-only batch lookup and needs no browser bearer token. See the
+[verification and handoff](docs/chat-integration-verification.md) for isolated test/demo commands.
+
 Verified registration and Super Admin bootstrap both write a durable
 `user.registered.v1` outbox record in the same database transaction as the
 User and credential. The independently restartable `outbox-publisher` Compose

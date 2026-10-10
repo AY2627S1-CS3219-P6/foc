@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from contextlib import aclosing
 from hmac import compare_digest
 from typing import Annotated
 
@@ -58,8 +59,9 @@ async def get_chat_db_session(request: Request) -> AsyncIterator[AsyncSession]:
     """Translate database outages for both caller checks and identity queries."""
 
     try:
-        async for session in get_db_session(request):
-            yield session
+        async with aclosing(get_db_session(request)) as sessions:
+            async for session in sessions:
+                yield session
     except (SQLAlchemyError, PostgresError, OSError, TimeoutError) as error:
         raise DatabaseUnavailableError("Database is unavailable.") from error
 
