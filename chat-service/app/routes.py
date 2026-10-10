@@ -45,3 +45,18 @@ async def history(
     request: Request, cid: UUID, query: Annotated[HistoryQuery, Query()], caller: Caller
 ):
     return await request.app.state.chat.history(caller.user_id, cid, query)
+
+
+@router.get("/blocks")
+async def blocks(request: Request, query: Annotated[PageQuery, Query()], caller: Caller):
+    return await request.app.state.chat.blocks(caller.user_id, query)
+
+
+@router.put("/blocks/{user_id}")
+async def block_user(request: Request, user_id: UUID, caller: Caller):
+    return await request.app.state.chat.set_block(caller.user_id, user_id, True)
+
+
+@router.delete("/blocks/{user_id}")
+async def unblock_user(request: Request, user_id: UUID, caller: Caller):
+    return await request.app.state.chat.set_block(caller.user_id, user_id, False)

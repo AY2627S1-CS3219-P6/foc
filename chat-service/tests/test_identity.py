@@ -13,7 +13,7 @@ async def test_signed_and_current_session(identity, directory):
     token = directory.token(uid)
     assert (await identity.authenticate(token)).user_id == uid
     directory.revoked.add(token)
-    with pytest.raises(ApiError, match="") as caught:
+    with pytest.raises(ApiError) as caught:
         await identity.authenticate(token)
     assert caught.value.status == 401
     for changes in ({"exp": 1}, {"iss": "bad"}, {"aud": "bad"}, {"roleVersion": True}):

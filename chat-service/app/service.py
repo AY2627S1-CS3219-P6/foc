@@ -1,6 +1,7 @@
 """Transaction boundary for private conversations. PostgreSQL is authoritative."""
 
 import hashlib
+import json
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -71,6 +72,15 @@ async def blocked(session, low, high):
 
 def other(row, user_id):
     return row["user_high"] if row["user_low"] == user_id else row["user_low"]
+
+
+async def enqueue(session, event_type, data):
+    event_id = uuid4()
+    await session.execute(
+        text("""INSERT INTO chat_service.outbox_events (id,event_type,payload)
+        VALUES (:id,:type,CAST(:data AS jsonb))"""),
+        {"id": event_id, "type": event_type, "data": json.dumps(data)},
+    )
 
 
 class ChatService:
@@ -212,4 +222,113 @@ class ChatService:
                 "boundarySequence": boundary,
                 "lastReadSequence": row["last_read_sequence"],
                 "hasMore": len(rows) > query.limit,
+            }
+
+    async def send(self, user_id, command):
+        cid = command.conversationId
+        async with self.db.transaction() as session:
+            row = await member(session, cid, user_id)
+            # Retry keys span conversations. Lock them before the pair lock everywhere.
+            await lock(session, "retry", user_id, command.clientMessageId)
+            existing = (
+                (
+                    await session.execute(
+                        text("""SELECT * FROM chat_service.messages
+                WHERE sender_id=:uid AND client_message_id=:client"""),
+                        {"uid": user_id, "client": command.clientMessageId},
+                    )
+                )
+                .mappings()
+                .first()
+            )
+            if existing:
+                if existing["conversation_id"] != cid or existing["text"] != command.text:
+                    raise ApiError(409, "RETRY_ID_CONFLICT", "Use a new client message ID.")
+                return message(existing)
+            await lock(session, "pair", row["user_low"], row["user_high"])
+            row = await member(session, cid, user_id, for_update=True)
+            await self.active([user_id, other(row, user_id)])
+            if await blocked(session, row["user_low"], row["user_high"]):
+                raise ApiError(409, "MESSAGING_BLOCKED", "Messaging is blocked for this pair.")
+            seq = (
+                await session.execute(
+                    text("""UPDATE chat_service.conversations
+                SET last_sequence=last_sequence+1 WHERE id=:cid RETURNING last_sequence"""),
+                    {"cid": cid},
+                )
+            ).scalar_one()
+            mid = uuid4()
+            stored = (
+                (
+                    await session.execute(
+                        text("""INSERT INTO chat_service.messages
+                (id,conversation_id,sender_id,sequence,text,client_message_id)
+                VALUES (:mid,:cid,:uid,:seq,:text,:client) RETURNING *"""),
+                        {
+                            "mid": mid,
+                            "cid": cid,
+                            "uid": user_id,
+                            "seq": seq,
+                            "text": command.text,
+                            "client": command.clientMessageId,
+                        },
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            await enqueue(
+                session,
+                "chat.message.created.v1",
+                {"conversationId": str(cid), "messageId": str(mid), "sequence": seq},
+            )
+            result = message(stored)
+        # Exiting the transaction commits before the caller can emit message.accepted.
+        return result
+
+    async def set_block(self, user_id, target_id, enabled):
+        low, high = pair(user_id, target_id)
+        async with self.db.transaction() as session:
+            await lock(session, "pair", low, high)
+            if enabled:
+                people = await self.identity.participants([target_id])
+                if target_id not in people:
+                    raise ApiError(404, "USER_NOT_FOUND", "User not found.")
+                await session.execute(
+                    text("""INSERT INTO chat_service.blocks
+                    (blocker_id,blocked_id) VALUES (:uid,:target) ON CONFLICT DO NOTHING"""),
+                    {"uid": user_id, "target": target_id},
+                )
+            else:
+                await session.execute(
+                    text("""DELETE FROM chat_service.blocks
+                    WHERE blocker_id=:uid AND blocked_id=:target"""),
+                    {"uid": user_id, "target": target_id},
+                )
+            result = {
+                "userId": str(target_id),
+                "blockedByMe": enabled,
+                "messagingBlocked": await blocked(session, low, high),
+            }
+        return result
+
+    async def blocks(self, user_id, query):
+        async with self.db.transaction() as session:
+            ids = list(
+                (
+                    await session.execute(
+                        text("""SELECT blocked_id FROM chat_service.blocks
+                WHERE blocker_id=:uid AND (CAST(:cursor AS uuid) IS NULL OR blocked_id>:cursor)
+                ORDER BY blocked_id LIMIT :limit"""),
+                        {"uid": user_id, "cursor": query.cursor, "limit": query.limit + 1},
+                    )
+                ).scalars()
+            )
+            selected = ids[: query.limit]
+            people = await self.identity.participants(selected)
+            if any(i not in people for i in selected):
+                raise unavailable()
+            return {
+                "items": [people[i] for i in selected],
+                "nextCursor": str(selected[-1]) if len(ids) > query.limit else None,
             }
