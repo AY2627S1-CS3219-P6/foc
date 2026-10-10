@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from app.errors import unauthorized
 from app.identity import Principal
-from app.schemas import CreateConversation, HistoryQuery, PageQuery, SearchQuery
+from app.schemas import CreateConversation, HistoryQuery, PageQuery, Read, SearchQuery
 
 router = APIRouter(prefix="/v1/chat")
 
@@ -45,6 +45,11 @@ async def history(
     request: Request, cid: UUID, query: Annotated[HistoryQuery, Query()], caller: Caller
 ):
     return await request.app.state.chat.history(caller.user_id, cid, query)
+
+
+@router.post("/conversations/{cid}/read")
+async def read(request: Request, cid: UUID, body: Read, caller: Caller):
+    return await request.app.state.chat.read(caller.user_id, cid, body.upToSequence)
 
 
 @router.get("/blocks")

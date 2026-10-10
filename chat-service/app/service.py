@@ -387,3 +387,57 @@ class ChatService:
                 .first()
             )
             return message(stored) if stored else None
+
+    async def unread_state(self, user_id, cid):
+        async with self.db.transaction() as session:
+            row = await member(session, cid, user_id)
+            unread = (
+                await session.execute(
+                    text("""SELECT count(*) FROM chat_service.messages
+                WHERE conversation_id=:cid AND sender_id<>:uid AND sequence>:seq"""),
+                    {"cid": cid, "uid": user_id, "seq": row["last_read_sequence"]},
+                )
+            ).scalar_one()
+            return {
+                "conversationId": str(cid),
+                "lastReadSequence": row["last_read_sequence"],
+                "unreadCount": unread,
+                "boundarySequence": row["last_sequence"],
+            }
+
+    async def read(self, user_id, cid, up_to):
+        async with self.db.transaction() as session:
+            # Shares the conversation row lock with sequence allocation; future reads cannot race.
+            row = await member(session, cid, user_id, for_update=True)
+            if up_to > row["last_sequence"]:
+                raise ApiError(
+                    422, "INVALID_READ_BOUNDARY", "Cannot acknowledge a future sequence."
+                )
+            cursor = (
+                await session.execute(
+                    text("""UPDATE chat_service.conversation_participants
+                SET last_read_sequence=greatest(last_read_sequence,:seq)
+                WHERE conversation_id=:cid AND user_id=:uid RETURNING last_read_sequence"""),
+                    {"seq": up_to, "cid": cid, "uid": user_id},
+                )
+            ).scalar_one()
+            if cursor > row["last_read_sequence"]:
+                await enqueue(
+                    session,
+                    "chat.unread.updated.v1",
+                    {"conversationId": str(cid), "userId": str(user_id), "upToSequence": cursor},
+                )
+            unread = (
+                await session.execute(
+                    text("""SELECT count(*) FROM chat_service.messages
+                WHERE conversation_id=:cid AND sender_id<>:uid AND sequence>:seq"""),
+                    {"cid": cid, "uid": user_id, "seq": cursor},
+                )
+            ).scalar_one()
+            result = {
+                "conversationId": str(cid),
+                "lastReadSequence": cursor,
+                "unreadCount": unread,
+                "boundarySequence": row["last_sequence"],
+            }
+        return result

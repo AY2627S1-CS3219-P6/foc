@@ -242,6 +242,139 @@ def test_outgoing_buffer_is_bounded():
 
 
 @pytest.mark.integration
+@pytest.mark.broker
+async def test_read_sync_only_to_reader(processes):
+    async with httpx.AsyncClient() as client:
+        a = (await client.post("http://127.0.0.1:17430/test/users")).json()
+        b = (await client.post("http://127.0.0.1:17430/test/users")).json()
+        cid = (
+            await client.post(
+                "http://127.0.0.1:17431/v1/chat/conversations",
+                headers={"Authorization": f"Bearer {a['accessToken']}"},
+                json={"recipientUserId": b["userId"]},
+            )
+        ).json()["conversationId"]
+        async with (
+            connect("ws://127.0.0.1:17431/v1/chat/ws", origin="http://localhost:3000") as wa,
+            connect("ws://127.0.0.1:17432/v1/chat/ws", origin="http://localhost:3000") as wb,
+            connect("ws://127.0.0.1:17431/v1/chat/ws", origin="http://localhost:3000") as wb2,
+        ):
+            for ws, user in ((wa, a), (wb, b), (wb2, b)):
+                await ws.send(
+                    json.dumps({"type": "authenticate", "accessToken": user["accessToken"]})
+                )
+                await receive(ws, "ready")
+            await wa.send(json.dumps(send(UUID(cid)).model_dump(mode="json")))
+            await receive(wa, "message.accepted")
+            await receive(wb, "message.created")
+            await receive(wb2, "message.created")
+            await wb.send(
+                json.dumps(
+                    {
+                        "type": "conversation.read",
+                        "requestId": str(uuid4()),
+                        "conversationId": cid,
+                        "upToSequence": 1,
+                    }
+                )
+            )
+            assert (await receive(wb, "unread.updated"))["unreadCount"] == 0
+            state = await receive(wb2, "unread.updated")
+            assert state["lastReadSequence"] == 1 and state["unreadCount"] == 0
+            with pytest.raises(TimeoutError):
+                await receive(wa, "unread.updated", timeout=0.3)
+
+
+@pytest.mark.integration
+@pytest.mark.broker
+async def test_broker_interruption_and_resubscription(processes, database):
+    if os.getenv("CHAT_TEST_BROKER_RESTART") != "1":
+        pytest.skip("Set CHAT_TEST_BROKER_RESTART=1 to restart the dedicated local test broker")
+    bindings = subprocess.check_output(
+        [
+            "docker",
+            "inspect",
+            "--format",
+            "{{json .HostConfig.PortBindings}}",
+            "foc-chat-test-rabbitmq",
+        ],
+        text=True,
+    )
+    assert json.loads(bindings)["5672/tcp"] == [{"HostIp": "127.0.0.1", "HostPort": "17425"}]
+    stopped = False
+    try:
+        async with httpx.AsyncClient() as client:
+            a = (await client.post("http://127.0.0.1:17430/test/users")).json()
+            b = (await client.post("http://127.0.0.1:17430/test/users")).json()
+            headers = {"Authorization": f"Bearer {a['accessToken']}"}
+            cid = (
+                await client.post(
+                    "http://127.0.0.1:17431/v1/chat/conversations",
+                    headers=headers,
+                    json={"recipientUserId": b["userId"]},
+                )
+            ).json()["conversationId"]
+            async with (
+                connect("ws://127.0.0.1:17431/v1/chat/ws", origin="http://localhost:3000") as wa,
+                connect("ws://127.0.0.1:17432/v1/chat/ws", origin="http://localhost:3000") as wb,
+            ):
+                for ws, user in ((wa, a), (wb, b)):
+                    await ws.send(
+                        json.dumps({"type": "authenticate", "accessToken": user["accessToken"]})
+                    )
+                    await receive(ws, "ready")
+                await asyncio.to_thread(
+                    subprocess.run,
+                    ["docker", "stop", "--time", "1", "foc-chat-test-rabbitmq"],
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                )
+                stopped = True
+                await receive(wb, "sync.required")
+                command = send(UUID(cid), "committed while broker offline").model_dump(mode="json")
+                await wa.send(json.dumps(command))
+                accepted = (await receive(wa, "message.accepted"))["message"]
+                await wa.send(json.dumps(command))
+                assert (await receive(wa, "message.accepted"))["message"] == accepted
+                await asyncio.to_thread(
+                    subprocess.run,
+                    ["docker", "start", "foc-chat-test-rabbitmq"],
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                )
+                stopped = False
+                await receive(wb, "sync.required", timeout=25)
+                history = (
+                    await client.get(
+                        f"http://127.0.0.1:17432/v1/chat/conversations/{cid}/messages",
+                        headers={"Authorization": f"Bearer {b['accessToken']}"},
+                        params={"afterSequence": 0},
+                    )
+                ).json()
+                assert history["items"] == [accepted]
+                async with asyncio.timeout(20):
+                    while True:
+                        async with database.transaction() as session:
+                            published = (
+                                await session.execute(
+                                    text(
+                                        "SELECT published_at FROM "
+                                        "chat_service.outbox_events WHERE payload->>'messageId'=:id"
+                                    ),
+                                    {"id": accepted["messageId"]},
+                                )
+                            ).scalar_one()
+                        if published:
+                            break
+                        await asyncio.sleep(0.2)
+    finally:
+        if stopped:
+            subprocess.run(
+                ["docker", "start", "foc-chat-test-rabbitmq"], check=True, stdout=subprocess.DEVNULL
+            )
+
+
+@pytest.mark.integration
 async def test_live_block_status_and_authoritative_event(chat, directory):
     a, b, c = directory.user(), directory.user(), directory.user()
     cid = UUID((await chat.create(a, b))["conversationId"])

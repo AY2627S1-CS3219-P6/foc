@@ -14,8 +14,8 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
 from app.errors import ApiError, payload
-from app.events import Envelope, MessageEvent
-from app.schemas import Authenticate, Ping, Send
+from app.events import Envelope, MessageEvent, ReadEvent
+from app.schemas import Authenticate, Ping, ReadCommand, Send
 
 router = APIRouter()
 logger = logging.getLogger("chat.live")
@@ -58,7 +58,13 @@ class Hub:
             connection.offer({"type": "sync.required", "reason": "delivery_subscription_changed"})
 
     async def event(self, envelope):
-        if envelope.eventType != "chat.message.created.v1":
+        if envelope.eventType == "chat.unread.updated.v1":
+            event = ReadEvent.model_validate(envelope.data)
+            # Only the reader receives this update; it is never a sender-facing receipt.
+            await self.chat.unread_state(event.userId, event.conversationId)
+            for connection in tuple(self.connections):
+                if connection.principal.user_id == event.userId:
+                    connection.offer(event)
             return
         event = MessageEvent.model_validate(envelope.data)
         users = await self.chat.event_participants(event)
@@ -118,7 +124,12 @@ class Hub:
 async def writer(connection, chat, identity):
     while True:
         item = await connection.queue.get()
-        if isinstance(item, MessageEvent):
+        if isinstance(item, ReadEvent):
+            await identity.authenticate(connection.principal.token)
+            if item.userId == connection.principal.user_id:
+                state = await chat.unread_state(item.userId, item.conversationId)
+                await connection.socket.send_json({"type": "unread.updated", **state})
+        elif isinstance(item, MessageEvent):
             await identity.authenticate(connection.principal.token)
             stored = await chat.live_message(connection.principal.user_id, item)
             if stored is None or stored["messageId"] in connection.seen:
@@ -137,7 +148,7 @@ async def writer(connection, chat, identity):
             connection.remember(stored["messageId"])
         else:
             # Durable acceptance survives blocking changes; the caller still needs a session.
-            if item["type"] == "message.accepted":
+            if item["type"] in ("message.accepted", "unread.updated"):
                 await identity.authenticate(connection.principal.token)
             await connection.socket.send_json(item)
 
@@ -154,7 +165,7 @@ async def reader(connection, chat, identity):
                 with contextlib.suppress(ValueError, TypeError):
                     request_id = str(UUID(data.get("requestId")))
             kind = data.get("type") if isinstance(data, dict) else None
-            model = {"message.send": Send, "ping": Ping}.get(kind)
+            model = {"message.send": Send, "conversation.read": ReadCommand, "ping": Ping}.get(kind)
             if model is None:
                 raise ValueError()
             command = model.model_validate(data)
@@ -167,6 +178,13 @@ async def reader(connection, chat, identity):
                         "requestId": str(command.requestId),
                         "message": stored,
                     }
+                )
+            elif isinstance(command, ReadCommand):
+                state = await chat.read(
+                    principal.user_id, command.conversationId, command.upToSequence
+                )
+                connection.offer(
+                    {"type": "unread.updated", "requestId": str(command.requestId), **state}
                 )
             else:
                 connection.offer({"type": "pong", "requestId": str(command.requestId)})
