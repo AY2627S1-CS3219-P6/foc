@@ -23,6 +23,11 @@ class RequestTimingMiddleware(BaseHTTPMiddleware):
             elapsed_milliseconds = round((perf_counter() - started_at) * 1_000, 3)
             if response is not None:
                 response.headers["X-Response-Time-Ms"] = str(elapsed_milliseconds)
+                if request.url.path in {
+                    "/v1/internal/chat/users",
+                    "/v1/internal/chat/participants",
+                }:
+                    response.headers["Cache-Control"] = "no-store"
             logger.info(
                 "request completed",
                 extra={
