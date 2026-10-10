@@ -13,6 +13,7 @@ from app.api.admin import router as admin_router
 from app.api.authentication import jwks_router
 from app.api.authentication import router as authentication_router
 from app.api.authorization import router as authorization_router
+from app.api.chat import router as chat_router
 from app.api.errors import ApiError, FieldError
 from app.api.registration import router as registration_router
 from app.api.users import router as users_router
@@ -186,6 +187,7 @@ def create_app(
     app.include_router(jwks_router)
     app.include_router(users_router)
     app.include_router(authorization_router)
+    app.include_router(chat_router)
     app.include_router(admin_router)
 
     return app
