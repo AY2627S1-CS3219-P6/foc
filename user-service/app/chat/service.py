@@ -13,7 +13,13 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.chat_schemas import ChatUserSearchQuery, ChatUserSearchResponse, ChatUserSummary
+from app.api.chat_schemas import (
+    ChatParticipantsResponse,
+    ChatParticipantSummary,
+    ChatUserSearchQuery,
+    ChatUserSearchResponse,
+    ChatUserSummary,
+)
 from app.api.errors import ApiError, FieldError
 from app.core.logging import logger
 from app.models import AccountStatus, User
@@ -113,3 +119,52 @@ async def search_users(
         items=[ChatUserSummary(user_id=row.id, username=row.username) for row in page],
         next_cursor=next_cursor,
     )
+
+
+async def lookup_participants(
+    session: AsyncSession,
+    *,
+    user_ids: list[UUID],
+) -> ChatParticipantsResponse:
+    """Resolve each requested identity once without consulting browser sessions."""
+
+    ordered_ids = list(dict.fromkeys(user_ids))
+    started_at = perf_counter()
+    rows = (
+        await session.execute(
+            select(User.id, User.display_name, User.username, User.account_status).where(
+                User.id.in_(ordered_ids)
+            )
+        )
+    ).all()
+    by_id = {row.id: row for row in rows}
+    items = []
+    missing = []
+    for user_id in ordered_ids:
+        row = by_id.get(user_id)
+        if row is None:
+            missing.append(user_id)
+            continue
+        deleted = row.account_status == AccountStatus.DELETED
+        items.append(
+            ChatParticipantSummary(
+                user_id=row.id,
+                display_name="Deleted User" if deleted else row.display_name,
+                username=None if deleted else row.username,
+                account_status=row.account_status,
+            )
+        )
+    logger.info(
+        "chat participant lookup completed",
+        extra={
+            "event": "chat_participant_lookup_completed",
+            "context": {
+                "batchSize": len(user_ids),
+                "uniqueCount": len(ordered_ids),
+                "resultCount": len(items),
+                "missingCount": len(missing),
+                "queryDurationMs": round((perf_counter() - started_at) * 1000, 3),
+            },
+        },
+    )
+    return ChatParticipantsResponse(items=items, missing_user_ids=missing)

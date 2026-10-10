@@ -13,11 +13,16 @@ from fastapi import APIRouter, Depends, Header, Query, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.chat_schemas import ChatUserSearchQuery, ChatUserSearchResponse
-from app.api.errors import ApiError
+from app.api.chat_schemas import (
+    ChatParticipantsRequest,
+    ChatParticipantsResponse,
+    ChatUserSearchQuery,
+    ChatUserSearchResponse,
+)
+from app.api.errors import ApiError, FieldError
 from app.auth.dependencies import get_current_principal, require_self_access
 from app.auth.service import AuthenticatedPrincipal
-from app.chat.service import search_users
+from app.chat.service import lookup_participants, search_users
 from app.core.config import Settings
 from app.db import DatabaseUnavailableError, get_db_session
 
@@ -77,3 +82,21 @@ async def chat_user_search(
     session: Annotated[AsyncSession, Depends(get_chat_db_session)],
 ) -> ChatUserSearchResponse:
     return await search_users(session, query=query, caller_id=principal.user.id)
+
+
+@router.post("/participants", response_model=ChatParticipantsResponse)
+async def chat_participant_lookup(
+    request: Request,
+    body: ChatParticipantsRequest,
+    session: Annotated[AsyncSession, Depends(get_chat_db_session)],
+) -> ChatParticipantsResponse:
+    if request.query_params:
+        raise ApiError(
+            422,
+            "VALIDATION_ERROR",
+            "Input validation failed.",
+            [
+                FieldError("query", "INVALID_VALUE", "Query parameters are not accepted."),
+            ],
+        )
+    return await lookup_participants(session, user_ids=body.user_ids)
