@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 import time
@@ -12,6 +13,8 @@ from app.config import Settings
 from app.db import Database
 from app.errors import ApiError, payload
 from app.identity import IdentityClient
+from app.live import Hub
+from app.live import router as live_router
 from app.routes import router
 from app.service import ChatService
 
@@ -24,18 +27,28 @@ def create_app(settings=None, database=None, identity=None):
         settings.database_url.get_secret_value() if settings.database_url else None
     )
     identity = identity or IdentityClient(settings)
+    chat = ChatService(database, identity)
+    hub = Hub(chat, settings)
+    for name in ("aio_pika", "aiormq"):
+        logging.getLogger(name).setLevel(logging.CRITICAL)
 
     @asynccontextmanager
     async def lifespan(app):
-        yield
-        await database.close()
-        await identity.close()
+        consumer = asyncio.create_task(hub.consume())
+        try:
+            yield
+        finally:
+            consumer.cancel()
+            await asyncio.gather(consumer, return_exceptions=True)
+            await database.close()
+            await identity.close()
 
     app = FastAPI(title="FoC Chat Service", version="0.1.0", lifespan=lifespan)
     app.state.settings, app.state.database = settings, database
     app.state.identity = identity
-    app.state.chat = ChatService(database, identity)
+    app.state.chat, app.state.hub = chat, hub
     app.include_router(router)
+    app.include_router(live_router)
 
     @app.middleware("http")
     async def correlation(request: Request, call_next):
@@ -77,7 +90,7 @@ def create_app(settings=None, database=None, identity=None):
     @app.get("/health/ready")
     async def ready():
         await database.ready()
-        return {"status": "ready"}
+        return {"status": "ready", "delivery": "ready" if hub.subscribed else "degraded"}
 
     return app
 

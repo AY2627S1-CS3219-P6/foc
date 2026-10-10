@@ -332,3 +332,58 @@ class ChatService:
                 "items": [people[i] for i in selected],
                 "nextCursor": str(selected[-1]) if len(ids) > query.limit else None,
             }
+
+    async def event_participants(self, event):
+        async with self.db.transaction() as session:
+            row = (
+                (
+                    await session.execute(
+                        text("""SELECT c.user_low,c.user_high
+                FROM chat_service.messages m JOIN chat_service.conversations c
+                  ON c.id=m.conversation_id
+                WHERE m.id=:mid AND m.conversation_id=:cid AND m.sequence=:seq"""),
+                        {
+                            "mid": event.messageId,
+                            "cid": event.conversationId,
+                            "seq": event.sequence,
+                        },
+                    )
+                )
+                .mappings()
+                .first()
+            )
+            return {row["user_low"], row["user_high"]} if row else set()
+
+    async def live_message(self, user_id, event):
+        async with self.db.transaction() as session:
+            try:
+                row = await member(session, event.conversationId, user_id)
+            except ApiError as error:
+                if error.status == 404:
+                    return None
+                raise
+            await lock(session, "pair", row["user_low"], row["user_high"])
+            people = await self.identity.participants([row["user_low"], row["user_high"]])
+            if any(
+                i not in people or people[i]["accountStatus"] != "ACTIVE"
+                for i in (row["user_low"], row["user_high"])
+            ):
+                return None
+            if await blocked(session, row["user_low"], row["user_high"]):
+                return None
+            stored = (
+                (
+                    await session.execute(
+                        text("""SELECT * FROM chat_service.messages
+                WHERE id=:mid AND conversation_id=:cid AND sequence=:seq"""),
+                        {
+                            "mid": event.messageId,
+                            "cid": event.conversationId,
+                            "seq": event.sequence,
+                        },
+                    )
+                )
+                .mappings()
+                .first()
+            )
+            return message(stored) if stored else None
