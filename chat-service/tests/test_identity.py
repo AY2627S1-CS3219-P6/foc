@@ -59,3 +59,28 @@ async def test_dependency_failure_is_closed(status, data):
             await client.participants([uuid4()])
     finally:
         await client.close()
+
+
+async def test_malformed_jwks_and_correlation(directory):
+    from app.correlation import correlation_id
+
+    client = IdentityClient(
+        Settings(_env_file=None),
+        httpx.MockTransport(lambda r: httpx.Response(200, json={"keys": ["invalid-key"]})),
+    )
+    try:
+        with pytest.raises(ApiError) as caught:
+            await client.authenticate(directory.token(directory.user()))
+        assert caught.value.status == 503
+    finally:
+        await client.close()
+    client = IdentityClient(Settings(_env_file=None), httpx.MockTransport(directory.handle))
+    token = correlation_id.set("trace-for-user-service")
+    try:
+        await client.authenticate(directory.token(directory.user()))
+        assert all(
+            r.headers["X-Correlation-ID"] == "trace-for-user-service" for r in directory.calls
+        )
+    finally:
+        correlation_id.reset(token)
+        await client.close()

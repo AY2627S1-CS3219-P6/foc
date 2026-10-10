@@ -147,6 +147,11 @@ async def test_cross_process_delivery_retries_and_revocation(processes, database
             accepted = (await receive(wa, "message.accepted"))["message"]
             received = (await receive(wb, "message.created"))["message"]
             assert accepted == received
+            # JSON's escaped surrogate pairs must still allow 4096 Unicode code points.
+            emoji = send(UUID(cid), "😀" * 4096).model_dump(mode="json")
+            await wa.send(json.dumps(emoji))
+            assert len((await receive(wa, "message.accepted"))["message"]["text"]) == 4096
+            assert len((await receive(wb, "message.created"))["message"]["text"]) == 4096
             await wa.send(json.dumps(command))
             assert (await receive(wa, "message.accepted"))["message"] == accepted
             await wc.send(json.dumps({**command, "clientMessageId": str(uuid4())}))
@@ -396,3 +401,181 @@ async def test_live_block_status_and_authoritative_event(chat, directory):
     directory.people[a]["accountStatus"] = "DELETED"
     assert await chat.live_message(b, event) is None
     hub.sync()  # empty hub is safe on subscription churn
+
+
+@pytest.mark.integration
+async def test_blocked_event_is_consumed_without_unblock_replay(chat, directory, identity):
+    from app.events import MessageEvent
+    from app.live import writer
+
+    a, b = directory.user(), directory.user()
+    cid = UUID((await chat.create(a, b))["conversationId"])
+    stored = await chat.send(a, send(cid))
+    event = MessageEvent(conversationId=cid, messageId=UUID(stored["messageId"]), sequence=1)
+    principal = await identity.authenticate(directory.token(b))
+
+    class Socket:
+        def __init__(self):
+            self.frames = []
+            self.done = asyncio.Event()
+
+        async def send_json(self, frame):
+            self.frames.append(frame)
+            self.done.set()
+
+    socket = Socket()
+    connection = Connection(socket, principal, asyncio.Queue(4))
+    task = asyncio.create_task(writer(connection, chat, identity))
+    try:
+        await chat.set_block(b, a, True)
+        connection.offer(event)
+        async with asyncio.timeout(3):
+            while str(event.messageId) not in connection.seen:
+                await asyncio.sleep(0.01)
+        await chat.set_block(b, a, False)
+        connection.offer(event)
+        connection.offer({"type": "pong"})
+        await asyncio.wait_for(socket.done.wait(), timeout=3)
+        assert socket.frames == [{"type": "pong"}]
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.integration
+@pytest.mark.broker
+async def test_lost_acceptance_and_out_of_order_events(processes, broker_url):
+    async with httpx.AsyncClient() as client:
+        a = (await client.post("http://127.0.0.1:17430/test/users")).json()
+        b = (await client.post("http://127.0.0.1:17430/test/users")).json()
+        headers = {"Authorization": f"Bearer {a['accessToken']}"}
+        cid = (
+            await client.post(
+                "http://127.0.0.1:17431/v1/chat/conversations",
+                headers=headers,
+                json={"recipientUserId": b["userId"]},
+            )
+        ).json()["conversationId"]
+        async with (
+            connect("ws://127.0.0.1:17431/v1/chat/ws", origin="http://localhost:3000") as wa,
+            connect("ws://127.0.0.1:17432/v1/chat/ws", origin="http://localhost:3000") as wb,
+        ):
+            for ws, user in ((wa, a), (wb, b)):
+                await ws.send(
+                    json.dumps({"type": "authenticate", "accessToken": user["accessToken"]})
+                )
+                await receive(ws, "ready")
+            command = send(UUID(cid)).model_dump(mode="json")
+            await wa.send(json.dumps(command))
+            first = (await receive(wb, "message.created"))["message"]
+            # Sender closes without consuming its acceptance frame; recipient proves persistence.
+        async with connect("ws://127.0.0.1:17431/v1/chat/ws", origin="http://localhost:3000") as wa:
+            await wa.send(json.dumps({"type": "authenticate", "accessToken": a["accessToken"]}))
+            await receive(wa, "ready")
+            await wa.send(json.dumps(command))
+            assert (await receive(wa, "message.accepted"))["message"] == first
+            stored = [first]
+            for _ in range(2):
+                await wa.send(json.dumps(send(UUID(cid)).model_dump(mode="json")))
+                stored.append((await receive(wa, "message.accepted"))["message"])
+        # Wait for committed events to leave the outbox before opening a fresh recipient socket.
+        await asyncio.sleep(0.3)
+        async with connect("ws://127.0.0.1:17432/v1/chat/ws", origin="http://localhost:3000") as wb:
+            await wb.send(json.dumps({"type": "authenticate", "accessToken": b["accessToken"]}))
+            await receive(wb, "ready")
+            connection = await aio_pika.connect(broker_url)
+            try:
+                exchange = await (await connection.channel()).get_exchange("foc.chat.events")
+                for message in reversed(stored):
+                    envelope = {
+                        "eventId": str(uuid4()),
+                        "eventType": "chat.message.created.v1",
+                        "data": {
+                            "conversationId": cid,
+                            "messageId": message["messageId"],
+                            "sequence": message["sequence"],
+                        },
+                    }
+                    await exchange.publish(
+                        aio_pika.Message(json.dumps(envelope).encode()),
+                        routing_key="chat.message.created.v1",
+                        mandatory=False,
+                    )
+                assert (await receive(wb, "sync.required"))["reason"] == "sequence_gap"
+                received = [
+                    (await receive(wb, "message.created"))["message"]["sequence"] for _ in range(3)
+                ]
+                assert received == [3, 2, 1]
+            finally:
+                await connection.close()
+        response = await client.get(
+            f"http://127.0.0.1:17432/v1/chat/conversations/{cid}/messages",
+            headers={"Authorization": f"Bearer {b['accessToken']}"},
+            params={"afterSequence": 1},
+        )
+        assert [m["sequence"] for m in response.json()["items"]] == [2, 3]
+
+
+@pytest.mark.integration
+@pytest.mark.broker
+async def test_database_interruption_fails_closed_then_recovers(processes):
+    if os.getenv("CHAT_TEST_DATABASE_RESTART") != "1":
+        pytest.skip("Set CHAT_TEST_DATABASE_RESTART=1 for isolated database restart verification")
+    bindings = subprocess.check_output(
+        [
+            "docker",
+            "inspect",
+            "--format",
+            "{{json .HostConfig.PortBindings}}",
+            "supabase_db_foc-chat-service",
+        ],
+        text=True,
+    )
+    assert json.loads(bindings)["5432/tcp"][0]["HostPort"] == "17422"
+    stopped = False
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            a = (await client.post("http://127.0.0.1:17430/test/users")).json()
+            b = (await client.post("http://127.0.0.1:17430/test/users")).json()
+            headers = {"Authorization": f"Bearer {a['accessToken']}"}
+            cid = (
+                await client.post(
+                    "http://127.0.0.1:17431/v1/chat/conversations",
+                    headers=headers,
+                    json={"recipientUserId": b["userId"]},
+                )
+            ).json()["conversationId"]
+            await asyncio.to_thread(
+                subprocess.run,
+                ["docker", "stop", "--time", "1", "supabase_db_foc-chat-service"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )
+            stopped = True
+            response = await client.get("http://127.0.0.1:17431/health/ready")
+            assert response.status_code == 503
+            response = await client.get(
+                "http://127.0.0.1:17431/v1/chat/conversations", headers=headers
+            )
+            assert response.status_code == 503
+            await asyncio.to_thread(
+                subprocess.run,
+                ["docker", "start", "supabase_db_foc-chat-service"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )
+            stopped = False
+            async with asyncio.timeout(25):
+                while (await client.get("http://127.0.0.1:17431/health/ready")).status_code != 200:
+                    await asyncio.sleep(0.2)
+            response = await client.get(
+                f"http://127.0.0.1:17431/v1/chat/conversations/{cid}", headers=headers
+            )
+            assert response.status_code == 200 and response.json()["lastSequence"] == 0
+    finally:
+        if stopped:
+            subprocess.run(
+                ["docker", "start", "supabase_db_foc-chat-service"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )

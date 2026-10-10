@@ -133,8 +133,8 @@ class ChatService:
             (
                 await session.execute(
                     text("""SELECT * FROM chat_service.messages
-            WHERE conversation_id=:cid ORDER BY sequence DESC LIMIT 1"""),
-                    {"cid": row["id"]},
+            WHERE conversation_id=:cid AND sequence<=:boundary ORDER BY sequence DESC LIMIT 1"""),
+                    {"cid": row["id"], "boundary": row["last_sequence"]},
                 )
             )
             .mappings()
@@ -143,8 +143,14 @@ class ChatService:
         unread = (
             await session.execute(
                 text("""SELECT count(*) FROM chat_service.messages
-            WHERE conversation_id=:cid AND sequence>:seq AND sender_id<>:uid"""),
-                {"cid": row["id"], "seq": row["last_read_sequence"], "uid": user_id},
+            WHERE conversation_id=:cid AND sequence>:seq AND sequence<=:boundary
+              AND sender_id<>:uid"""),
+                {
+                    "cid": row["id"],
+                    "seq": row["last_read_sequence"],
+                    "uid": user_id,
+                    "boundary": row["last_sequence"],
+                },
             )
         ).scalar_one()
         is_blocked = await blocked(session, row["user_low"], row["user_high"])
@@ -394,8 +400,14 @@ class ChatService:
             unread = (
                 await session.execute(
                     text("""SELECT count(*) FROM chat_service.messages
-                WHERE conversation_id=:cid AND sender_id<>:uid AND sequence>:seq"""),
-                    {"cid": cid, "uid": user_id, "seq": row["last_read_sequence"]},
+                WHERE conversation_id=:cid AND sender_id<>:uid AND sequence>:seq
+                  AND sequence<=:boundary"""),
+                    {
+                        "cid": cid,
+                        "uid": user_id,
+                        "seq": row["last_read_sequence"],
+                        "boundary": row["last_sequence"],
+                    },
                 )
             ).scalar_one()
             return {

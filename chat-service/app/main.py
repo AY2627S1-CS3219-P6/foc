@@ -10,6 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.config import Settings
+from app.correlation import correlation_id
 from app.db import Database
 from app.errors import ApiError, payload
 from app.identity import IdentityClient
@@ -57,7 +58,11 @@ def create_app(settings=None, database=None, identity=None):
             supplied if re.fullmatch(r"[\w-]{1,64}", supplied) else str(uuid4())
         )
         started = time.monotonic()
-        response = await call_next(request)
+        context_token = correlation_id.set(request.state.correlation_id)
+        try:
+            response = await call_next(request)
+        finally:
+            correlation_id.reset(context_token)
         response.headers["X-Correlation-ID"] = request.state.correlation_id
         response.headers["Cache-Control"] = "no-store"
         # Never log URLs, query parameters, headers, bodies or exception reprs.

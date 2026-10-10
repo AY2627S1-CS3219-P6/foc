@@ -10,6 +10,7 @@ import httpx
 import jwt
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.correlation import correlation_id
 from app.errors import ApiError, unauthorized, unavailable
 
 
@@ -75,8 +76,11 @@ class IdentityClient:
         return {"X-FoC-Service-Secret": secret.get_secret_value()}
 
     async def request(self, method, path, **kwargs):
+        headers = kwargs.pop("headers", {})
+        if correlation_id.get():
+            headers = {**headers, "X-Correlation-ID": correlation_id.get()}
         try:
-            response = await self.http.request(method, path, **kwargs)
+            response = await self.http.request(method, path, headers=headers, **kwargs)
             if response.status_code == 401:
                 raise unauthorized()
             if response.status_code == 422:
@@ -96,6 +100,8 @@ class IdentityClient:
                     keys = data["keys"]
                     if not isinstance(keys, list) or not 1 <= len(keys) <= 20:
                         raise ValueError()
+                    if any(not isinstance(k, dict) for k in keys):
+                        raise ValueError()
                     self.keys = {
                         k["kid"]: jwt.PyJWK.from_dict(k).key
                         for k in keys
@@ -103,6 +109,8 @@ class IdentityClient:
                         and k.get("alg") == "RS256"
                         and k.get("use", "sig") == "sig"
                     }
+                    if not self.keys:
+                        raise ValueError()
                 except (KeyError, TypeError, ValueError, jwt.PyJWTError) as error:
                     raise unavailable() from error
                 self.keys_until = now + self.settings.jwks_ttl_seconds

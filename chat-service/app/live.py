@@ -13,6 +13,7 @@ import aio_pika
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
+from app.correlation import correlation_id
 from app.errors import ApiError, payload
 from app.events import Envelope, MessageEvent, ReadEvent
 from app.schemas import Authenticate, Ping, ReadCommand, Send
@@ -92,7 +93,6 @@ class Hub:
                     "",
                     exclusive=True,
                     auto_delete=True,
-                    arguments={"x-max-length": 1024, "x-overflow": "drop-head"},
                 )
                 await queue.bind(exchange, routing_key="chat.#")
                 self.subscribed = True
@@ -130,9 +130,13 @@ async def writer(connection, chat, identity):
                 state = await chat.unread_state(item.userId, item.conversationId)
                 await connection.socket.send_json({"type": "unread.updated", **state})
         elif isinstance(item, MessageEvent):
+            if str(item.messageId) in connection.seen:
+                continue
             await identity.authenticate(connection.principal.token)
             stored = await chat.live_message(connection.principal.user_id, item)
-            if stored is None or stored["messageId"] in connection.seen:
+            if stored is None:
+                # Consume blocked/deleted events. Do not hold them for an unblock replay.
+                connection.remember(str(item.messageId))
                 continue
             cid, seq = stored["conversationId"], stored["sequence"]
             previous = connection.sequences.get(cid, 0)
@@ -158,11 +162,11 @@ async def reader(connection, chat, identity):
         raw = await connection.socket.receive_text()
         request_id = None
         try:
-            if len(raw) > 32768:
+            if len(raw) > 65536:
                 raise ValueError()
             data = json.loads(raw)
             if isinstance(data, dict):
-                with contextlib.suppress(ValueError, TypeError):
+                with contextlib.suppress(ValueError, TypeError, AttributeError):
                     request_id = str(UUID(data.get("requestId")))
             kind = data.get("type") if isinstance(data, dict) else None
             model = {"message.send": Send, "conversation.read": ReadCommand, "ping": Ping}.get(kind)
@@ -222,9 +226,12 @@ async def monitor(connection, identity, settings):
 
 @router.websocket("/v1/chat/ws")
 async def websocket(socket: WebSocket):
+    trace_id = str(uuid4())
+    context_token = correlation_id.set(trace_id)
     settings, identity = socket.app.state.settings, socket.app.state.identity
     if socket.headers.get("origin") not in settings.allowed_origins or socket.query_params:
         await socket.close(code=1008)
+        correlation_id.reset(context_token)
         return
     await socket.accept()
     connection = None
@@ -239,6 +246,7 @@ async def websocket(socket: WebSocket):
         auth = Authenticate.model_validate_json(frame)
         principal = await identity.authenticate(auth.accessToken)
         connection = Connection(socket, principal, asyncio.Queue(settings.outgoing_buffer_size))
+        connection.correlation_id = trace_id
         socket.app.state.hub.connections.add(connection)
         connection.offer(
             {
@@ -274,3 +282,4 @@ async def websocket(socket: WebSocket):
         await asyncio.gather(*tasks, return_exceptions=True)
         with contextlib.suppress(RuntimeError, WebSocketDisconnect):
             await socket.close(code=code)
+        correlation_id.reset(context_token)
