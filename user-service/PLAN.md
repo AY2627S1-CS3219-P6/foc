@@ -1,182 +1,228 @@
-# User Service Implementation Plan
+# User Service Chat Integration Interface Plan
 
-## Sprint 1 outcome (D2)
+## Sprint 3 outcome and scope
 
-Deliver a near-complete User Service that can be demonstrated locally in containers. It will register and verify students, authenticate them, protect a self-owned profile, enforce User/Admin/Super Admin RBAC, provide a secure first-Super-Admin bootstrap and role lifecycle, publish a safe registration event, and give Supplier Service the information it needs to enforce administrative restrictions.
+Provide the two User Service interfaces proposed in the [Chat Service Sprint 3 plan](../chat-service/PLAN.md): partial username search and batch participant lookup. Chat Service will use them to find active users, display current names and `@<username>` labels, and distinguish active, deleted, and unknown participants without accessing the User Service database.
 
-The service owns identity only. It must not create wallets, suppliers, orders, or any endpoint belonging to another microservice.
+User Service remains the authority for immutable user IDs, usernames, current display names, account status, and session validity. Chat Service remains responsible for conversation membership, blocks, message validation and persistence, unread state, RabbitMQ delivery, and the chat UI.
 
-## Technology and data design
+The work is limited to the two internal HTTP interfaces, dedicated Chat Service authentication/configuration, query and response handling, tests, and integration documentation. Existing registration, authentication, profile, administrator, Supplier Service authorization, JWKS, and registration-event contracts retain their behaviour.
 
-Use Python 3.13, FastAPI, Uvicorn, Pydantic v2, SQLAlchemy 2 async with `asyncpg`, Supabase CLI SQL migrations, Supabase Cloud PostgreSQL, RabbitMQ, and SMTP. Unit/integration tests use pytest, pytest-asyncio, and httpx's ASGI transport; the final smoke test uses Docker Compose, a local Supabase CLI PostgreSQL stack, RabbitMQ, and Mailpit. This produces a compact local setup while mapping directly to ECS Fargate, Supabase Cloud PostgreSQL, Amazon MQ, SES SMTP, Secrets Manager, and CloudWatch in AWS.
+## Current implementation and data design
 
-Supabase Cloud PostgreSQL is the appropriate User Service datastore because identity data is structured and is queried by unique email/username, stable user ID, current role/status, and later administrator search. Its PostgreSQL unique indexes prevent duplicate identity creation; transactions and row/advisory locks enforce the last-Super-Admin rule under concurrency; and it easily exceeds the 35,000-account target. The Supabase CLI supplies a local, migration-compatible PostgreSQL environment, while Supabase Cloud remains the managed production datastore for AWS-hosted compute.
+Use the existing Python 3.13, FastAPI, Pydantic v2, SQLAlchemy async, `asyncpg`, and Supabase PostgreSQL stack. Query only the existing `user_service.users` table through User Service's database session dependencies.
 
-### Supabase boundary and connection configuration
+The existing identity model already supplies everything required:
 
-Supabase is PostgreSQL storage only. FastAPI owns password hashing, OTP delivery/verification, sessions, RS256 JWT issuance, RBAC, and all role lifecycle rules; Supabase Auth, Supabase client SDKs in the browser, and Supabase JWTs are explicitly out of scope.
+| Existing field or behaviour | Use in the new interfaces |
+|---|---|
+| Immutable `users.id` UUID | Search result identity and batch lookup key. |
+| `username` and `normalized_username` | Display the original username and perform case-insensitive username matching using existing normalization. |
+| `display_name` | Return the latest display name for conversation-list presentation. Names are not unique. |
+| `account_status` with `ACTIVE` and `DELETED` | Filter discoverable users and identify retained tombstones. |
+| Account-deletion tombstone | Keep the original ID, return `Deleted User`, and expose no former username or other erased identity fields. |
+| `get_current_principal` / `require_self_access` | Validate the search caller's current session, account status, role version, token expiry, and session lifecycle. |
+| `GET /v1/users/me` and `GET /.well-known/jwks.json` | Existing authentication interfaces for Chat Service; no new authentication/introspection endpoint is needed for this work. |
 
-Provision a dedicated Supabase project/database for User Service with a `user_service` schema. Supabase SQL migrations create the schema, owner, and lower-privilege FastAPI application role; the runtime role can access only that schema. Keep only `DATABASE_URL` (runtime Session Pooler URL with `sslmode=require`) in FastAPI configuration. Store it only in local secret files and AWS Secrets Manager, never in frontend configuration, source, logs, API responses, or events.
+No new tables, account statuses, or schema migration are required for the initial interfaces. Use the existing UUID and normalized-username indexes where applicable. Do not claim that an equality index accelerates arbitrary substring matching; record query timings and leave additional search indexing to a separately justified performance change.
 
-`user-service/supabase/migrations/` is the canonical and only migration history. Create each schema change with `npx supabase migration new <description>`, review and write the generated timestamped SQL, run `npx supabase db reset` to reconstruct the local database, and commit the SQL file with its dependent code. SQLAlchemy models are runtime ORM/query models only: they must neither generate migrations nor mutate schema at application startup. Do not add a second migration history or migration runner.
+Preserve Supabase SQL migrations as the sole schema history. Runtime models and startup must not mutate the schema. Do not grant Chat Service database credentials, add cross-service foreign keys, or copy identity tables into Chat Service.
 
-Initialize and link the local project from `user-service/` using `npx supabase init` and `npx supabase link` to the cloud `foc-user-service` project. The GitHub integration is configured for `AY2627-CS3219-P6/foc` with working directory `user-service`; it will read the committed migration directory. Keep automatic branching and production deployment disabled until local reset, preview, and migration checks are verified, then enable them in that order.
+## Authentication and privacy boundary
 
-### Schema
+Introduce an optional `CHAT_SERVICE_SHARED_SECRET` setting represented as a secret value, and a dedicated FastAPI service-identity dependency for the new chat routes. Use the existing `X-FoC-Service-Secret` header name, but compare against the Chat Service secret with a constant-time comparison.
 
-| Table | Essential fields and constraints | Purpose |
-| --- | --- | --- |
-| `users` | `id` UUID PK; nullable original and normalized unique `username`; nullable normalized `email`; `display_name`; `system_role` enum (`USER`, `ADMIN`, `SUPER_ADMIN`); `account_status` enum (`ACTIVE`, `DELETED`); nullable `email_verified_at`; `role_version`; `deleted_at`; timestamps | Active identity and safe profile fields, plus de-identified account tombstones. Every public identifier is the immutable `id`. |
-| `credentials` | one-to-one `user_id`; bcrypt password hash; password-change timestamp | Separates credentials from public profile queries. Passwords are never retrievable. |
-| `registration_challenges` | proposed username/email/display name; bcrypt password hash; HMAC-peppered OTP hash; expiry; attempt and resend counters | Holds a pending registration until an OTP succeeds, so only verified accounts are activated and published. |
-| `sessions` | `id`; `user_id`; hashed rotating refresh token; issued/expiry/revoked timestamps; token family | Supports logout, refresh rotation, and per-session revocation without persisting a raw refresh token. |
-| `admin_audit_entries` | append-only ID; actor ID; target ID; action; outcome; role before/after; correlation ID; timestamp | Records role lifecycle actions without secrets. Application DB credentials cannot update/delete this table; migrations create the append-only protection. |
-| `outbox_events` | event ID; event type/version; aggregate ID; minimal payload; occurred timestamp; publish status/attempts | Makes `user.registered.v1` durable with the user-creation transaction. |
+- Missing configuration, a missing header, or a mismatched secret returns `401 INVALID_SERVICE_IDENTITY` without leaking the configured value.
+- The new dependency accepts only the Chat Service identity. Do not reuse the Supplier Service secret, add a fallback to `INTERNAL_SERVICE_SECRET`, or broaden the existing Supplier authorization dependency.
+- Validate service identity before querying user data. The search endpoint also requires the original caller's bearer token and the existing current-session dependency.
+- The batch endpoint requires service identity only. It must support Chat Service background delivery/status checks when no originating browser bearer token is available.
+- All active system roles may use username discovery through Chat Service. Administrative roles do not unlock additional directory fields.
+- Use direct service-to-service calls over the configured internal network. The browser calls Chat Service's public API rather than these internal User Service routes.
+- Keep the service secret out of browser configuration, URLs, API responses, logs, events, and source control. Add safe placeholders and setup instructions; do not overwrite existing local secret files.
+- Responses use explicit allow-listed DTOs. Never return email, role, verification metadata, credential data, session data, former tombstone identifiers, or ORM objects.
+- Return `Cache-Control: no-store` for both interfaces so identity/status responses are not reused by intermediary caches.
 
-Indexes cover non-null normalized username/email and the current active Super Admin count. PostgreSQL unique constraints permit multiple nulls, so a tombstone releases its former username and email while every active registration remains unique. Later administrator search adds appropriately scoped indexes for user ID, username, display name, and email. There are no shared tables or foreign keys to another service.
+For cloud deployment, follow the project's existing service-identity replacement approach; introducing a new cloud identity system is outside this Sprint 3 interface work.
 
-### Account-deletion tombstone
+## HTTP contracts
 
-Account deletion is an irreversible, transactional anonymization, not a physical deletion of the `users` row. After password and explicit-acknowledgement verification, FastAPI deletes the credential and every session; clears `username`, `normalized_username`, `email`, `normalized_email`, and `email_verified_at`; replaces `display_name` with `Deleted User`; increments `role_version`; and records `account_status = DELETED` with `deleted_at`. The stable `id` and former `system_role` remain as non-PII historical metadata, but `DELETED` is terminal and denies login, refresh, and every protected action.
+Use the existing camelCase DTO conventions, reject undeclared query/body fields, and reuse the established error envelope and `X-Correlation-ID` handling. Both interfaces perform read-only identity lookup; normal search authentication continues to apply the existing session-activity behaviour.
 
-Removing the identifiers allows a later registration to use the same email or username, but it always creates a new `id`. The User Service currently has no `payment_token`; any future PII-bearing field must be cleared or irreversibly anonymized by this same transaction. The audit and outbox tables introduced by later phases retain only their immutable, non-secret records.
+### GET /v1/internal/chat/users
 
-### Security decisions
+Return a bounded page of active users whose usernames partially match the supplied query.
 
-- Validate email syntax and normalize it for unique comparison. Enforce the backlog's username/display-name allow-list; username has no whitespace or unlisted special characters. Passwords require at least 12 characters and at least three of upper-case, lower-case, digit, and the specified special-character categories.
-- Hash passwords with bcrypt using a configured production-grade work factor. OTPs are random six-digit codes stored only as a keyed HMAC digest, expire after 10 minutes, and are subject to five failed-verification attempts and bounded resend/request rate limits. Never log either value.
-- Send short-lived RS256 access JWTs and issue a random opaque refresh token only as a `HttpOnly`, `Secure` (outside local HTTP), `SameSite=Lax` cookie. Store only its hash; rotate it on refresh and revoke its session on logout. Keep access tokens out of persistent browser storage.
-- Restrict all decisions to server-side FastAPI dependencies and handlers. Pydantic DTOs reject undeclared fields and allow only explicitly mutable profile fields, so requests cannot set `id`, `email`, `username`, `systemRole`, `accountStatus`, `emailVerifiedAt`, `roleVersion`, or timestamps.
-- Deletion never persists or logs a supplied current password. It removes credential material and PII while preserving only the stable tombstone ID and legally/project-required immutable history, maintaining M2NFR2.1's no-plaintext-password guarantee.
-- Generate the JWT private key and OTP HMAC key outside source control. Use local `.env` secrets for development and AWS Secrets Manager in cloud deployment. The service exposes only its current public keys through JWKS.
-- Do not expose a Supabase URL, API key, database password, service-role key, or Supabase JWT to the web client. FastAPI connects directly to PostgreSQL through SQLAlchemy; it does not use the Supabase Data API.
+Required headers:
 
-## User Service API contract
+```http
+X-FoC-Service-Secret: <chat-service-secret>
+Authorization: Bearer <current-user-access-token>
+```
 
-All application responses use a consistent error shape containing a stable code, human-readable message, correlation ID, and field errors where appropriate. Error responses and events never contain passwords, password hashes, OTPs, reset tokens, refresh tokens, or private-key material.
+| Query parameter | Contract |
+|---|---|
+| `username` | Required. Trim outer whitespace, require 1-64 characters from the existing username allow-list, then apply the existing case-insensitive normalization. Search username only. |
+| `limit` | Optional integer; default 20, minimum 1, maximum 100. |
+| `cursor` | Optional opaque continuation value from the preceding response for the same normalized query. |
 
-| Endpoint | Access | Sprint 1 behavior |
-| --- | --- | --- |
-| `GET /health/live`, `GET /health/ready` | internal/operations | Liveness and Supabase PostgreSQL dependency-aware readiness for Compose/ECS. |
-| `POST /v1/auth/registrations` | public | Validate proposed username, email, and password; create/replace a bounded pending registration; send an OTP; return verification-pending status. |
-| `POST /v1/auth/email-verifications` | public | Validate OTP and atomically create the active `USER` account, credentials, and `user.registered.v1` outbox record. |
-| `POST /v1/auth/email-verifications/resend` | public | Enforce resend limits and issue a new OTP for an unexpired pending registration. |
-| `POST /v1/auth/sessions` | public | Authenticate an active verified user, return an access token, and set the refresh-token cookie. Return a non-enumerating invalid-credentials response otherwise. |
-| `POST /v1/auth/sessions/refresh` | refresh cookie | Rotate a valid refresh token and issue a new access token; reject expired, reused, or revoked sessions. |
-| `DELETE /v1/auth/sessions/current` | authenticated/refresh cookie | Revoke the current session and clear the cookie. |
-| `GET /v1/users/me` | authenticated | Return only the caller's safe profile. |
-| `PATCH /v1/users/me` | authenticated | Update only `displayName`; reapply validation and reject protected fields. |
-| `PATCH /v1/users/me/password` | authenticated | Verify the current password, validate and bcrypt-hash a different new password, revoke every session, and clear the refresh cookie so the user signs in again. |
-| `DELETE /v1/users/me` | authenticated | Require current password and an explicit deletion acknowledgement; transactionally anonymize the profile into a terminal `DELETED` tombstone, delete credentials/sessions, and retain the stable ID unless doing so would remove the last active Super Admin. |
-| `GET /v1/admin/users?username=...` or `?email=...` | current `ADMIN` or `SUPER_ADMIN` | Perform one exact, normalized username or email lookup and return only safe account information: ID, username, display name, email, verification status, account status, system role, and registration timestamp. |
-| `PATCH /v1/admin/users/{userId}/system-role` | current `SUPER_ADMIN` | Promote or demote another account among `USER`, `ADMIN`, and `SUPER_ADMIN`; record an audit entry and invalidate old role state. Self role changes are rejected. |
-| `GET /.well-known/jwks.json` | service/public key distribution | Return public JWT-signing keys only, with a stable key ID for local signature verification and rotation. |
-| `POST /v1/internal/authorization-decisions` | authenticated Supplier Service identity | Return the current authenticated subject ID, status, role, and allow/deny decision for the declared administrative action. It is fail-closed and contains no profile or credential data. |
+Search behaviour:
 
-The role-lifecycle endpoint remains deliberately limited to a Super Admin and another target user. Password-reset interfaces remain deferred. Account status supports only `ACTIVE` and terminal `DELETED` tombstones.
+- Match a literal substring anywhere in `normalized_username`; do not restrict matching to prefixes or exact usernames.
+- Escape SQL pattern characters so allowed username characters such as `%` and `_` remain literal. Use parameterized SQLAlchemy expressions.
+- Include only `ACTIVE` users with non-null usernames, and exclude the authenticated caller's immutable ID.
+- Do not search display names or email, and do not apply administrative lookup permissions.
+- Sort by `(normalized_username, id)` ascending and use keyset pagination with `limit + 1` lookahead. Never load all matching users to construct a page.
+- Make every match accessible through continuation pages; there is no artificial total-result cap.
+- Use a versioned URL-safe cursor carrying the normalized query and last ordering key. Validate its shape and values, and reject a cursor used with a different normalized query. Treat cursor content as untrusted data, not authorization.
+- Pagination follows current database state rather than a long-lived snapshot. It must remain usable if a previously returned account becomes a tombstone.
+
+Example successful response:
+
+```json
+{
+  "items": [
+    {
+      "userId": "11111111-1111-4111-8111-111111111111",
+      "username": "alex_ng"
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+Each result contains exactly `userId` and `username`. Return `200` with an empty `items` array and null `nextCursor` when nothing matches. Return a continuation cursor only when another page exists.
+
+### POST /v1/internal/chat/participants
+
+Look up current identity and account status for a batch of immutable user IDs. The `POST` method supplies a structured batch request body; it does not create participants, conversations, or accounts.
+
+Require `X-FoC-Service-Secret: <chat-service-secret>`. A browser bearer token is not required.
+
+Request body:
+
+```json
+{
+  "userIds": [
+    "11111111-1111-4111-8111-111111111111",
+    "22222222-2222-4222-8222-222222222222",
+    "33333333-3333-4333-8333-333333333333"
+  ]
+}
+```
+
+- Require a list of 1-100 UUIDs, applying the size bound before deduplication. Invalid UUIDs or undeclared fields reject the whole request.
+- Deduplicate UUIDs while preserving the order of their first occurrence.
+- Perform one bounded lookup of the requested IDs. Do not perform one database query per participant.
+- Return known users in first-requested order and unknown IDs in a separate `missingUserIds` array, also in requested order.
+- Return both active users and retained tombstones. Do not infer that an unknown ID is a deleted account.
+
+Example successful response:
+
+```json
+{
+  "items": [
+    {
+      "userId": "11111111-1111-4111-8111-111111111111",
+      "displayName": "Alex",
+      "username": "alex_ng",
+      "accountStatus": "ACTIVE"
+    },
+    {
+      "userId": "22222222-2222-4222-8222-222222222222",
+      "displayName": "Deleted User",
+      "username": null,
+      "accountStatus": "DELETED"
+    }
+  ],
+  "missingUserIds": [
+    "33333333-3333-4333-8333-333333333333"
+  ]
+}
+```
+
+Each known-user item contains exactly `userId`, `displayName`, `username`, and `accountStatus`. Resolve the current display name from User Service's data on every request, including after profile edits. For tombstones, explicitly return `Deleted User` and a null username.
+
+Return `200` for valid mixed or all-unknown batches. A missing ID is a lookup result, not a whole-request `404`. The response is identity/status data as observed during that request; Chat Service remains responsible for fresh checks before message acceptance and live forwarding.
+
+### Failure contract
+
+| Condition | HTTP status and behaviour |
+|---|---|
+| Missing, unconfigured, or invalid Chat Service identity | `401`, existing error envelope with `INVALID_SERVICE_IDENTITY`. |
+| Missing or invalid search bearer token, expired/revoked/idle session, deleted caller, or stale role version | `401`, existing authentication error behaviour. |
+| Missing/invalid query, invalid limit/cursor, empty/oversized batch, invalid UUID, or extra field | `422 VALIDATION_ERROR`, with safe field errors. |
+| Search has no matches | `200`, empty page. |
+| Valid batch contains unknown IDs | `200`, explicit `missingUserIds`. |
+| Database is unavailable | `503`, existing service-readiness error envelope; never fabricate an empty search or treat all IDs as missing. |
+
+Error messages, validation output, and logs must not echo tokens, secrets, raw unexpected-field values, or private account data. Log correlation ID, operation name, result counts, status, and duration rather than full request/response payloads.
 
 ## Incremental implementation phases
 
-Each phase ends with a human-verifiable result and automated tests. Do not start a later phase with placeholder authorization or mocked persistence.
+Follow the User Service instructions: implement one phase at a time, finish its tests and human check, and obtain the user's review before committing that phase. This documentation change does not begin any implementation phase or create a commit.
 
-### Phase 0 - runnable service foundation
+### Phase 0 - Contracts and dedicated Chat Service identity
 
-- Create the Python/FastAPI layout, Pydantic settings model, Uvicorn Docker entrypoint, SQLAlchemy async engine/session dependency, structured redacted logging, correlation-ID middleware, and live/ready health endpoints. The FastAPI startup sequence checks connectivity only; it never runs schema migrations.
-- Add the project-scoped Supabase CLI configuration under `user-service/supabase/`, including the canonical `migrations/` directory for the isolated User Service database. Link it to the cloud `foc-user-service` project. Compose runs User Service, Mailpit, and RabbitMQ; local database setup uses `npx supabase start`, while `npx supabase db reset` reconstructs the schema from committed SQL. Document safe configuration placeholders in `.env.example` without adding database secrets.
-- Add a CI-friendly local Supabase test-database strategy and baseline lint, pytest unit/integration-test, and container smoke-test commands using `pytest-asyncio` and `httpx.AsyncClient` with ASGI transport.
+- Add strict request/response DTOs and configuration for the dedicated Chat Service secret. Keep it optional for existing User Service startup but mandatory for successful chat-interface access.
+- Add a separate internal chat router and identity dependency, preserving Supplier Service authorization behaviour and current authentication rules.
+- Document exact request/response examples, caller authentication requirements, pagination, batch limits, error handling, and safe setup placeholders.
+- Test secret absence/mismatch, dedicated-secret isolation, configuration redaction, and strict DTO validation before exposing completed lookup handlers.
 
-**Human check:** `docker compose up` starts User Service with a healthy readiness response; restarting it does not recreate or lose database records.
+**Human check:** the new interfaces require a correctly configured Chat Service identity; a Supplier Service secret or an ordinary bearer token alone cannot grant access. Existing User Service and Supplier authorization flows still work.
 
-### Phase 1 - verified account creation and credential storage
+### Phase 1 - Caller-authorized partial username search
 
-- Create and commit Supabase SQL migrations for `registration_challenges`, `users`, and `credentials`, with normalized unique email/username constraints and UTC timestamps. Verify a clean `npx supabase db reset` applies them from scratch.
-- Implement registration validation exactly from M1F1, clear field errors, bounded duplicate protection, Mailpit OTP delivery, OTP verification, and the atomic transition from pending registration to active `USER` account.
-- Apply bcrypt password hashing and redaction tests. Store no plaintext password or OTP, and do not publish an event until the account is verified/active.
+- Implement the search handler using current-session validation and the existing normalized username rules.
+- Add literal substring matching, active-account/caller filtering, deterministic keyset pagination, and the minimal response projection.
+- Test case-insensitive middle-of-name matching, literal wildcard characters, query/cursor validation, complete page traversal, and active callers of every system role.
+- Cover expired, revoked, idle, deleted-caller, and stale-role-version rejection against the existing authentication behaviour.
 
-**Human check:** create a valid account, read the OTP in Mailpit, verify it, and log in. Show rejected duplicate/invalid email, username, and password cases; a database inspection shows only a bcrypt hash and no raw OTP/password.
+**Human check:** through the internal contract, find all users matching a username fragment across pages. Confirm the caller and deleted users are absent, display-name/email-only matches are absent, and results contain only IDs and usernames.
 
-### Phase 2 - authentication, session lifecycle, and self-only identity access
+### Phase 2 - Current participant identity and tombstone lookup
 
-- Add RS256 key loading/JWKS publication, access-token issuance, refresh-token hashing/rotation, logout revocation, expiry handling, and authentication middleware.
-- Add `GET /v1/users/me` and owner-only protection; reject unauthenticated or expired/revoked-session access with the documented error form.
-- Ensure FastAPI dependencies perform all role/status checks server-side and verify token issuer, audience, signature, expiry, `sid`, and `roleVersion` before a protected User Service action.
+- Implement the service-authenticated batch handler with bounded input, UUID validation, ordered deduplication, one database lookup, strict projection, and explicit missing-ID results.
+- Return current display names, original active usernames, and tombstone labels without requiring a browser session for background calls.
+- Cover duplicate display names, profile edits, deletion, identifier reuse, mixed batches, all-unknown batches, and invalid/oversized input.
 
-**Human check:** a verified account can log in, refresh once, retrieve its own profile, then cannot use the old refresh token after rotation or retrieve the profile after logout. Responses never display an authentication secret.
+**Human check:** look up an active account, a deleted account, and an unknown UUID in one request. Change the active display name and observe the next lookup return it. Register a new account using a released username and confirm the old ID still resolves only to its tombstone.
 
-### Phase 3 - protected profile management
+### Phase 3 - Regression verification and Chat Service handoff
 
-- Implement allowed profile updates: validated display-name changes. Reject requests containing protected fields rather than silently accepting them.
-- Requester and courier are order-level participant relationships on the same stable `userId`, not separate accounts, profile modes, or privileged roles.
-- Implement the destructive account-deletion confirmation as a tombstone transaction. Preserve the immutable `userId`, replace the display name with `Deleted User`, clear all User Service PII, delete credentials and sessions, increment `roleVersion`, and mark the account terminally `DELETED`; never create a replacement identity or deletion event in this phase.
+- Run unit/ASGI tests and real PostgreSQL integration tests. Rebuild the isolated test database from the existing Supabase migrations and confirm no new schema history is needed.
+- Re-run relevant existing authentication, profile/tombstone, Supplier authorization, configuration, and redaction coverage.
+- Supply the Chat Service owner with the finalized versioned contract, sample payloads, internal base URL/configuration requirements, errors, and a reproducible safe demo. Deliver service secrets through the established secret channel, never through the document or source control.
+- Verify the Chat Service contract expectations against these interfaces; production completion must not depend on mocked identity data.
+- Record query timings and batch sizes as a baseline without claiming Sprint 4 chat load/performance compliance.
 
-**Human check:** valid display-name changes, including duplicate names, persist. Attempts to alter email, username, requester/courier participation, system role, account status, or ID fail and leave the profile unchanged. Deletion requires the warning acknowledgement, leaves the original ID with `DELETED` status and `Deleted User` display name, clears PII/credentials/sessions, prevents further login, and permits a new account with the released email and username to receive a different ID. Order, Chat, and other services retain their participant IDs and render a deleted participant as `Deleted User` without a new Phase 3 integration call or event.
+**Human check:** demonstrate search and participant lookup against a running User Service with real test accounts, then show Chat Service can resolve a conversation counterpart's current display name, `@username`, and deleted status through these contracts.
 
-### Phase 4 - RBAC and Supplier Service integration contract
+## Acceptance mapping and test evidence
 
-- Implement fixed role guards: `USER` may use self endpoints; `ADMIN` adds supplier-management authorization; `SUPER_ADMIN` includes Admin plus role lifecycle. The service does not trust a client-supplied role.
-- Publish the JWKS and implement the internal current authorization-decision endpoint protected by a Supplier Service identity. In Compose use a dedicated internal secret/network; in AWS replace it with task IAM/mTLS-equivalent service identity.
-- Give the Supplier Service owner a short integration contract: verify normal access JWTs locally; call User Service immediately before supplier-management operations; send the authenticated bearer token and requested action; fail closed on any false/timeout/error. No Supplier database access is granted to User Service.
+User Service supplies identity capabilities for the following Chat Service requirements. Full messaging, privacy, history, delivery, and UI acceptance remain the responsibility of Chat Service.
 
-**Human check:** a `USER` receives a denied supplier-management authorization decision; an `ADMIN` receives an allow decision; malformed/expired tokens and a missing Supplier Service identity are denied. The teammate can demonstrate their service refusing an admin operation after this decision changes to deny.
+| Chat requirement or agreed behaviour | User Service contribution |
+|---|---|
+| `N1F1.1.1` - partial username search | Active-user, username-only, case-insensitive literal substring search with complete paginated access. |
+| `N1F1.1.2` - start/reopen from a search result | Stable user IDs suitable for Chat Service's unique user-pair conversation logic. |
+| `N1F1.2.3` and the display-name amendment | Current display name and username for the primary name and smaller `@<username>` label. |
+| `N1F1.6.1`-`N1F1.6.2` - retained deleted-user history | Stable tombstone identity and `Deleted User` label; Chat Service retains and reopens the history. |
+| `N1F1.6.3` - exclude deleted users from discovery | Active-account filtering in search. |
+| `N1F1.6.4`-`N1F1.6.5` - reject new interaction with deleted users | Authoritative `ACTIVE`/`DELETED` or missing-ID lookup results for Chat Service's decisions. |
+| `N1NFR3.1` - short search-to-send flow | A directly usable discovery contract; action-count and UI validation remain with Chat Service. |
 
-### Phase 5 - secure first administrator and role lifecycle
+Required verification includes:
 
-- Add a one-shot `bootstrap-super-admin` command/profile. It runs only when no active Super Admin exists, requires explicit non-source-controlled bootstrap credentials, validates them, creates a verified `SUPER_ADMIN`, writes a redacted audit record, and exits. It refuses to run if an active Super Admin already exists.
-- Implement Super Admin-only promotion/demotion of *another* user. Every role update increments `roleVersion`, revokes that target's existing sessions, records an immutable audit row, and is committed atomically.
-- Enforce lifecycle invariants in a transaction with a lock: Admins cannot modify administrative roles; no user can self-change a system role; a request that would demote, tombstone-delete, or revoke the last active Super Admin is rejected, including concurrent requests. A non-last Super Admin may tombstone-delete their own account only after the normal password/acknowledgement confirmation.
+- Missing/wrong/unconfigured service secret, Supplier secret isolation, and a valid bearer token without service identity.
+- Search with missing, expired, revoked, idle, deleted-caller, and stale-role-version sessions; valid `USER`, `ADMIN`, and `SUPER_ADMIN` callers.
+- Search by exact, prefix, middle, and case-varied username fragments; literal `%` and `_`; no matching by email or display name.
+- Empty, invalid, and overlong queries; limit boundaries; malformed cursors; mismatched-query cursors; page traversal with no duplicates in a stable dataset.
+- Removal of a deleted account from discovery, including deletion between continuation requests.
+- Batch sizes 0, 1, 100, and 101; invalid UUIDs; duplicate IDs; preserved input order; mixed known/missing IDs; all-unknown results.
+- Current display-name changes, duplicate display names, active usernames, deleted users with null usernames, and released-username reuse under a new ID.
+- Exact response field allow-lists and no leakage of emails, roles, sessions, credentials, tokens, secrets, or former tombstone identifiers in results/errors/logs.
+- Database failure produces a service error rather than a false empty/missing result.
+- Participant lookup does not alter identity data, create records, send events, or depend on a browser bearer token.
+- Existing User Service API, JWKS, Supplier authorization, and registration-event regression checks pass.
 
-**Human check:** bootstrap exactly one Super Admin without public registration. Promote a User to Admin, observe the audit record, then prove Admin cannot promote anyone. Attempt self-demotion and tombstone deletion of the sole active Super Admin (both fail); add a second Super Admin and confirm the first can tombstone-delete their own account. Run simultaneous last-Super-Admin demotion attempts and confirm all are denied.
-
-### Phase 6 - registration event, hardening, and D2 demo evidence
-
-- Write `user.registered.v1` to the outbox in the same transaction as verified user creation. A worker publishes to RabbitMQ with only `eventId`, `eventType`, `userId`, and `occurredAt`; retries are observable and safe. The future Credit Service must treat `eventId`/`userId` idempotently and must never receive credential/profile data.
-- Add authorization-negative, validation, refresh-reuse, protected-field, last-Super-Admin, audit-immutability, outbox retry, and no-secret-leak test cases. Add a small registration/login/profile/RBAC/Supplier-authorization demo script and sample non-secret users.
-- Measure and record p95 registration/login/read/write timings. Sprint 1 establishes instrumentation and realistic indexes; the planned load tests for 35,000 users, 200 logins/minute, 30 registrations/minute, and 1,000 concurrent authenticated users are executed in Sprint 4.
-
-**Human check:** inspect a RabbitMQ event after verification and confirm it contains the four safe fields only. Run the D2 demo path end-to-end: bootstrap Super Admin, register/verify a normal user, authenticate, update/toggle profile, prove protected changes and forbidden roles fail, promote an Admin, and show the Supplier authorization decision changes accordingly.
-
-### Phase 7 - password change and administrator account lookup
-
-- Add authenticated password change at `PATCH /v1/users/me/password`. The request requires the current password and a different new password that passes the existing password validation policy. In one transaction, verify the bcrypt hash, replace it using the configured work factor, update `password_changed_at`, revoke every active session for the caller, and clear the refresh cookie. The client clears its in-memory access token and returns the user to sign-in; no password, hash, token, or other secret is logged or returned.
-- Add `GET /v1/admin/users` for current `ADMIN` and `SUPER_ADMIN` callers. Require exactly one of `username` or `email`, normalize it using the same registration rules, and perform an exact unique lookup through the existing normalized unique indexes. Return only `userId`, `username`, `displayName`, `email`, `emailVerified`, `accountStatus`, `systemRole`, and `createdAt`; return clear validation, authorization, and not-found errors without revealing credentials, OTPs, reset material, or session data. No schema migration is needed because the normalized identifiers are already uniquely indexed.
-- Add the companion web-client flows: a profile security dialog with current password, new password, confirmation, password-requirements help, and field/error/loading states; and an `/admin/users` management route with role-gated navigation, explicit username/email search selection, and responsive safe-account results. Use the established account and management-table design, without adding another service's UI.
-- Cover password validation, current-password rejection, hash replacement, all-session invalidation, fresh login with only the new password, lookup access guards, normalized username/email matches, safe response shape, and lookup validation/not-found cases. Cover the browser request payloads, forced sign-out, lookup states, and the 375, 768, 1024, and 1440 pixel layouts.
-
-**Human check:** change a password from the authenticated profile and show that the current browser session and every prior session are rejected until a new sign-in uses the new password. As an Admin and a Super Admin, find an account by either username or email and verify the displayed safe fields; a User cannot access the lookup route or API.
-
-### Phase 8 - Super Admin role-management frontend
-
-- Extend the Phase 7 user-management result view for Super Admins only. Reuse `PATCH /v1/admin/users/{userId}/system-role`; no new role-lifecycle API or database behavior is introduced in this phase.
-- Present a different target role from `USER`, `ADMIN`, and `SUPER_ADMIN`, then require an explicit confirmation naming the target and before/after role. Hide all role controls from Admins and never offer a Super Admin a control for their own account. Keep the server as the authority for every request.
-- Preserve and explain lifecycle failures returned by the existing backend: insufficient role, self-change, missing or inactive target, unchanged role, and last-active-Super-Admin protection. On success, retain the lookup result and update its displayed role from the response; the target's server-side session invalidation and immutable audit entry remain the existing backend behavior.
-- Add browser/component coverage that proves Admins remain view-only, Super Admins alone see the role controls, confirmation precedes the request, success updates the result, and each backend failure is actionable. Re-run the existing integration coverage for audit logging, session revocation, self-change prevention, and last-Super-Admin concurrency protection.
-
-#### Phase 8 implementation breakdown
-
-1. Extend the web-client User Service API client and authenticated context with a typed `PATCH /v1/admin/users/{userId}/system-role` call. It sends only the requested `systemRole`, keeps the actor's access token in memory, and continues to rely on the server for every authorization and lifecycle decision.
-2. Add a role-management control to the existing account-result view. It is rendered only when the signed-in caller is a `SUPER_ADMIN` and the found account is not the caller. The control presents the three fixed roles, requires a choice different from the current role, and does not make Admins or a Super Admin's own account actionable.
-3. Before sending the request, open an accessible confirmation dialog that names the target account and its current and requested roles, and explains that the target's active sessions will be revoked. Cancellation sends no request.
-4. On success, preserve the lookup result, update its displayed role from the API response, and show a concise success message. Map every existing lifecycle error to the API's clear server-provided message so the user can correct the action without losing the result.
-5. Add focused browser/client tests for the request payload, Admin view-only behavior, Super Admin confirmation and success update, self-target hiding, and actionable lifecycle failure rendering. Re-run the existing backend lifecycle integration tests; no migration or new backend role endpoint is introduced.
-
-**Human check:** as a Super Admin, locate another active account, promote it, then demote it and confirm the account's existing session is rejected after each change. Verify that an Admin cannot see or invoke role controls, a Super Admin cannot modify their own role, and the final active Super Admin cannot be demoted.
-
-## Deferred User Service work after D2
-
-These remain explicitly planned after the expanded Sprint 1 scope:
-
-- **Sprint 2:** email password-reset request/confirmation, session invalidation after password reset, and the remaining administration lifecycle and audit actions. These complete the remaining password-reset and administrative requirements not delivered by Phases 7 and 8.
-- **Sprint 3-4:** execute the specified scale/performance/load tests, key-rotation rehearsal, recovery testing, AWS deployment evidence, and operational dashboards/alerts. Preserve the same User Service API and data-ownership boundary.
-
-## Acceptance mapping
-
-| D2 expectation | Evidence delivered by this plan |
-| --- | --- |
-| 1. Role design | Role table, fixed permission model, requester/courier participant distinction, and test/demo script. |
-| 2. Database and secure credentials | PostgreSQL justification, concrete schema, bcrypt/HMAC storage, migrations, and database verification. |
-| 3. Authentication and RBAC | RS256 access/rotating refresh design, FastAPI dependency guards, server-side current-role checks, and negative tests. |
-| 4. Supplier integration | JWKS plus fail-closed internal current-authorization decision contract for the Supplier Service owner. |
-| 5. Protected profiles | Allow-listed profile DTO, self-only endpoints, protected-field rejection, and deletion confirmation with transactional PII anonymization, credential/session removal, stable-ID preservation, and identifier reuse. |
-| 6. Administrator lifecycle | One-shot secure bootstrap, Super Admin promotion API, audit record, session/role invalidation, and last-Super-Admin concurrency protection. |
-| 7. Password lifecycle and administrator lookup | Authenticated current-password change with complete session invalidation, plus Admin/Super Admin exact safe-account lookup by username or email. |
-| 8. Super Admin role-management interface | Dedicated user-management UI with Super Admin-only, confirmed role transitions backed by the existing protected lifecycle endpoint. |
+No chat UI, conversation database, RabbitMQ delivery, typing indicators, first-contact requests, reporting, errand integration, or formal Sprint 4 scale certification is implemented by this User Service interface plan.
