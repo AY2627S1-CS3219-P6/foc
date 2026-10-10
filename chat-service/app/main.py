@@ -11,37 +11,49 @@ from fastapi.responses import JSONResponse
 from app.config import Settings
 from app.db import Database
 from app.errors import ApiError, payload
+from app.identity import IdentityClient
+from app.routes import router
+from app.service import ChatService
 
 logger = logging.getLogger("chat")
 
 
-def create_app(settings=None, database=None):
+def create_app(settings=None, database=None, identity=None):
     settings = settings or Settings()
     database = database or Database(
         settings.database_url.get_secret_value() if settings.database_url else None
     )
+    identity = identity or IdentityClient(settings)
 
     @asynccontextmanager
     async def lifespan(app):
         yield
         await database.close()
+        await identity.close()
 
     app = FastAPI(title="FoC Chat Service", version="0.1.0", lifespan=lifespan)
     app.state.settings, app.state.database = settings, database
+    app.state.identity = identity
+    app.state.chat = ChatService(database, identity)
+    app.include_router(router)
 
     @app.middleware("http")
     async def correlation(request: Request, call_next):
         supplied = request.headers.get("X-Correlation-ID", "")
-        request.state.correlation_id = supplied if re.fullmatch(r"[\w-]{1,64}", supplied) \
-            else str(uuid4())
+        request.state.correlation_id = (
+            supplied if re.fullmatch(r"[\w-]{1,64}", supplied) else str(uuid4())
+        )
         started = time.monotonic()
         response = await call_next(request)
         response.headers["X-Correlation-ID"] = request.state.correlation_id
         response.headers["Cache-Control"] = "no-store"
         # Never log URLs, query parameters, headers, bodies or exception reprs.
-        logger.info("request completed correlation=%s status=%s duration_ms=%.2f",
-                    request.state.correlation_id, response.status_code,
-                    (time.monotonic() - started) * 1000)
+        logger.info(
+            "request completed correlation=%s status=%s duration_ms=%.2f",
+            request.state.correlation_id,
+            response.status_code,
+            (time.monotonic() - started) * 1000,
+        )
         return response
 
     @app.exception_handler(ApiError)
@@ -54,8 +66,9 @@ def create_app(settings=None, database=None):
 
     @app.exception_handler(Exception)
     async def unexpected(request, error):
-        return await intentional(request, ApiError(500, "INTERNAL_SERVER_ERROR",
-                                                   "An unexpected service error occurred."))
+        return await intentional(
+            request, ApiError(500, "INTERNAL_SERVER_ERROR", "An unexpected service error occurred.")
+        )
 
     @app.get("/health/live")
     async def live():

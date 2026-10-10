@@ -9,10 +9,18 @@ from app.errors import unavailable
 
 class Database:
     def __init__(self, url: str | None):
-        self.engine = create_async_engine(
-            url, pool_pre_ping=True, pool_size=10, max_overflow=10,
-            connect_args={"timeout": 5, "command_timeout": 10}, hide_parameters=True,
-        ) if url else None
+        self.engine = (
+            create_async_engine(
+                url,
+                pool_pre_ping=True,
+                pool_size=10,
+                max_overflow=10,
+                connect_args={"timeout": 5, "command_timeout": 10},
+                hide_parameters=True,
+            )
+            if url
+            else None
+        )
         self.sessions = async_sessionmaker(self.engine, expire_on_commit=False)
 
     @asynccontextmanager
@@ -27,8 +35,13 @@ class Database:
 
     async def ready(self):
         async with self.transaction() as session:
-            for table in ("conversations", "conversation_participants", "messages",
-                          "blocks", "outbox_events"):
+            for table in (
+                "conversations",
+                "conversation_participants",
+                "messages",
+                "blocks",
+                "outbox_events",
+            ):
                 await session.execute(text(f"SELECT 1 FROM chat_service.{table} LIMIT 0"))
 
     async def close(self):

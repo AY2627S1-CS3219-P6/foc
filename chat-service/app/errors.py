@@ -21,5 +21,11 @@ def not_found() -> ApiError:
 
 
 def payload(error: ApiError, correlation_id: str) -> dict:
-    return {"error": {"code": error.code, "message": error.message,
-                      "correlationId": correlation_id, "fieldErrors": []}}
+    return {
+        "error": {
+            "code": error.code,
+            "message": error.message,
+            "correlationId": correlation_id,
+            "fieldErrors": [],
+        }
+    }
