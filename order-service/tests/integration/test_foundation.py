@@ -52,7 +52,7 @@ async def test_migration_establishes_service_owned_schema(database_url):
                         "WHERE table_schema='order_service'"
                     )
                 )
-                == 3
+                == 4
             )
             assert (
                 await session.scalar(

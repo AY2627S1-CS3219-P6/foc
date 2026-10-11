@@ -1,0 +1,70 @@
+"""Upgrade a generated scratch database, never reset the supplied database."""
+
+import os
+from pathlib import Path
+from uuid import uuid4
+
+import asyncpg
+import pytest
+
+pytestmark = pytest.mark.integration
+
+
+async def test_upgrade_preserves_open_order_and_initial_history():
+    url = os.environ.get("ORDER_WRITE_TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("Set ORDER_WRITE_TEST_DATABASE_URL to a disposable admin database")
+    # Existing integration configuration opts into disposable databases; admin
+    # permission is required here only for a separate UUID-named migration target.
+    control = await asyncpg.connect(url)
+    name = "order_upgrade_" + uuid4().hex
+    created = False
+    connection = None
+    try:
+        await control.execute(f'CREATE DATABASE "{name}"')
+        created = True
+        connection = await asyncpg.connect(url, database=name)
+        migrations = sorted((Path(__file__).parents[2] / "supabase" / "migrations").glob("*.sql"))
+        for path in migrations[:-1]:
+            await connection.execute(path.read_text(encoding="utf-8"))
+        order_id, actor, supplier, reservation = [uuid4() for _ in range(4)]
+        await connection.execute(
+            """
+            INSERT INTO order_service.orders
+              (id,requester_id,supplier_id,reservation_id,supplier_snapshot,item_description,
+               delivery_location,reward,state,created_at,updated_at,acceptance_deadline,delivery_deadline)
+            VALUES ($1,$2,$3,$4,'{}','Existing order','COM3',5,'OPEN',now(),now(),
+                    now()+interval '1 hour',now()+interval '2 hours')
+        """,
+            order_id,
+            actor,
+            supplier,
+            reservation,
+        )
+        await connection.execute(
+            """
+            INSERT INTO order_service.order_history
+              (order_id,sequence,new_state,actor_id,actor_type,occurred_at)
+            VALUES ($1,1,'OPEN',$2,'USER',now())
+        """,
+            order_id,
+            actor,
+        )
+        before = dict(
+            await connection.fetchrow("SELECT * FROM order_service.orders WHERE id=$1", order_id)
+        )
+        await connection.execute(migrations[-1].read_text(encoding="utf-8"))
+        after = dict(
+            await connection.fetchrow("SELECT * FROM order_service.orders WHERE id=$1", order_id)
+        )
+        assert all(after[key] == value for key, value in before.items())
+        assert after["accepted_at"] is after["cancelled_at"] is after["expired_at"] is None
+        assert await connection.fetchval("SELECT count(*) FROM order_service.order_history") == 1
+        assert await connection.fetchval("SELECT count(*) FROM order_service.outbox_events") == 0
+    finally:
+        if connection is not None:
+            await connection.close()
+        if created:
+            # Name constructed above, no user-supplied identifier or wildcard.
+            await control.execute(f'DROP DATABASE "{name}"')
+        await control.close()

@@ -1,4 +1,4 @@
-"""Authenticated create/read endpoints; Order owns relationship authorization."""
+"""Authenticated creation, retrieval and OPEN lifecycle endpoints."""
 
 from typing import Annotated
 from uuid import UUID
@@ -70,6 +70,34 @@ async def creation_status(operation_id: UUID, request: Request, auth: Auth):
     if operation is None or operation["requester_id"] != auth[0].user_id:
         raise not_found()
     return operation_view(operation)
+
+
+async def empty_action(request: Request):
+    # Commands have no client-owned actor/state fields, even in query parameters.
+    raw = await request.body()
+    if request.query_params:
+        raise ApiError(422, "VALIDATION_ERROR", "This action accepts no query fields.")
+    if raw:
+        try:
+            body = await request.json()
+        except ValueError:
+            raise ApiError(422, "VALIDATION_ERROR", "Use an empty body or JSON object.") from None
+        if body != {}:
+            raise ApiError(422, "VALIDATION_ERROR", "This action accepts no body fields.")
+
+
+@router.post("/orders/{order_id}/accept", response_model=OrderParticipant)
+async def accept_order(order_id: UUID, request: Request, auth: Auth):
+    await empty_action(request)
+    row = await request.app.state.lifecycle.transition(order_id, auth[0].user_id, "accept")
+    return project_order(row, participant=True)
+
+
+@router.post("/orders/{order_id}/cancel", response_model=OrderParticipant)
+async def cancel_order(order_id: UUID, request: Request, auth: Auth):
+    await empty_action(request)
+    row = await request.app.state.lifecycle.transition(order_id, auth[0].user_id, "cancel")
+    return project_order(row, participant=True)
 
 
 @router.get("/orders", response_model=Page[OrderAssessment])

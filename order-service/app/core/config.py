@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +26,19 @@ class Settings(BaseSettings):
     dependency_timeout_seconds: float = Field(default=2, gt=0, le=10)
     recovery_interval_seconds: float = Field(default=5, gt=0, le=60)
     recovery_batch_size: int = Field(default=50, ge=1, le=100)
+    expiry_interval_seconds: float = Field(default=5, gt=0, le=30)
+    expiry_batch_size: int = Field(default=50, ge=1, le=100)
+    rabbitmq_url: SecretStr | None = None
+    outbox_exchange_name: str = Field(default="foc.events", min_length=1, max_length=255)
+    outbox_poll_interval_seconds: float = Field(default=1, gt=0, le=30)
+    outbox_publish_timeout_seconds: float = Field(default=5, gt=0, le=10)
+    outbox_lease_seconds: float = Field(default=30, ge=10, le=300)
+
+    @model_validator(mode="after")
+    def publication_lease(self):
+        if self.outbox_lease_seconds <= 2 * self.outbox_publish_timeout_seconds:
+            raise ValueError("Outbox lease must exceed publication and cleanup timeouts combined")
+        return self
 
     @field_validator(
         "user_service_base_url", "supplier_service_base_url", "credit_service_base_url"
@@ -52,7 +65,7 @@ class Settings(BaseSettings):
     def blank_credit_secret(cls, value):
         return value.strip() or None if isinstance(value, str) else value
 
-    @field_validator("database_url", mode="before")
+    @field_validator("database_url", "rabbitmq_url", mode="before")
     @classmethod
     def blank_database_url(cls, value: object) -> object:
         if isinstance(value, str):

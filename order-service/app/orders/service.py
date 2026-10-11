@@ -44,6 +44,9 @@ def project_order(order, *, participant=False):
             requesterId=order["requester_id"],
             courierId=order["courier_id"],
             updatedAt=order["updated_at"],
+            acceptedAt=order.get("accepted_at"),
+            cancelledAt=order.get("cancelled_at"),
+            expiredAt=order.get("expired_at"),
         )
     return result
 

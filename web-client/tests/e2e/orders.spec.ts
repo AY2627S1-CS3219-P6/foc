@@ -12,6 +12,114 @@ const participant = { ...order, requesterId: "user-id", courierId: null, updated
 const list = (items: unknown[], page = 1, pageSize = 12, total = items.length) => ({ items, page, pageSize, total });
 const pending = { operationId, stage: "RESERVATION_UNKNOWN", orderId: null, statusUrl: `/v1/order-creations/${operationId}`, retryCreation: false, errorCode: "CREDIT_UNAVAILABLE" };
 
+test("requester confirms cancellation, prevents double submit and refreshes history", async ({ page }) => {
+  await mockSession(page);
+  let cancelled = false;
+  let calls = 0;
+  await page.route(`**/v1/orders/${orderId}/cancel`, async (route) => {
+    calls++;
+    expect(route.request().postData()).toBeNull();
+    expect(route.request().headers().authorization).toBe("Bearer test-token");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    cancelled = true;
+    await route.fulfill({ json: { ...participant, state: "CANCELLED" } });
+  });
+  await page.route(`**/v1/orders/${orderId}/history*`, (route) => route.fulfill({ json: list([
+    { sequence: 1, newState: cancelled ? "CANCELLED" : "OPEN", actorType: "USER", actorId: "user-id", occurredAt: order.createdAt },
+  ]) }));
+  await page.goto(`/orders/${orderId}`);
+  await expect(page.getByRole("button", { name: "Accept errand", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Cancel errand", exact: true }).click();
+  expect(calls).toBe(0);
+  await page.getByRole("button", { name: "Keep errand" }).click();
+  await expect(page.getByRole("button", { name: "Confirm cancellation" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Cancel errand", exact: true }).click();
+  await page.getByRole("button", { name: "Confirm cancellation" }).evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
+  await expect(page.getByText("Errand cancelled. Credit release is processed separately.")).toBeVisible();
+  await expect(page.locator(".order-history")).toContainText("CANCELLED");
+  expect(calls).toBe(1);
+});
+
+test("acceptance turns assessment into participant detail and fetches private history", async ({ page }, testInfo) => {
+  await mockSession(page);
+  await page.setViewportSize({ width: 375, height: 900 });
+  await page.route(`**/v1/orders/${orderId}`, (route) => route.fulfill({ json: order }));
+  await page.route(`**/v1/orders/${orderId}/accept`, (route) => route.fulfill({ json: { ...participant, requesterId: "someone-else", courierId: "user-id", state: "ACCEPTED" } }));
+  await page.goto(`/orders/${orderId}`);
+  await expect(page.getByRole("heading", { name: "Lifecycle history" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Cancel errand", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("accept-mobile.png"), fullPage: true });
+  await page.getByRole("button", { name: "Accept errand", exact: true }).click();
+  await expect(page.getByText("You accepted this errand.")).toBeVisible();
+  await expect(page.getByText("You are the courier.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lifecycle history" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Accept errand", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("lost acceptance response allows the same action retry without duplicate clicks", async ({ page }) => {
+  await mockSession(page);
+  await page.route(`**/v1/orders/${orderId}`, (route) => route.fulfill({ json: order }));
+  const requests: string[] = [];
+  await page.route(`**/v1/orders/${orderId}/accept`, async (route) => {
+    requests.push(route.request().url());
+    if (requests.length === 1) { await new Promise((resolve) => setTimeout(resolve, 100)); await route.abort(); }
+    else await route.fulfill({ json: { ...participant, requesterId: "other", courierId: "user-id", state: "ACCEPTED" } });
+  });
+  await page.goto(`/orders/${orderId}`);
+  await page.getByRole("button", { name: "Accept errand", exact: true }).evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
+  await expect(page.getByRole("alert")).toContainText("could not confirm");
+  expect(requests).toHaveLength(1);
+  await page.getByRole("button", { name: "Retry accept", exact: true }).click();
+  await expect(page.getByText("You accepted this errand.")).toBeVisible();
+  expect(requests).toHaveLength(2);
+  expect(requests[0]).toBe(requests[1]);
+});
+
+test("competing acceptance reports conflict and refresh removes unavailable details", async ({ page }) => {
+  await mockSession(page);
+  let lostRace = false;
+  await page.route(`**/v1/orders/${orderId}`, (route) => lostRace ? route.fulfill({ status: 404, json: {} }) : route.fulfill({ json: order }));
+  await page.route(`**/v1/orders/${orderId}/accept`, (route) => {
+    lostRace = true;
+    return route.fulfill({ status: 409, json: { error: { code: "ORDER_NOT_OPEN", message: "This errand is no longer open." } } });
+  });
+  await page.goto(`/orders/${orderId}`);
+  await page.getByRole("button", { name: "Accept errand", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("no longer open");
+  await expect(page.getByText("You accepted this errand.")).toHaveCount(0);
+  await page.getByRole("button", { name: "Refresh errand" }).click();
+  await expect(page.getByRole("alert")).toContainText("unavailable or you do not have access");
+  await expect(page.getByRole("button", { name: "Accept errand", exact: true })).toHaveCount(0);
+});
+
+test("deadline passes while page is open and expiry history is a system action", async ({ page }) => {
+  await mockSession(page);
+  await page.clock.install({ time: new Date("2035-01-01T03:59:59Z") });
+  let expired = false;
+  await page.route(`**/v1/orders/${orderId}`, (route) => route.fulfill({ json: { ...participant, state: expired ? "EXPIRED" : "OPEN" } }));
+  await page.route(`**/v1/orders/${orderId}/history*`, (route) => route.fulfill({ json: list([{ sequence: 2, newState: "EXPIRED", actorType: "SYSTEM", actorId: null, occurredAt: order.acceptanceDeadline }]) }));
+  await page.goto(`/orders/${orderId}`);
+  await expect(page.getByRole("button", { name: "Cancel errand", exact: true })).toBeVisible();
+  await page.clock.runFor(1100);
+  await expect(page.getByText("The acceptance deadline has passed.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cancel errand", exact: true })).toHaveCount(0);
+  expired = true;
+  await page.getByRole("button", { name: "Refresh errand" }).click();
+  await expect(page.getByText("System action")).toBeVisible();
+  await expect(page.locator(".order-heading")).toContainText("EXPIRED");
+});
+
+for (const state of ["ACCEPTED", "CANCELLED", "EXPIRED"]) {
+  test(`${state} detail never offers accept/cancel`, async ({ page }) => {
+    await mockSession(page);
+    await page.route(`**/v1/orders/${orderId}`, (route) => route.fulfill({ json: { ...participant, state } }));
+    await page.goto(`/orders/${orderId}`);
+    await expect(page.getByText("No accept or cancel action is available", { exact: false })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^(Accept|Cancel) errand$/ })).toHaveCount(0);
+  });
+}
+
 async function mockSession(page: Page) {
   await page.route("**/v1/auth/sessions/refresh", (route) => route.fulfill({ json: { accessToken: "test-token", tokenType: "Bearer", expiresAt: "2035-01-01T00:00:00Z" } }));
   await page.route("**/v1/users/me", (route) => route.fulfill({ json: { userId: "user-id", username: "student", email: "student@u.nus.edu", displayName: "Jihun Hwang", systemRole: "USER", accountStatus: "ACTIVE" } }));

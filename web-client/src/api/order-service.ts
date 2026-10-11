@@ -31,6 +31,9 @@ export type OrderParticipant = OrderAssessment & {
   requesterId: string;
   courierId: string | null;
   updatedAt: string;
+  acceptedAt?: string | null;
+  cancelledAt?: string | null;
+  expiredAt?: string | null;
 };
 
 export type OrderDetail = OrderAssessment | OrderParticipant;
@@ -48,7 +51,7 @@ export type OrderHistoryEntry = {
   sequence: number;
   previousState: OrderState | null;
   newState: OrderState;
-  actorId: string;
+  actorId: string | null;
   actorType: "USER" | "SYSTEM";
   occurredAt: string;
 };
@@ -90,6 +93,10 @@ export const orderService = {
   },
   detail: (orderId: string, token: string) =>
     requestJson<OrderDetail>(`/orders/${encodeURIComponent(orderId)}`, { method: "GET" }, token),
+  accept: (orderId: string, token: string) =>
+    requestJson<OrderParticipant>(`/orders/${encodeURIComponent(orderId)}/accept`, { method: "POST" }, token),
+  cancel: (orderId: string, token: string) =>
+    requestJson<OrderParticipant>(`/orders/${encodeURIComponent(orderId)}/cancel`, { method: "POST" }, token),
   history: (orderId: string, query: OrderPageQuery, token: string) => {
     const params = pageParams(query);
     return requestJson<OrderPage<OrderHistoryEntry>>(`/orders/${encodeURIComponent(orderId)}/history${params.size ? `?${params}` : ""}`, { method: "GET" }, token);

@@ -74,7 +74,12 @@ class Database:
                         "AND has_table_privilege(current_user, "
                         "to_regclass('order_service.order_history')::oid, 'SELECT') "
                         "AND has_table_privilege(current_user, "
-                        "to_regclass('order_service.creation_operations')::oid, 'SELECT')"
+                        "to_regclass('order_service.creation_operations')::oid, 'SELECT') "
+                        "AND has_table_privilege(current_user, "
+                        "to_regclass('order_service.outbox_events')::oid, 'SELECT') "
+                        "AND EXISTS (SELECT 1 FROM information_schema.columns "
+                        "WHERE table_schema='order_service' AND table_name='orders' "
+                        "AND column_name='expired_at')"
                     ))
                     return result is True
         except (SQLAlchemyError, PostgresError, OSError, TimeoutError):

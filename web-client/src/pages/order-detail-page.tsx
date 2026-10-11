@@ -5,6 +5,7 @@ import { orderService, type OrderDetail, type OrderHistoryEntry, type OrderPage 
 import { useAuth } from "../app/use-auth";
 import { OrderBadge, OrderFailure, OrderPagination, OrderShell, OrderSummary } from "../components/order-ui";
 import { orderError, orderTime } from "../app/order-presentation";
+import { OrderLifecycle } from "../components/order-lifecycle";
 
 export function OrderDetailPage() {
   const { orderId = "" } = useParams();
@@ -13,6 +14,7 @@ export function OrderDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [reload, setReload] = useState(0);
+  const [historyRevision, setHistoryRevision] = useState(0);
   useEffect(() => {
     let active = true;
     setOrder(null); setLoading(true); setError(null);
@@ -30,8 +32,8 @@ export function OrderDetailPage() {
     {order ? <>
       <div className="order-heading"><div><h1>Errand details</h1><p className="order-id">{order.orderId}</p></div><OrderBadge state={order.state} /></div>
       <div className="order-detail-grid"><section className="order-panel"><h2 className="order-description">{order.itemDescription}</h2><OrderSummary order={order} /><p className="order-muted">Posted {orderTime(order.createdAt)} SGT</p>{participant ? <p>You are the {"requesterId" in order && order.requesterId === user?.userId ? "requester" : "courier"}.</p> : null}</section>
-        <aside>{participant ? <OrderHistory key={orderId} orderId={orderId} /> : <section className="order-panel"><h2>About this errand</h2><p>Only available errand details are shown. Participant information and lifecycle history are private.</p></section>}
-          <p className="order-muted">This release supports creation and viewing. Acceptance and other lifecycle actions will follow.</p></aside>
+        <aside><OrderLifecycle key={`${orderId}:${user?.userId}`} order={order} onChanged={(updated) => { setOrder(updated); setHistoryRevision((n) => n + 1); }} onRefresh={() => setReload((n) => n + 1)} />
+          {participant ? <OrderHistory key={`${orderId}:${historyRevision}`} orderId={orderId} /> : <section className="order-panel"><h2>About this errand</h2><p>Only available errand details are shown. Participant information and lifecycle history are private.</p></section>}</aside>
       </div>
     </> : null}
   </OrderShell>;

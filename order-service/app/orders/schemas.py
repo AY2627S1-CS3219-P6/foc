@@ -147,6 +147,9 @@ class OrderParticipant(OrderAssessment):
     requester_id: UUID
     courier_id: UUID | None
     updated_at: AwareDatetime
+    accepted_at: AwareDatetime | None = None
+    cancelled_at: AwareDatetime | None = None
+    expired_at: AwareDatetime | None = None
 
 
 class CreationResponse(ApiModel):
@@ -164,7 +167,7 @@ class HistoryEntry(ApiModel):
     sequence: int
     previous_state: OrderState | None
     new_state: OrderState
-    actor_id: UUID
+    actor_id: UUID | None
     actor_type: Literal["USER", "SYSTEM"]
     occurred_at: AwareDatetime
 

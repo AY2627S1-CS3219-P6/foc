@@ -21,6 +21,16 @@ function respond(body: unknown, status = 200) {
 describe("Order create/read client", () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it.each(["accept", "cancel"] as const)("posts %s with current auth and no client actor/state", async (action) => {
+    const fetchMock = respond({ state: action === "accept" ? "ACCEPTED" : "CANCELLED" });
+    await orderService[action]("order/id", "current-token");
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toBe(`/v1/orders/order%2Fid/${action}`);
+    expect(options.method).toBe("POST");
+    expect(options.body).toBeUndefined();
+    expect(options.headers.get("Authorization")).toBe("Bearer current-token");
+  });
+
   it.each([200, 201])("returns a confirmed order for HTTP %s", async (status) => {
     const order = { ...input, orderId: "order-id", state: "OPEN" };
     const fetchMock = respond(order, status);
