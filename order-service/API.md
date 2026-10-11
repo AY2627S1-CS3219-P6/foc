@@ -1,9 +1,11 @@
-# Order Service create/read contract
+# Order Service API and event contracts
 
-Implemented Order-side contract, 2026-10-09. D3 is the main implementation/demo
+Implemented Order-side contract, updated 2026-10-11. D3 is the main implementation/demo
 guide; requirement IDs remain the team's M3/M4 identifiers. Credit's interface
 below is a proposal awaiting its owner and real integration. No fake Credit
-success is enabled in the runtime. Later lifecycle/event/UI work is not included.
+success is enabled in the runtime. This release adds acceptance, cancellation and
+expiry with durable terminal-event publication. Fulfilment and Credit consumption
+remain pending; publishing does not confirm wallet settlement.
 
 ## Identity and conventions
 
@@ -27,6 +29,8 @@ success is enabled in the runtime. Later lifecycle/event/UI work is not included
 | Method/path | Behavior |
 | --- | --- |
 | `POST /v1/orders` | Create with mandatory `Idempotency-Key`; 201 new, 200 successful replay, 202 unresolved operation. |
+| `POST /v1/orders/{orderId}/accept` | Current non-requester accepts an eligible OPEN order; 200 participant view. |
+| `POST /v1/orders/{orderId}/cancel` | Requester cancels an eligible OPEN order; 200 participant view, Credit release asynchronous. |
 | `GET /v1/order-creations/{operationId}` | Creator-only progress; no mutation/finalization. 404 for other users. |
 | `GET /v1/orders` | Available OPEN assessment list; excludes reached acceptance deadlines even before an expiry worker exists. Optional `supplierId`. |
 | `GET /v1/orders/mine?relationship=requester` | Current user's requested orders across states. `courier` selects their assigned orders. |
@@ -38,13 +42,100 @@ Lists/history use `page` (1–1,000,000) and `pageSize` (1–50, default 20).
 Response: `{items, page, pageSize, total}`. Lists sort created time descending,
 then order ID descending; history sorts sequence ascending. Pagination is stable
 within each request, not a frozen snapshot across requests. Unknown query fields
-are rejected. Courier results remain empty until the later acceptance feature exists.
+are rejected. Courier results include orders assigned through acceptance.
 
 Assessment data: order ID, supplier ID/pickup snapshot, description, delivery
 collection point, reward, state, deadlines and created time. Participant/admin
 query data additionally includes requester/courier IDs and updated time. No
 reservation IDs, email, user profile or authentication information are returned.
 Free-text content is not an automatic PII scrubber; do not enter contact secrets.
+
+## Accept, cancel and expire (2026-10-11)
+
+The two POST actions accept no body (or `{}`) and no query parameters. Caller
+identity always comes from fresh User authentication. Client-supplied actors,
+roles, state, deadlines and unknown fields are rejected with 422. No admin bypass.
+Unlike creation, these actions do not require an idempotency key: the immutable
+order/actor/action identifies the one permitted acceptance or cancellation.
+
+| Action | Guard | Result / credit effect |
+| --- | --- | --- |
+| Accept | OPEN, not requester, database time strictly before acceptance deadline | ACCEPTED, assigned courier and acceptedAt; existing reservation stays reserved |
+| Cancel | OPEN, requester, database time strictly before acceptance deadline | CANCELLED, cancelledAt and `order.cancelled.v1`; Credit release pending |
+| Expire | OPEN, acceptance deadline reached/passed | EXPIRED, expiredAt and `order.expired.v1`; Credit release pending |
+
+Expiry is an independent worker action, not a public endpoint or a side effect of
+a rejected request. At deadline equality, both accept and cancel return 409
+`DEADLINE_PASSED`, even if the worker has not persisted EXPIRED yet. OPEN listings
+already exclude such orders. Expiry never changes ACCEPTED orders. `expiredAt`
+is the actual persisted transition time, not a fabricated deadline timestamp;
+compare it with acceptanceDeadline when measuring expiry latency.
+
+Every mutation locks the Order row, obtains PostgreSQL `clock_timestamp()` after
+the lock, rechecks guards, then commits state/timestamp, history and any terminal
+outbox event in one transaction. No dependency call is made while holding the
+lock. Accept/cancel races before the deadline produce one winner; at/after it,
+neither is eligible and expiry wins. Worker replicas use SKIP LOCKED batches.
+
+Retries by the assigned courier return the current participant view without
+another acceptance (including after later fulfilment advances). Repeated requester
+cancellation of CANCELLED returns the existing view. No duplicate history/event
+is added. Conflicting or other non-OPEN actions return 409 `ORDER_NOT_OPEN`;
+self-acceptance returns 403 `SELF_ACCEPTANCE`; missing order or unrelated
+cancellation returns 404 `NOT_FOUND`. Conflict bodies never expose participant
+IDs. Authentication/dependency errors still fail closed. A lost response can be
+retried with the same action and actor; it cannot reserve or release twice in Order.
+
+Participant responses add nullable `acceptedAt`, `cancelledAt`, `expiredAt`.
+History represents expiry as `actorType: "SYSTEM", actorId: null`; user actions
+retain their authenticated UUID. History ordering remains per-order sequence.
+
+## Terminal events: proposed Credit-facing v1 contract
+
+Order implements these producer messages; Credit's queue, consumer and release
+transaction still require owner agreement and implementation. Example:
+
+```json
+{
+  "eventId": "550e8400-e29b-41d4-a716-446655440010",
+  "eventType": "order.cancelled.v1",
+  "orderId": "550e8400-e29b-41d4-a716-446655440001",
+  "reservationId": "550e8400-e29b-41d4-a716-446655440011",
+  "occurredAt": "2026-10-11T04:00:00Z"
+}
+```
+
+- Expiry uses the same shape with `eventType: "order.expired.v1"`. UUID eventId
+  stays identical on every publication attempt. No profile, free text, tokens or
+  balances are included. Credit resolves the owner/amount from its own reservation
+  and validates its binding to orderId. Reservation creation-abort recovery still
+  uses its separate HTTP fence; it is not a cancellation event for a nonexistent order.
+- Match User's durable topic exchange convention, default `foc.events`; routing
+  key and AMQP type equal eventType, message ID equals eventId. Messages are
+  persistent; publisher confirms and mandatory routing are enabled. No public
+  queue is created by Order. Credit must provision durable bindings for both types
+  before production use. Mandatory routing proves at least one queue received it,
+  not specifically Credit, and certainly not that credits were released.
+- `outbox_events.PENDING` includes unsent/retryable events. No route, broker outage
+  or lost confirmation retains intent. `PUBLISHED` means broker-confirmed only.
+  A durable Credit queue retains messages while its consumer is offline.
+- Delivery is **at least once**, not exactly once. Crash after publish but before
+  database acknowledgment can duplicate the identical event. Credit must dedupe
+  eventId and apply release at most once per reservation in its own transaction;
+  do not acknowledge consumption before that transaction commits. Release after
+  transfer must not alter balances. These consumer rules are not implemented here.
+- One terminal event per order is enforced by an Order-local unique constraint.
+  No cross-order ordering is required. Consumers must tolerate duplicates and
+  delayed events without reversing a completed settlement.
+- Worker claims one event for 30 seconds, publishes with a 5-second total timeout,
+  and fences acknowledgments/retries by lease token. Retry delays are 1, 2, 4, 8,
+  16, 32, then at most 60 seconds, indefinitely; no silent discard or fake success.
+  Expiry has a separate process so broker waits cannot stall deadline processing.
+- Logs carry eventId/orderId/type/attempt/outcome, never credentials or exception
+  text. Inspect pending rows and oldest next_attempt_at alongside worker logs.
+  Retention/cleanup and consumer settlement-status reporting are deferred.
+
+Transport reference: [aio-pika publisher confirmations and mandatory returns](https://docs.aio-pika.com/apidoc.html#exchange).
 
 ## Create example
 

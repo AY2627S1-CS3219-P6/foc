@@ -106,6 +106,40 @@ services:
     networks:
       - edge
 
+  order-expiry:
+    profiles: [order]
+    build: ./order-service
+    command: [order-expiry]
+    env_file: ./order-service/.env.docker
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      order-service:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    networks:
+      - edge
+
+  order-outbox:
+    profiles: [order]
+    build: ./order-service
+    command: [order-outbox]
+    env_file: ./order-service/.env.docker
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-foc_user_service}:${RABBITMQ_PASSWORD:?Pass --env-file user-service/.env}@rabbitmq:5672/
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      order-service:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    networks:
+      - support
+
   outbox-publisher:
     build: ./user-service
     command: ["outbox-publisher"]

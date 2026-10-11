@@ -1,11 +1,28 @@
 # FoC Order Service
 
-Order creation and read APIs are implemented on top of the F0 foundation.
+Order creation/read, acceptance, cancellation and expiry are implemented.
 Identity is checked through User; Supplier details are captured through its API.
 Credit HTTP calls follow the **proposed** contract in [API.md](API.md). Credit is
 not implemented in this checkout: real funded creation is not yet integrated.
-Test doubles exist only under tests. Later lifecycle actions, terminal events and
-frontend changes are outside this slice.
+Test doubles exist in tests and an opt-in [isolated local demo](demo/README.md).
+Cancellation/expiry events are persisted and
+published asynchronously; a real Credit release consumer is still pending.
+Accept/Cancel UI controls are available on the errand detail page.
+Pickup/delivery/completion/failure are outside this slice.
+
+## Try creation and lifecycle UI before Credit is ready
+
+Follow [the isolated demo guide](demo/README.md) for a website on **port 3001**
+with a visible simulated-Credit banner. It runs its own Order database, broker and
+test Credit HTTP/event consumer, using existing local User/Supplier APIs. No real
+Credit implementation or existing Supabase reset is needed. The default port-3000
+setup and production Order image never include the simulator.
+
+Requesters can cancel an OPEN errand after confirmation; others can accept it.
+Actions stop being offered at the acceptance deadline, with server-side guards
+remaining authoritative. Duplicate clicks are blocked; lost responses offer a
+same-action retry; conflicts offer refresh; confirmed actions refresh private
+history. Use another browser/incognito session to test as the courier.
 
 ## Stack and boundaries
 
@@ -16,7 +33,8 @@ reads another service's database or imports its business logic.
 
 The application factory owns a connection pool and closes it on shutdown. Startup
 does not connect, migrate or seed the database. Readiness runs a bounded read-only
-check for schema access and SELECT access to the three required tables. It does
+check for schema access, SELECT access to four required tables and the lifecycle
+migration's expiry column. It does
 not prove external services are ready or replace migration validation. Liveness
 remains independent of it.
 
@@ -24,7 +42,9 @@ remains independent of it.
 
 Run from `order-service/`. Docker Desktop must already be running. Health checks
 need only Order's database. Protected APIs require User; creation also requires
-Supplier and a compatible Credit service. RabbitMQ is not used by this slice.
+Supplier and a compatible Credit service. Acceptance/cancellation require fresh
+User authentication but make no additional Credit/Supplier call. Only the outbox
+publisher requires RabbitMQ; a broker outage does not block lifecycle commits.
 
 1. Create an isolated Python environment using Python 3.13 and install dependencies.
 
@@ -129,8 +149,18 @@ image does not update an existing container: stop and remove that API container,
 then repeat `docker run`; the separate database volume is unaffected. Do not run
 the host API and container on port 8002 simultaneously.
 
-Root Compose and frontend routing are intentionally unchanged. This is an
-independent F0 run, not the complete M7 one-command application deployment.
+The root Compose `order` profile starts Order API, creation recovery, expiry and
+outbox workers alongside the existing stack. Apply the reviewed Order migrations
+before rebuilding/restarting this profile. From the repo root:
+
+```bash
+docker compose --env-file user-service/.env --profile order up --build -d
+```
+
+Separate Supabase stacks still need to be running; this is not yet the complete
+M7 fresh-copy one-command deployment. Shared broker configuration is supplied only
+to the Order publisher; no service reads another service's database. Existing
+`.env.docker` files need not be overwritten: new settings have safe defaults.
 
 ## Tests
 
@@ -148,12 +178,20 @@ your terminal environment to an isolated, migrated Order database URL, then run:
 .venv/Scripts/python.exe -m pytest -q
 ```
 
-The two foundation integration tests are read-only. Creation integration tests
+The two foundation integration tests are read-only. Creation/lifecycle integration tests
 require a separate `ORDER_WRITE_TEST_DATABASE_URL` pointed at a **disposable,
 migrated Order-only database**; they insert generated test data and intentionally
-retain it for inspection. Never point that variable at production or another
-service's database. These tests skip unless explicitly configured. Neither suite
-runs migrations or resets automatically. Migration/container checks remain separate.
+retain creation data for inspection; lifecycle tests remove only their generated
+rows. Never point that variable at production or another
+service's database. These tests skip unless explicitly configured. Ordinary
+creation/lifecycle tests do not apply migrations or reset schemas. The dedicated
+migration-upgrade test requires an admin connection: it creates a separate
+`order_upgrade_<uuid>` database, preserves an existing OPEN fixture across the
+upgrade, and removes only that scratch database. It never resets the supplied DB.
+Container checks and Supabase CLI reset verification remain separate.
+Real event-delivery tests additionally need `ORDER_TEST_RABBITMQ_URL` pointed at a
+disposable RabbitMQ broker. They create/delete UUID-named test exchanges/queues,
+never the shared `foc.events` exchange or a real Credit queue.
 
 ## Creation recovery worker
 
@@ -175,6 +213,35 @@ it never creates orders using stale user authentication. At the acceptance deadl
 it closes the creation intent and retries Credit compensation. See [API.md](API.md)
 for the required abort-fence contract. Without Credit, recovery remains pending.
 Health endpoints probe Order storage, not this independent worker's progress.
+
+## Expiry and outbox workers
+
+After installing the updated package, run these in separate terminals:
+
+```bash
+.venv/Scripts/order-expiry.exe
+.venv/Scripts/order-outbox.exe
+```
+
+On Linux use `order-expiry` and `order-outbox`. Compose uses these same entrypoints
+with the same independently built Order image. The API starts neither implicitly.
+The expiry worker checks every 5 seconds in batches of 50 and immediately drains
+full batches; it catches up after downtime and retries database outages. The
+under-60-second expiry requirement still needs measurement under the agreed load;
+the polling interval alone is not proof. Reached deadlines block acceptance and
+cancellation even during worker downtime.
+
+The publisher polls every second. It uses the same durable topic exchange as User
+(`foc.events`) and persistent, mandatory messages with publisher confirmations.
+Unroutable events remain PENDING and retry with capped backoff rather than being
+discarded. Until Credit provisions its durable bindings, this is expected.
+Published does **not** mean the consumer has released the credits. See [API.md](API.md)
+for payloads, duplicate handling, lease fencing and Credit-owner responsibilities.
+
+Monitor `docker compose --env-file user-service/.env --profile order logs
+order-expiry order-outbox` from the root and inspect Order's `outbox_events`
+state/attempts/next_attempt_at/last_error_code. A healthy API does not prove either
+worker is progressing. No credentials or payload free text belong in logs.
 
 ## Continuous integration
 
@@ -212,7 +279,30 @@ No account or token is required for the operational endpoints.
 Supply `X-Correlation-ID: order-f0-demo` and check the same response header. An
 absent/malformed ID is replaced with a generated ID. Readiness errors include
 `error.correlationId`, `error.message` and empty `error.fieldErrors`, following
-User Service's operational envelope. Business API naming/casing is still pending.
+User Service's operational envelope. Business APIs use `/v1` and camelCase.
+
+### Lifecycle demo checklist
+
+Use a real funded OPEN order once Credit is integrated. An unconfirmed 503 create
+attempt is not such an order; do not bypass the reservation check in the app.
+For local simulated funding, use [the isolated demo](demo/README.md), with Postman
+`orderBaseUrl = http://localhost:18002`. Its records are not real Credit evidence.
+Automated integration fixtures deliberately seed fictional reserved orders only
+inside disposable test databases, not the development Supabase projects.
+
+1. Save different requester/courier tokens in local Postman variables.
+2. Courier: `POST {{orderBaseUrl}}/v1/orders/{{orderId}}/accept` with no body.
+   Expect 200/ACCEPTED, courierId and acceptedAt; retry and verify no second history.
+3. Requester self-accept: expect 403; another courier after acceptance: 409.
+4. On a different OPEN order, requester POST `/v1/orders/{{orderId}}/cancel`.
+   Expect CANCELLED and one history/outbox record; retry remains unchanged.
+5. Let another OPEN order reach its deadline. Both accept/cancel reject; the expiry
+   worker records EXPIRED, a SYSTEM history entry and one event. Accepted orders
+   never expire from this deadline.
+6. Inspect event publication/retry and, when implemented, actual Credit release.
+   A broker message alone does not meet D3's meaningful consumer-effect requirement.
+
+API/state guards, race tests and detailed event contract: [API.md](API.md).
 
 For an outage demo, stop only the Order database container, repeat both requests,
 then restart it and verify readiness recovers without restarting the API. This
@@ -223,6 +313,51 @@ SSL modes. `require` encrypts without guaranteeing certificate verification;
 use `verify-full` with a trusted certificate for verified remote connections.
 See [asyncpg connection options](https://magicstack.github.io/asyncpg/current/api/index.html)
 and [Supabase CLI configuration](https://supabase.com/docs/guides/local-development/cli/config).
+
+## UI and isolated Credit simulation verification (2026-10-11)
+
+- Full backend rerun: **186 passed** (159 isolated + 27 PostgreSQL/RabbitMQ
+  integration checks in separate disposable test containers). Includes 15 simulator contract checks:
+  real Order HTTP client compatibility, stable concurrent reservation identities,
+  secret/field validation, denial/outage modes, abort fencing, restart persistence
+  and duplicate/mismatched release handling.
+- 68 frontend unit/component and 69 browser regression tests passed. Browser
+  responses are test doubles; includes confirmation, double-click protection,
+  ambiguous response retry, conflict/refresh, deadline passage, participant history
+  and terminal states. TypeScript, build and changed-file ESLint passed.
+- Separate live HTTP smoke used actual User registration/authentication and
+  Supplier data through the demo website proxy, isolated Order PostgreSQL with a
+  restricted login, and simulated Credit via HTTP. Created OPEN errands, accepted
+  and retried, checked authorization, cancelled and automatically expired, and
+  observed real RabbitMQ delivery producing simulated RELEASED state. Restarting
+  the simulator preserved its state. Temporary User accounts self-deleted; normal
+  User audit and isolated demo evidence remain. Existing Order Supabase untouched.
+- Real Credit wallets/settlement, production consumer behavior, Postman GUI and
+  NFR load/usability targets remain unverified. The simulator is not D3 evidence
+  of integration with the teammate's real Credit Service.
+
+## Earlier backend acceptance/cancellation/expiry verification (2026-10-11)
+
+- Full backend suite: **171 passed** (144 isolated, 27 real PostgreSQL/RabbitMQ
+  checks). Ruff and whitespace checks passed. CI still runs the isolated subset.
+- Real PostgreSQL 17: 100 competing acceptors produce one winner; accept/cancel
+  and expiry races, duplicate retries, post-lock deadline checks, atomic rollback,
+  expiry SYSTEM history, column privileges and stale publisher leases verified.
+- Canonical migrations reconstructed a fresh disposable database. A separate
+  upgrade test preserved an existing OPEN order/history. No existing development
+  Supabase database was reset or migrated; no Supabase CLI reset claimed here.
+- Real RabbitMQ 4.1: four unroutable attempts remain pending, binding recovery
+  succeeds, a broken connection retries, and a simulated crash after broker ack
+  republishes the same event ID. Test sink only, not a Credit release consumer.
+- Docker image built and ran API/expiry/outbox entrypoints as non-root. API
+  readiness recovered after its independent restart. One due fixture expired
+  within 0.52s after workers started and its event reached a disposable queue;
+  this is a smoke check, not throughput or p95/NFR workload evidence.
+- Frontend TypeScript and 66 unit/component tests passed for the nullable SYSTEM
+  actor contract alignment. No lifecycle buttons added; browser suite not rerun
+  for this type-only frontend change.
+- Real Credit release, full User/Supplier/Credit workflow, Postman GUI execution,
+  consumer deduplication and load/usability/deployment targets remain unverified.
 
 ## Create/read verification (2026-10-09)
 

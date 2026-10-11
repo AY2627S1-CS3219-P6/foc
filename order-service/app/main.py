@@ -17,6 +17,7 @@ from app.db import Database, DatabaseUnavailableError
 from app.orders.api import router
 from app.orders.clients import ServiceClients
 from app.orders.errors import ApiError
+from app.orders.lifecycle_repository import LifecycleRepository
 from app.orders.repository import OrderRepository
 
 _SAFE_REQUEST_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
@@ -28,6 +29,7 @@ def create_app(
     *,
     clients=None,
     repository=None,
+    lifecycle_repository=None,
 ) -> FastAPI:
     service_settings = settings if settings is not None else get_settings()
     database_url = service_settings.database_url
@@ -54,6 +56,10 @@ def create_app(
         redoc_url=None,
     )
     app.state.database = service_database
+    app.state.lifecycle = (
+        lifecycle_repository if lifecycle_repository is not None
+        else LifecycleRepository(service_database.session_context)
+    )
     http = httpx.AsyncClient(trust_env=False)
     app.state.clients = clients if clients is not None else ServiceClients(service_settings, http)
     app.state.repository = (
