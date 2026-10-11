@@ -91,7 +91,7 @@ def test_cancellation_replay_even_after_deadline():
     assert transition_values(row(state="CANCELLED"), OWNER, "cancel", NOW + timedelta(days=1)) == {}
 
 
-@pytest.fixture
+@pytest.fixture(name="api")
 async def api():
     clients = FakeClients(COURIER)
     lifecycle = AsyncMock()
@@ -101,7 +101,7 @@ async def api():
             yield http, clients, lifecycle
 
 
-@pytest.mark.parametrize("action", ["accept", "cancel"])
+@pytest.mark.parametrize("action", ["accept", "cancel", "pickup", "deliver", "complete"])
 async def test_action_requires_current_authentication(api, action):
     http, clients, lifecycle = api
     path = f"/v1/orders/{uuid4()}/{action}"
@@ -113,7 +113,7 @@ async def test_action_requires_current_authentication(api, action):
     lifecycle.transition.assert_not_awaited()
 
 
-@pytest.mark.parametrize("action", ["accept", "cancel"])
+@pytest.mark.parametrize("action", ["accept", "cancel", "pickup", "deliver", "complete"])
 @pytest.mark.parametrize(
     "body", [{"courierId": str(COURIER)}, {"state": "ACCEPTED"}, [], "bad", {"actorId": str(OWNER)}]
 )
@@ -126,7 +126,7 @@ async def test_rejects_client_owned_state_identity_and_nonobjects(api, action, b
     lifecycle.transition.assert_not_awaited()
 
 
-@pytest.mark.parametrize("action", ["accept", "cancel"])
+@pytest.mark.parametrize("action", ["accept", "cancel", "pickup", "deliver", "complete"])
 async def test_malformed_body_query_and_id_rejected(api, action):
     http, _, lifecycle = api
     headers = {"Authorization": "Bearer test"}
@@ -137,7 +137,7 @@ async def test_malformed_body_query_and_id_rejected(api, action):
     lifecycle.transition.assert_not_awaited()
 
 
-@pytest.mark.parametrize("action", ["accept", "cancel"])
+@pytest.mark.parametrize("action", ["accept", "cancel", "pickup", "deliver", "complete"])
 async def test_no_administrator_mutation_bypass(api, action):
     http, clients, lifecycle = api
     clients.role = "SUPER_ADMIN"

@@ -28,9 +28,17 @@ def checked(response, status):
 def account(client):
     marker = uuid4().hex[:12]
     email, password = f"order-demo-{marker}@u.nus.edu", "DemoAa1!" + secrets.token_hex(16)
-    checked(client.post("/v1/auth/registrations", json={
-        "username": f"Demo{marker}", "email": email, "password": password,
-    }), 202)
+    checked(
+        client.post(
+            "/v1/auth/registrations",
+            json={
+                "username": f"Demo{marker}",
+                "email": email,
+                "password": password,
+            },
+        ),
+        202,
+    )
     for _ in range(30):
         messages = client.get("http://127.0.0.1:8025/api/v1/messages").json()["messages"]
         message = next((m for m in messages if any(r["Address"] == email for r in m["To"])), None)
@@ -41,22 +49,50 @@ def account(client):
         raise RuntimeError("Test verification email not received")
     body = client.get(f"http://127.0.0.1:8025/api/v1/message/{message['ID']}").json()
     otp = re.search(r"\b\d{6}\b", body["Text"])
-    checked(client.post("/v1/auth/email-verifications", json={
-        "email": email, "otp": otp.group(),
-    }), 201)
-    session = checked(client.post("/v1/auth/sessions", json={
-        "email": email, "password": password,
-    }), 200)
+    checked(
+        client.post(
+            "/v1/auth/email-verifications",
+            json={
+                "email": email,
+                "otp": otp.group(),
+            },
+        ),
+        201,
+    )
+    session = checked(
+        client.post(
+            "/v1/auth/sessions",
+            json={
+                "email": email,
+                "password": password,
+            },
+        ),
+        200,
+    )
     headers = {"Authorization": f"Bearer {session['accessToken']}"}
     return password, headers
 
 
 def simulated_states():
-    output = subprocess.check_output([
-        "docker", "compose", "exec", "-T", "credit-simulator", "python", "credit_stub.py",
-    ], cwd=DEMO, text=True)
-    return {value["orderId"]: value["state"] for line in output.splitlines()
-            if line.startswith("{") for value in [json.loads(line)]}
+    output = subprocess.check_output(
+        [
+            "docker",
+            "compose",
+            "exec",
+            "-T",
+            "credit-simulator",
+            "python",
+            "credit_stub.py",
+        ],
+        cwd=DEMO,
+        text=True,
+    )
+    return {
+        value["orderId"]: value["state"]
+        for line in output.splitlines()
+        if line.startswith("{")
+        for value in [json.loads(line)]
+    }
 
 
 def main():
@@ -73,10 +109,14 @@ def main():
 
             def create(seconds=300):
                 now = datetime.now(UTC)
-                payload = {"supplierId": supplier["id"], "itemDescription": "Local demo smoke",
-                           "deliveryLocation": "COM3 demo collection", "reward": 5,
-                           "acceptanceDeadline": (now + timedelta(seconds=seconds)).isoformat(),
-                           "deliveryDeadline": (now + timedelta(minutes=30)).isoformat()}
+                payload = {
+                    "supplierId": supplier["id"],
+                    "itemDescription": "Local demo smoke",
+                    "deliveryLocation": "COM3 demo collection",
+                    "reward": 5,
+                    "acceptanceDeadline": (now + timedelta(seconds=seconds)).isoformat(),
+                    "deliveryDeadline": (now + timedelta(minutes=30)).isoformat(),
+                }
                 headers = {**requester, "Idempotency-Key": uuid4().hex}
                 result = checked(client.post("/v1/orders", headers=headers, json=payload), 201)
                 repeated = checked(client.post("/v1/orders", headers=headers, json=payload), 200)
@@ -111,15 +151,90 @@ def main():
             assert result["state"] == "EXPIRED"
             assert states[accepted] == "RESERVED"
             print("PASS cancellation + automatic expiry -> real broker -> simulated release")
-            subprocess.run(["docker", "compose", "restart", "credit-simulator"],
-                           cwd=DEMO, check=True, stdout=subprocess.DEVNULL)
+            failed_ids = []
+            for picked_up, reporter in ((False, requester), (True, courier)):
+                failed_id = create()
+                failed_ids.append(failed_id)
+                failure_path = f"/v1/orders/{failed_id}"
+                checked(client.post(failure_path + "/accept", headers=courier), 200)
+                if picked_up:
+                    checked(client.post(failure_path + "/pickup", headers=courier), 200)
+                report = {"reason": "ITEM_DAMAGED", "details": "Local smoke incident"}
+                result = checked(
+                    client.post(failure_path + "/fail", headers=reporter, json=report), 200
+                )
+                assert result["state"] == "FAILED" and result["failureReason"] == report["reason"]
+                checked(client.post(failure_path + "/fail", headers=reporter, json=report), 200)
+                checked(client.post(failure_path + "/deliver", headers=courier), 409)
+                entries = checked(client.get(failure_path + "/history", headers=reporter), 200)
+                assert entries["total"] == (4 if picked_up else 3)
+            for _ in range(30):
+                states = simulated_states()
+                if all(states.get(order_id) == "RELEASED" for order_id in failed_ids):
+                    break
+                time.sleep(1)
+            else:
+                raise RuntimeError("Simulated failure releases not observed")
+            print("PASS unilateral requester/courier failure -> real broker -> simulated release")
+            path = f"/v1/orders/{accepted}"
+            checked(client.post(path + "/pickup", headers=requester), 403)
+            assert (
+                checked(client.post(path + "/pickup", headers=courier), 200)["state"] == "PICKED_UP"
+            )
+            assert (
+                checked(client.post(path + "/deliver", headers=courier), 200)["state"]
+                == "DELIVERED"
+            )
+            checked(client.post(path + "/complete", headers=courier), 403)
+            # Simulate unavailable consumption, not just an HTTP failure.
+            subprocess.run(
+                ["docker", "compose", "stop", "credit-simulator"],
+                cwd=DEMO,
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )
+            try:
+                result = checked(client.post(path + "/complete", headers=requester), 200)
+                assert result["state"] == "COMPLETED"
+                checked(client.post(path + "/complete", headers=requester), 200)
+                assert checked(client.get(path + "/history", headers=requester), 200)["total"] == 5
+            finally:
+                subprocess.run(
+                    ["docker", "compose", "start", "credit-simulator"],
+                    cwd=DEMO,
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                )
+            for _ in range(30):
+                states = simulated_states()
+                if states.get(accepted) == "TRANSFERRED":
+                    break
+                time.sleep(1)
+            else:
+                raise RuntimeError("Simulated transfer not observed")
+            print("PASS pickup/delivery/completion, consumer outage, eventual simulated transfer")
+            subprocess.run(
+                ["docker", "compose", "restart", "credit-simulator"],
+                cwd=DEMO,
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )
             assert simulated_states() == states
             print("PASS simulator restart retains reservations and release state")
         finally:
             for password, headers in accounts:
-                checked(client.request("DELETE", "/v1/users/me", headers=headers, json={
-                    "currentPassword": password, "acknowledgeDeletion": True,
-                }), 204)
+                checked(
+                    client.request(
+                        "DELETE",
+                        "/v1/users/me",
+                        headers=headers,
+                        json={
+                            "currentPassword": password,
+                            "acknowledgeDeletion": True,
+                        },
+                    ),
+                    204,
+                )
             print("Temporary accounts self-deleted; normal audit/demo evidence retained.")
 
 

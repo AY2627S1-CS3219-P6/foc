@@ -6,7 +6,7 @@ import { WorkspaceShell } from "./workspace-shell";
 
 export function OrderShell({ children }: PropsWithChildren) {
   return <WorkspaceShell className="order-shell" userDescription="Find what you need—or help someone along your route.">
-    {import.meta.env.VITE_ORDER_DEMO === "true" ? <section className="order-panel order-reservation" aria-label="Local simulation"><strong>Local Order demo — simulated credits</strong><p>Errands use an isolated test database. Credit reservations and releases are simulated, not real wallet transactions. Login and suppliers use your existing local services.</p></section> : null}
+    {import.meta.env.VITE_ORDER_DEMO === "true" ? <section className="order-panel order-reservation" aria-label="Demo mode"><strong>Demo mode — test credits</strong><p>Credits in this demo are for testing and do not affect your real balance.</p></section> : null}
     {children}</WorkspaceShell>;
 }
 

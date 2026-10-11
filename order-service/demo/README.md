@@ -7,7 +7,8 @@ on ports 8000/8001. It does not bypass Order's authentication or reservation che
 
 The demo website is **http://localhost:3001/orders** and visibly labels simulated
 credits. Port 3000 and your existing Supabase projects/settings are unchanged.
-No wallet balance, real money, credit allocation or transfer is implemented.
+No wallet balance, real money, credit allocation or real transfer is implemented.
+Completion events now record a simulated TRANSFERRED state and recipient only.
 The proposed Credit contract still needs agreement/integration with its owner.
 
 ## Start from VS Code PowerShell
@@ -54,8 +55,22 @@ docker compose ps
 5. Create another with acceptance 1–2 minutes away. Leave it unaccepted. The expiry
    worker marks it EXPIRED; **Refresh errand** updates the page and shows a System
    action. The local countdown is only a convenience; server time decides validity.
-6. On an ambiguous/lost action response, retry the **same action**. On conflict,
-   refresh. There is no optimistic success and no pickup/delivery/completion UI yet.
+6. As courier B, use **Mark picked up**, then **Mark delivered** on the accepted
+   errand. Refresh as requester A, choose **Confirm received**, then **Complete
+   errand**. History should read OPEN → ACCEPTED → PICKED_UP → DELIVERED → COMPLETED.
+   Delivery alone does not settle the reward. The UI deliberately says payment is
+   unconfirmed; the inspector below shows the simulated TRANSFERRED result.
+7. For overdue testing, use a near-future delivery deadline, accept before the
+   acceptance deadline and wait without delivering. Refresh to see overdue status;
+   delivery/completion must still work and retain the late-delivery marker.
+8. In ACCEPTED or PICKED_UP, either participant can choose **Mark failed**, select
+   a reason, optionally add details (required for Other), then **Confirm failure**.
+   No other-party approval is needed. The errand and history show FAILED and the
+   recorded reason; the inspector eventually shows RELEASED. There is no penalty.
+   Failure is unavailable once DELIVERED or terminal. Test requester failure after
+   acceptance and courier failure after pickup on different errands.
+9. On an ambiguous/lost action response, retry the **same action/report**. Failure
+   reason/details stay frozen while the result is unknown. On conflict, refresh.
 
 Cookies do not isolate by port: logging in/out on 3000 and 3001 in the same browser
 profile can affect the same User session. Use separate browser profiles for parallel tests.
@@ -72,8 +87,10 @@ docker compose exec database psql -U postgres -d postgres -c "SELECT id, state F
 ```
 
 The inspector shows `orderId`, amount and simulation state, not secrets. Accepted
-orders stay RESERVED. Cancellation/expiry consume actual versioned events and
-change the matching simulated reservation to RELEASED. IDs and release deduplication
+orders stay RESERVED until requester completion. Cancellation/expiry consume actual versioned events and
+change the matching simulated reservation to RELEASED; failure does the same without
+assigning blame or penalties. Completion changes it to
+TRANSFERRED with the assigned courier recorded. IDs and settlement deduplication
 persist in a private SQLite volume across simulator restarts. CLOSED is a durable
 creation-abort fence: a delayed reserve cannot reopen it. No cross-service DB reads.
 
@@ -103,11 +120,40 @@ docker compose exec credit-simulator python credit_stub.py
 ```
 
 The simulator binds **only** its private broker/exchange, never shared `foc.events`.
+The historical queue name `credit-simulator.releases` now also binds completion;
+it also binds order.failed.v1; keeping it preserves queued releases during upgrades.
 It rejects malformed/unmatched events; it is not production consumer reliability
 or wallet accounting evidence. Broker reconnection, HTTP replay/abort and terminal
 release are narrow development aids, not a replacement for Credit integration.
 
 ## Checks and stopping
+
+### Upgrading an existing demo (preserves your data)
+
+The new migration is automatically applied only when initializing a **new** demo
+database. For an existing demo from the earlier PR, apply this once from this folder
+before rebuilding. Do not rerun it if `overdue_at` already exists:
+
+```powershell
+docker compose exec database psql -U postgres -d postgres -c "SELECT column_name FROM information_schema.columns WHERE table_schema='order_service' AND table_name='orders' AND column_name='overdue_at';"
+# If the query returns zero rows:
+Get-Content ../supabase/migrations/20261011000100_order_fulfilment_completion.sql -Raw | docker compose exec -T database psql -U postgres -d postgres -v ON_ERROR_STOP=1
+docker compose up --build -d
+```
+
+For the failure extension, check/apply its separate migration once after the
+fulfilment migration. Do not rerun if `failed_at` already exists:
+
+```powershell
+docker compose exec database psql -U postgres -d postgres -c "SELECT column_name FROM information_schema.columns WHERE table_schema='order_service' AND table_name='orders' AND column_name='failed_at';"
+# If the query returns zero rows:
+Get-Content ../supabase/migrations/20261011000200_order_participant_failure.sql -Raw | docker compose exec -T database psql -U postgres -d postgres -v ON_ERROR_STOP=1
+docker compose up --build -d
+```
+
+This targets only `foc-order-demo` PostgreSQL, not your existing Supabase project.
+Future migrations need their own reviewed upgrade procedure; never reset data just
+to make a new API image healthy.
 
 Backend simulator contract tests are part of the normal Order pytest suite.
 For an additional live smoke (creates/self-deletes two temporary User accounts;

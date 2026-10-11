@@ -21,7 +21,17 @@ function respond(body: unknown, status = 200) {
 describe("Order create/read client", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it.each(["accept", "cancel"] as const)("posts %s with current auth and no client actor/state", async (action) => {
+  it("posts a failure reason with current auth and excludes spoofed identities or penalties", async () => {
+    const fetchMock = respond({ state: "FAILED" });
+    await orderService.fail("order/id", { reason: "ITEM_DAMAGED", details: "Broken item", actorId: "spoofed", penalty: 10 } as Parameters<typeof orderService.fail>[1], "current-token");
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toBe("/v1/orders/order%2Fid/fail");
+    expect(options.method).toBe("POST");
+    expect(options.headers.get("Authorization")).toBe("Bearer current-token");
+    expect(JSON.parse(options.body)).toEqual({ reason: "ITEM_DAMAGED", details: "Broken item" });
+  });
+
+  it.each(["accept", "cancel", "pickup", "deliver", "complete"] as const)("posts %s with current auth and no client actor/state", async (action) => {
     const fetchMock = respond({ state: action === "accept" ? "ACCEPTED" : "CANCELLED" });
     await orderService[action]("order/id", "current-token");
     const [url, options] = fetchMock.mock.calls[0];

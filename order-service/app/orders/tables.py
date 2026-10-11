@@ -46,6 +46,14 @@ orders = Table(
     Column("accepted_at", DateTime(timezone=True)),
     Column("cancelled_at", DateTime(timezone=True)),
     Column("expired_at", DateTime(timezone=True)),
+    Column("picked_up_at", DateTime(timezone=True)),
+    Column("delivered_at", DateTime(timezone=True)),
+    Column("completed_at", DateTime(timezone=True)),
+    Column("overdue_at", DateTime(timezone=True)),
+    Column("failed_at", DateTime(timezone=True)),
+    Column("failed_by", UUID),
+    Column("failure_reason", Text),
+    Column("failure_details", Text),
     Column("supplier_id", UUID, nullable=False),
     Column("supplier_snapshot", JSONB, nullable=False),
     Column("item_description", Text, nullable=False),
@@ -69,6 +77,8 @@ history = Table(
     Column("actor_id", UUID),
     Column("actor_type", Text, nullable=False),
     Column("occurred_at", DateTime(timezone=True), nullable=False),
+    Column("failure_reason", Text),
+    Column("failure_details", Text),
 )
 
 outbox = Table(
@@ -76,6 +86,9 @@ outbox = Table(
     metadata,
     Column("event_id", UUID, primary_key=True),
     Column("event_type", Text, nullable=False),
+    Column("requester_id", UUID),
+    Column("courier_id", UUID),
+    Column("amount", Integer),
     Column("order_id", UUID, ForeignKey("order_service.orders.id"), nullable=False),
     Column("reservation_id", UUID, nullable=False),
     Column("occurred_at", DateTime(timezone=True), nullable=False),

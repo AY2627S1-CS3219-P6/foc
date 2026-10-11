@@ -13,7 +13,7 @@ class LifecycleRepository:
     def __init__(self, sessions):
         self.sessions = sessions
 
-    async def transition(self, order_id: UUID, actor: UUID, action: Action):
+    async def transition(self, order_id: UUID, actor: UUID, action: Action, *, failure=None):
         async with self.sessions() as session, session.begin():
             result = await session.execute(
                 select(orders).where(orders.c.id == order_id).with_for_update()
@@ -23,7 +23,7 @@ class LifecycleRepository:
                 raise not_found()
             # transaction_timestamp() would permit a pre-deadline waiter to win too late.
             now = await session.scalar(select(func.clock_timestamp()))
-            values = transition_values(row, actor, action, now)
+            values = transition_values(row, actor, action, now, failure)
             if not values:
                 return row
             return await self._record(session, row, values, actor, now)
@@ -64,9 +64,20 @@ class LifecycleRepository:
                 actor_id=actor,
                 actor_type="SYSTEM" if actor is None else "USER",
                 occurred_at=now,
+                failure_reason=values.get("failure_reason"),
+                failure_details=values.get("failure_details"),
             )
         )
-        if values["state"] in ("CANCELLED", "EXPIRED"):
+        if values["state"] in ("CANCELLED", "EXPIRED", "COMPLETED", "FAILED"):
+            settlement = (
+                {
+                    "requester_id": row["requester_id"],
+                    "courier_id": row["courier_id"],
+                    "amount": row["reward"],
+                }
+                if values["state"] == "COMPLETED"
+                else {}
+            )
             await session.execute(
                 insert(outbox).values(
                     event_id=uuid4(),
@@ -77,6 +88,32 @@ class LifecycleRepository:
                     state="PENDING",
                     publish_attempts=0,
                     next_attempt_at=now,
+                    **settlement,
                 )
             )
         return updated.mappings().one()
+
+    async def overdue_batch(self, limit: int) -> int:
+        # Not a lifecycle transition: update only the overdue marker/updated time.
+        async with self.sessions() as session, session.begin():
+            result = await session.execute(
+                select(orders.c.id)
+                .where(
+                    orders.c.state.in_(("ACCEPTED", "PICKED_UP")),
+                    orders.c.overdue_at.is_(None),
+                    orders.c.delivery_deadline <= func.now(),
+                )
+                .order_by(orders.c.delivery_deadline, orders.c.id)
+                .limit(limit)
+                .with_for_update(skip_locked=True)
+            )
+            ids = list(result.scalars())
+            if ids:
+                await session.execute(
+                    update(orders)
+                    .where(orders.c.id.in_(ids))
+                    .values(
+                        overdue_at=orders.c.delivery_deadline, updated_at=func.clock_timestamp()
+                    )
+                )
+            return len(ids)

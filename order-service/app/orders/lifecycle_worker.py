@@ -30,9 +30,12 @@ async def run(*, publish=False):
                     worked = await publish_once(outbox, publisher, settings.outbox_lease_seconds)
                 else:
                     count = await lifecycle.expire_batch(settings.expiry_batch_size)
-                    worked = count == settings.expiry_batch_size
+                    overdue = await lifecycle.overdue_batch(settings.expiry_batch_size)
+                    worked = max(count, overdue) == settings.expiry_batch_size
                     if count:
                         logger.info("Expiry batch committed count=%s", count)
+                    if overdue:
+                        logger.info("Overdue batch committed count=%s", overdue)
             except (
                 SQLAlchemyError,
                 PostgresError,

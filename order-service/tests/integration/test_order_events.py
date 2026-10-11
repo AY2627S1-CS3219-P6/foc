@@ -12,6 +12,7 @@ from sqlalchemy import update
 from app.core.config import Settings
 from app.orders.outbox import OutboxRepository, RabbitPublisher, event_payload, publish_once
 from app.orders.tables import outbox
+from demo.credit_stub import Request, Store, TerminalEvent
 from tests.integration.test_lifecycle import lifecycle_db as _lifecycle_database  # noqa: F401
 from tests.integration.test_lifecycle import snapshot
 
@@ -46,6 +47,57 @@ async def due_first(database, order_id):
             .where(outbox.c.order_id == order_id)
             .values(next_attempt_at=datetime(1970, 1, 1, tzinfo=UTC))
         )
+
+
+@pytest.mark.parametrize("kind", ["complete", "fail"])
+async def test_terminal_outcome_survives_unroutable_delivery_and_duplicate_consumption(
+    lifecycle_db, broker, tmp_path, kind
+):
+    database, repo, seed = lifecycle_db
+    _, exchange, queue, publisher = broker
+    order_id, owner = await seed()
+    courier = uuid4()
+    await repo.transition(order_id, courier, "accept")
+    await repo.transition(order_id, courier, "pickup")
+    if kind == "complete":
+        await repo.transition(order_id, courier, "deliver")
+        await repo.transition(order_id, owner, "complete")
+    else:
+        await repo.transition(order_id, owner, "fail", failure={"reason": "ITEM_DAMAGED"})
+    completed, _, events = await snapshot(database, order_id)
+    assert completed["state"] == ("COMPLETED" if kind == "complete" else "FAILED")
+    await due_first(database, order_id)
+    out = OutboxRepository(database.session_context)
+    assert await publish_once(out, publisher)  # No Credit binding; outcome remains committed.
+    assert (await snapshot(database, order_id))[2][0]["state"] == "PENDING"
+    await queue.bind(exchange, routing_key=events[0]["event_type"])
+    await due_first(database, order_id)
+    assert await publish_once(out, publisher)
+    message = await queue.get(timeout=3)
+    event = TerminalEvent.model_validate_json(message.body)
+    if kind == "complete":
+        assert event.courierId == courier and event.requesterId == owner and event.amount == 5
+    else:
+        assert event.courierId is event.requesterId is event.amount is None
+    store = Store(str(tmp_path / "credit-simulation.sqlite"))
+    # Prepare only this simulated consumer's reservation with the captured contract identity.
+    with store.connect() as db:
+        value = Request(operationId=uuid4(), requesterId=owner, amount=5).model_dump(mode="json")
+        store.save(
+            db,
+            {
+                **value,
+                "orderId": str(order_id),
+                "state": "RESERVED",
+                "reservationId": str(events[0]["reservation_id"]),
+            },
+        )
+    store.release(event)
+    Store(store.path).release(event)  # Redelivery after processing but before ack.
+    assert store.get(order_id)["state"] == ("TRANSFERRED" if kind == "complete" else "RELEASED")
+    with store.connect() as db:
+        assert db.execute("SELECT count(*) FROM events").fetchone()[0] == 1
+    await message.ack()
 
 
 async def test_unroutable_event_retries_then_reaches_durable_queue(lifecycle_db, broker):
