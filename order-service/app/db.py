@@ -66,21 +66,26 @@ class Database:
             async with asyncio.timeout(PROBE_TIMEOUT_SECONDS):
                 async with self._engine.connect() as connection:
                     # A reachable but unmigrated/wrong database is not ready for Order.
-                    result = await connection.scalar(text(
-                        "SELECT has_schema_privilege(current_user, "
-                        "to_regnamespace('order_service')::oid, 'USAGE') "
-                        "AND has_table_privilege(current_user, "
-                        "to_regclass('order_service.orders')::oid, 'SELECT') "
-                        "AND has_table_privilege(current_user, "
-                        "to_regclass('order_service.order_history')::oid, 'SELECT') "
-                        "AND has_table_privilege(current_user, "
-                        "to_regclass('order_service.creation_operations')::oid, 'SELECT') "
-                        "AND has_table_privilege(current_user, "
-                        "to_regclass('order_service.outbox_events')::oid, 'SELECT') "
-                        "AND EXISTS (SELECT 1 FROM information_schema.columns "
-                        "WHERE table_schema='order_service' AND table_name='orders' "
-                        "AND column_name='expired_at')"
-                    ))
+                    result = await connection.scalar(
+                        text(
+                            "SELECT has_schema_privilege(current_user, "
+                            "to_regnamespace('order_service')::oid, 'USAGE') "
+                            "AND has_table_privilege(current_user, "
+                            "to_regclass('order_service.orders')::oid, 'SELECT') "
+                            "AND has_table_privilege(current_user, "
+                            "to_regclass('order_service.order_history')::oid, 'SELECT') "
+                            "AND has_table_privilege(current_user, "
+                            "to_regclass('order_service.creation_operations')::oid, 'SELECT') "
+                            "AND has_table_privilege(current_user, "
+                            "to_regclass('order_service.outbox_events')::oid, 'SELECT') "
+                            "AND EXISTS (SELECT 1 FROM information_schema.columns "
+                            "WHERE table_schema='order_service' AND table_name='orders' "
+                            "AND column_name='failed_at') "
+                            "AND EXISTS (SELECT 1 FROM information_schema.columns "
+                            "WHERE table_schema='order_service' AND table_name='outbox_events' "
+                            "AND column_name='courier_id')"
+                        )
+                    )
                     return result is True
         except (SQLAlchemyError, PostgresError, OSError, TimeoutError):
             # Do not log exception messages, SQL, URLs or credentials.

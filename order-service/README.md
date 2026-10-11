@@ -1,14 +1,16 @@
 # FoC Order Service
 
-Order creation/read, acceptance, cancellation and expiry are implemented.
+Order creation/read, acceptance, cancellation, expiry, pickup, delivery, completion
+unilateral participant failure and overdue tracking are implemented.
 Identity is checked through User; Supplier details are captured through its API.
 Credit HTTP calls follow the **proposed** contract in [API.md](API.md). Credit is
 not implemented in this checkout: real funded creation is not yet integrated.
 Test doubles exist in tests and an opt-in [isolated local demo](demo/README.md).
-Cancellation/expiry events are persisted and
+Cancellation/expiry/failure events are persisted and
 published asynchronously; a real Credit release consumer is still pending.
-Accept/Cancel UI controls are available on the errand detail page.
-Pickup/delivery/completion/failure are outside this slice.
+Role-appropriate lifecycle UI controls are available on the errand detail page.
+Either participant can mark ACCEPTED/PICKED_UP failed with a required reason and
+confirmation. No second approval or admin is needed; no penalty is applied.
 
 ## Try creation and lifecycle UI before Credit is ready
 
@@ -34,7 +36,7 @@ reads another service's database or imports its business logic.
 The application factory owns a connection pool and closes it on shutdown. Startup
 does not connect, migrate or seed the database. Readiness runs a bounded read-only
 check for schema access, SELECT access to four required tables and the lifecycle
-migration's expiry column. It does
+migrations' failure and completion-event columns. It does
 not prove external services are ready or replace migration validation. Liveness
 remains independent of it.
 
@@ -315,6 +317,47 @@ See [asyncpg connection options](https://magicstack.github.io/asyncpg/current/ap
 and [Supabase CLI configuration](https://supabase.com/docs/guides/local-development/cli/config).
 
 ## UI and isolated Credit simulation verification (2026-10-11)
+
+### Fulfilment/completion extension
+
+- 278 backend tests passed (239 isolated + 39 real PostgreSQL/RabbitMQ checks),
+  including 100 concurrent first completions with one event, authorized replays,
+  failed-event rollback, least-privilege writes, delayed consumption/deduplication,
+  late delivery/worker races, on-time delivered orders and migration preservation
+  of existing OPEN/ACCEPTED/CANCELLED data and terminal events.
+- 71 frontend unit/component and 73 browser tests passed, covering courier pickup/
+  delivery, requester-only confirmed completion, ambiguous-response retries,
+  waiting states, overdue feedback and no false payment confirmation.
+- `order.completed.v1` is a fact emitted atomically by Order; Credit is responsible
+  for its idempotent transfer. The isolated simulator now records TRANSFERRED and
+  recipient identity without implementing wallet balances or real Credit logic.
+- Rebuilt the isolated Docker demo and additively upgraded its existing database
+  without resetting data. Live smoke passed pickup/delivery/completion while the
+  simulator was offline, followed by one simulated transfer when it restarted.
+  Real User/Supplier APIs and RabbitMQ were used; real Credit was not. The 73
+  browser tests were rerun against the rebuilt demo with test-only HTTP responses;
+  desktop/mobile renders, TypeScript, Ruff and changed-file ESLint passed.
+- Unilateral FAILED now follows the user-approved revision of M3F8; original
+  other-party confirm/reject requirements are not claimed as fulfilled unchanged.
+  There are no penalties, physical-loss compensation, post-delivery complaints
+  or automatic requester-confirmation timeout.
+
+### Unilateral failure extension (current verification)
+
+- **326 backend tests passed (269 isolated + 57 PostgreSQL/RabbitMQ)**, including
+  100 concurrent first failures, 100 repeated HTTP retries, participant conflicts,
+  pickup/delivery races, rejected terminal reversals, atomic rollback, restricted
+  app-role writes, migration preservation and duplicate failure-event consumption.
+- **72 frontend unit/component and 77 browser regressions passed**, including both
+  participants, required reason/Other details, confirmation, disabled duplicate
+  clicks, frozen ambiguous reports, conflict/refresh and visible failure history.
+  TypeScript, Ruff, changed-file ESLint, whitespace and desktop/mobile renders passed.
+- Existing isolated demo database upgraded without reset; Docker images rebuilt.
+  Live smoke passed requester failure in ACCEPTED and courier failure in PICKED_UP,
+  actual RabbitMQ delivery and simulated RELEASED state. Existing completion/outage/
+  restart checks passed too. Real Credit integration and NFR load targets remain pending.
+
+### Earlier acceptance/cancellation/expiry UI slice
 
 - Full backend rerun: **186 passed** (159 isolated + 27 PostgreSQL/RabbitMQ
   integration checks in separate disposable test containers). Includes 15 simulator contract checks:

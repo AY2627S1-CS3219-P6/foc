@@ -14,7 +14,7 @@ from uuid import UUID, uuid4
 import aio_pika
 from fastapi import Depends, FastAPI, Header
 from fastapi.responses import JSONResponse
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 log = logging.getLogger("credit-simulator")
 
@@ -29,10 +29,29 @@ class Request(BaseModel):
 class TerminalEvent(BaseModel):
     model_config = ConfigDict(extra="forbid")
     eventId: UUID
-    eventType: Literal["order.cancelled.v1", "order.expired.v1"]
+    eventType: Literal[
+        "order.cancelled.v1", "order.expired.v1", "order.completed.v1", "order.failed.v1"
+    ]
     orderId: UUID
     reservationId: UUID
     occurredAt: AwareDatetime
+    requesterId: UUID | None = None
+    courierId: UUID | None = None
+    amount: StrictInt | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def completion_identity(self):
+        if self.eventType == "order.completed.v1":
+            if (
+                not self.requesterId
+                or not self.courierId
+                or not self.amount
+                or self.requesterId == self.courierId
+            ):
+                raise ValueError("Completion requires matching participants and amount")
+        elif any(value is not None for value in (self.requesterId, self.courierId, self.amount)):
+            raise ValueError("Release carries no transfer identity")
+        return self
 
 
 class StubError(Exception):
@@ -69,8 +88,10 @@ class Store:
 
     @staticmethod
     def save(db, value):
-        db.execute("INSERT OR REPLACE INTO reservations VALUES (?, ?)",
-                   (value["orderId"], json.dumps(value)))
+        db.execute(
+            "INSERT OR REPLACE INTO reservations VALUES (?, ?)",
+            (value["orderId"], json.dumps(value)),
+        )
 
     def get(self, order_id):
         with self.connect() as db:
@@ -84,30 +105,48 @@ class Store:
             if previous and any(previous[key] != value for key, value in identity.items()):
                 raise StubError(409, "IDENTITY_CONFLICT")
             if previous:
+                if abort and previous["state"] == "TRANSFERRED":
+                    raise StubError(409, "SETTLEMENT_CONFLICT")
                 if abort and previous["state"] != "CLOSED":
                     previous["state"] = "CLOSED"
                     self.save(db, previous)
                 return previous
             if not abort and mode != "success":
                 raise StubError(409, mode.upper())
-            value = {**identity, "orderId": str(order_id),
-                     "reservationId": None if abort else str(uuid4()),
-                     "state": "CLOSED" if abort else "RESERVED"}
+            value = {
+                **identity,
+                "orderId": str(order_id),
+                "reservationId": None if abort else str(uuid4()),
+                "state": "CLOSED" if abort else "RESERVED",
+            }
             self.save(db, value)
             return value
 
     def release(self, event: TerminalEvent):
+        # Historical method name retained for release-test compatibility; handles settlement.
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            if db.execute("SELECT 1 FROM events WHERE event_id = ?",
-                          (str(event.eventId),)).fetchone():
+            if db.execute(
+                "SELECT 1 FROM events WHERE event_id = ?", (str(event.eventId),)
+            ).fetchone():
                 return
             value = self.read(db, event.orderId)
             if not value or value["reservationId"] != str(event.reservationId):
                 raise ValueError("Unknown reservation")
+            target = "TRANSFERRED" if event.eventType == "order.completed.v1" else "RELEASED"
+            if target == "TRANSFERRED" and (
+                str(event.requesterId) != value["requesterId"] or event.amount != value["amount"]
+            ):
+                raise ValueError("Mismatched transfer")
             if value["state"] == "RESERVED":
-                value["state"] = "RELEASED"
+                value["state"] = target
+                if target == "TRANSFERRED":
+                    value["courierId"] = str(event.courierId)
                 self.save(db, value)
+            elif target == "TRANSFERRED" and (
+                value["state"] != target or value.get("courierId") != str(event.courierId)
+            ):
+                raise ValueError("Conflicting settlement")
             db.execute("INSERT INTO events VALUES (?)", (str(event.eventId),))
 
 
@@ -121,7 +160,12 @@ async def consume(store, broker_url, ready):
                     "foc.order-demo.events", aio_pika.ExchangeType.TOPIC, durable=True
                 )
                 queue = await channel.declare_queue("credit-simulator.releases", durable=True)
-                for key in ("order.cancelled.v1", "order.expired.v1"):
+                for key in (
+                    "order.cancelled.v1",
+                    "order.expired.v1",
+                    "order.completed.v1",
+                    "order.failed.v1",
+                ):
                     await queue.bind(exchange, routing_key=key)
                 ready.set()
                 async with queue.iterator() as messages:
@@ -139,7 +183,9 @@ async def consume(store, broker_url, ready):
                             await asyncio.sleep(1)
                         else:
                             await message.ack()
-                            log.info("SIMULATION: release recorded for order %s", event.orderId)
+                            log.info(
+                                "SIMULATION: terminal event recorded for order %s", event.orderId
+                            )
         except (OSError, aio_pika.exceptions.AMQPException):
             log.warning("SIMULATION: broker unavailable; reconnecting")
         finally:
@@ -168,9 +214,10 @@ def create_app(store: Store, secret: str, mode="success", broker_url=None):
 
     @app.exception_handler(StubError)
     async def error_handler(request, error):
-        return JSONResponse(status_code=error.status, content={
-            "error": {"code": error.code, "message": "Local Credit simulation response."}
-        })
+        return JSONResponse(
+            status_code=error.status,
+            content={"error": {"code": error.code, "message": "Local Credit simulation response."}},
+        )
 
     def authorize(x_foc_service_secret: str = Header(default="")):
         if not hmac.compare_digest(x_foc_service_secret.encode(), secret.encode()):
@@ -186,20 +233,24 @@ def create_app(store: Store, secret: str, mode="success", broker_url=None):
 
     prefix = "/v1/internal/order-reservations/{order_id}"
 
+    def contract(value):
+        # Internal recipient evidence is not an extra field in the reservation HTTP contract.
+        return {key: item for key, item in value.items() if key != "courierId"}
+
     @app.get(prefix, dependencies=[Depends(authorize)])
     def status(order_id: UUID):
         value = store.get(order_id)
         if not value:
             raise StubError(404, "NOT_FOUND")
-        return value
+        return contract(value)
 
     @app.put(prefix, dependencies=[Depends(authorize)])
     def reserve(order_id: UUID, request: Request):
-        return store.change(order_id, request, mode=mode)
+        return contract(store.change(order_id, request, mode=mode))
 
     @app.put(prefix + "/creation-abort", dependencies=[Depends(authorize)])
     def abort(order_id: UUID, request: Request):
-        return store.change(order_id, request, abort=True)
+        return contract(store.change(order_id, request, abort=True))
 
     return app
 
@@ -207,9 +258,12 @@ def create_app(store: Store, secret: str, mode="success", broker_url=None):
 def from_environment():
     if os.environ.get("CREDIT_SIMULATOR_ENABLED") != "local-only":
         raise RuntimeError("Explicit local-only opt-in required")
-    return create_app(Store(os.environ.get("SIMULATOR_DB", "/data/credit.sqlite")),
-                      os.environ["CREDIT_SERVICE_SECRET"],
-                      os.environ.get("SIMULATOR_MODE", "success"), os.environ["RABBITMQ_URL"])
+    return create_app(
+        Store(os.environ.get("SIMULATOR_DB", "/data/credit.sqlite")),
+        os.environ["CREDIT_SERVICE_SECRET"],
+        os.environ.get("SIMULATOR_MODE", "success"),
+        os.environ["RABBITMQ_URL"],
+    )
 
 
 if __name__ == "__main__":
@@ -222,4 +276,4 @@ if __name__ == "__main__":
             value = json.loads(body)
             print(json.dumps({key: value[key] for key in ("orderId", "amount", "state")}))
         count = db.execute("SELECT count(*) FROM events").fetchone()[0]
-        print("Simulated releases consumed:", count)
+        print("Simulated terminal events consumed:", count)

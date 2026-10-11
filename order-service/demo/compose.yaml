@@ -30,6 +30,8 @@ services:
       - ../supabase/migrations/20261009000000_order_foundation.sql:/docker-entrypoint-initdb.d/10-schema.sql:ro
       - ../supabase/migrations/20261009000100_order_creation.sql:/docker-entrypoint-initdb.d/20-create.sql:ro
       - ../supabase/migrations/20261011000000_order_accept_cancel_expire.sql:/docker-entrypoint-initdb.d/30-lifecycle.sql:ro
+      - ../supabase/migrations/20261011000100_order_fulfilment_completion.sql:/docker-entrypoint-initdb.d/40-fulfilment.sql:ro
+      - ../supabase/migrations/20261011000200_order_participant_failure.sql:/docker-entrypoint-initdb.d/50-failure.sql:ro
     healthcheck:
       test: [CMD-SHELL, 'pg_isready -U postgres']
       interval: 3s

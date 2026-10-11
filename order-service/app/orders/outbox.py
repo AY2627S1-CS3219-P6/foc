@@ -14,15 +14,22 @@ from app.orders.tables import outbox
 logger = logging.getLogger("foc.order.outbox")
 
 
-def event_payload(event) -> dict[str, str]:
+def event_payload(event) -> dict[str, str | int]:
     """Explicit allowlist: no user profiles, instructions, credentials or wallet balances."""
-    return {
+    payload = {
         "eventId": str(event["event_id"]),
         "eventType": event["event_type"],
         "orderId": str(event["order_id"]),
         "reservationId": str(event["reservation_id"]),
         "occurredAt": event["occurred_at"].astimezone(UTC).isoformat().replace("+00:00", "Z"),
     }
+    if event["event_type"] == "order.completed.v1":
+        payload.update(
+            requesterId=str(event["requester_id"]),
+            courierId=str(event["courier_id"]),
+            amount=event["amount"],
+        )
+    return payload
 
 
 class OutboxRepository:

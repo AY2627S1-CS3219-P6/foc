@@ -53,7 +53,7 @@ export function OrderListPage({ mine = false }: { mine?: boolean }) {
     {loading ? <p className="order-panel" role="status">Loading errands…</p> : null}
     {error ? <OrderFailure message={error} retry={() => setReload((n) => n + 1)} /> : null}
     {!loading && !error && result ? <>
-      {result.items.length ? <div className="order-card-grid">{result.items.map((order) => <OrderCard key={order.orderId} order={order} />)}</div> : <section className="order-panel order-empty"><h2>{mine ? "No errands here yet" : "No open errands found"}</h2><p>{mine ? relationship === "requester" ? "Your requests will appear here after creation is confirmed." : "Your assigned errands will appear here once courier acceptance is available." : "Try another supplier or check again later."}</p><Link to="/orders/new">Create an errand</Link></section>}
+      {result.items.length ? <div className="order-card-grid">{result.items.map((order) => <OrderCard key={order.orderId} order={order} />)}</div> : <section className="order-panel order-empty"><h2>{mine ? "No errands here yet" : "No open errands found"}</h2><p>{mine ? relationship === "requester" ? "Errands you post will appear here." : "Errands you accept will appear here." : "Try another supplier or check again later."}</p><Link to="/orders/new">Create an errand</Link></section>}
       <OrderPagination page={result.page} pageSize={result.pageSize} total={result.total} onPage={(next) => query("page", String(next))} />
     </> : null}
   </OrderShell>;
