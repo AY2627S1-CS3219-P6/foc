@@ -6,6 +6,11 @@ WebSocket command and protected outgoing frame. Idle connections are rechecked e
 and at token expiry. JWT verification alone never authorizes a session. Administrator roles
 have the same participant-only access rules. User Service failures fail closed.
 
+An upstream `401 INVALID_SERVICE_IDENTITY` is a backend configuration failure and maps to
+`503 SERVICE_NOT_READY`, not a rejected browser session. Participant/JWKS requests have no
+caller session; their upstream 401 responses also map to 503. Actual caller-session rejection
+from `/v1/users/me` or username search still maps to `401 INVALID_SESSION`.
+
 User Service identity lookup uses only `X-FoC-Service-Secret` with
 `CHAT_SERVICE_SHARED_SECRET`. Search also forwards the caller token. Participant lookup sends
 no caller token and batches at 100 UUIDs. Responses are validated, missing IDs remain distinct

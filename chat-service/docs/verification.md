@@ -10,6 +10,10 @@ This is a backend handoff, not full Sprint 3 UI acceptance or Sprint 4 performan
   the disposable restricted login. All database/broker tests ran, including opt-in restart tests.
   Final run: 54.36 seconds. One upstream Starlette TestClient/httpx deprecation warning remains;
   no failed or skipped tests in this run.
+- **13 October regression check:** 25 unit cases passed after separating backend service-identity
+  failures from caller-session failures; 19 database/broker cases were deliberately deselected.
+  The four new cases cover a valid caller with a wrong service secret, non-session upstream
+  401s for participant/JWKS calls, and preserved 401 handling for a rejected search caller.
 - Ruff lint and format checks passed for `app`, `tests`, and `scripts`.
 - Supabase CLI 2.120.0 clean local resets applied both timestamped migrations successfully.
   No User Service or production/cloud database was reset by this worker.
@@ -68,6 +72,14 @@ and [WebSocket variables](https://learning.postman.com/docs/use/send-requests/pr
 If Chat health is ready but search/create returns 503, check the configured User Service
 address, interface availability and matching backend service secret before diagnosing chat
 storage. Readiness checks Chat's database and broker subscription, not the full identity path.
+An empty conversation list can succeed without a participant lookup, even when the backend
+service secret is wrong. Search always uses the service identity as well as the caller token.
+If User Service accepts `/v1/users/me` but rejects its internal chat endpoint with
+`INVALID_SERVICE_IDENTITY`, align `CHAT_SERVICE_SHARED_SECRET` in the two backends and recreate
+the affected container(s); editing an env file alone does not update a running container.
+Chat maps this backend identity failure to `503 SERVICE_NOT_READY`. A genuine rejected caller
+session remains `401 INVALID_SESSION`. Usernames matching the caller are simply excluded from
+search results; searching for yourself is not an authentication error.
 
 Create and select a local Postman environment with these initial values. Keep passwords,
 access tokens and OTPs local/secret; do not export or commit their populated values.

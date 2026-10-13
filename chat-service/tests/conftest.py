@@ -63,7 +63,7 @@ class Directory:
             person = self.people.get(__import__("uuid").UUID(uid))
             return httpx.Response(200, json=person) if person else httpx.Response(401)
         if request.headers.get("X-FoC-Service-Secret") != "test-chat-secret":
-            return httpx.Response(401)
+            return httpx.Response(401, json={"error": {"code": "INVALID_SERVICE_IDENTITY"}})
         if request.url.path == "/v1/internal/chat/participants":
             import json
             from uuid import UUID

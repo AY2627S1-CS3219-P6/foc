@@ -2,6 +2,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from pydantic import SecretStr
 
 from app.config import Settings
 from app.errors import ApiError
@@ -84,3 +85,48 @@ async def test_malformed_jwks_and_correlation(directory):
     finally:
         correlation_id.reset(token)
         await client.close()
+
+
+async def test_wrong_service_secret_does_not_reject_valid_user_session(identity, directory):
+    caller = await identity.authenticate(directory.token(directory.user()))
+    identity.settings.chat_service_shared_secret = SecretStr("wrong-secret")
+    for operation in (
+        identity.search(caller, {"username": "alex"}),
+        identity.participants([caller.user_id]),
+    ):
+        with pytest.raises(ApiError) as caught:
+            await operation
+        assert caught.value.status == 503
+        assert caught.value.code == "SERVICE_NOT_READY"
+    assert (await identity.authenticate(caller.token)).user_id == caller.user_id
+
+
+@pytest.mark.parametrize(
+    "method,path", [("GET", "/.well-known/jwks.json"), ("POST", "/v1/internal/chat/participants")]
+)
+async def test_non_session_401_is_dependency_failure(method, path):
+    client = IdentityClient(
+        Settings(_env_file=None), httpx.MockTransport(lambda r: httpx.Response(401))
+    )
+    try:
+        with pytest.raises(ApiError) as caught:
+            await client.request(method, path)
+        assert caught.value.status == 503
+    finally:
+        await client.close()
+
+
+async def test_revoked_search_caller_still_returns_401(identity, directory):
+    caller = await identity.authenticate(directory.token(directory.user()))
+
+    async def rejected(request):
+        return httpx.Response(401, json={"error": {"code": "INVALID_ACCESS_TOKEN"}})
+
+    await identity.http.aclose()
+    identity.http = httpx.AsyncClient(
+        base_url="http://user", transport=httpx.MockTransport(rejected)
+    )
+    with pytest.raises(ApiError) as caught:
+        await identity.search(caller, {"username": "alex"})
+    assert caught.value.status == 401
+    assert caught.value.code == "INVALID_SESSION"

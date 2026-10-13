@@ -75,13 +75,21 @@ class IdentityClient:
             raise unavailable()
         return {"X-FoC-Service-Secret": secret.get_secret_value()}
 
-    async def request(self, method, path, **kwargs):
+    async def request(self, method, path, *, user_session=False, **kwargs):
         headers = kwargs.pop("headers", {})
         if correlation_id.get():
             headers = {**headers, "X-Correlation-ID": correlation_id.get()}
         try:
             response = await self.http.request(method, path, headers=headers, **kwargs)
             if response.status_code == 401:
+                # A service-identity failure says nothing about the caller's bearer token.
+                # Background/public calls have no caller session to reject.
+                try:
+                    upstream_code = response.json().get("error", {}).get("code")
+                except (ValueError, AttributeError):
+                    upstream_code = None
+                if not user_session or upstream_code == "INVALID_SERVICE_IDENTITY":
+                    raise unavailable()
                 raise unauthorized()
             if response.status_code == 422:
                 raise ApiError(422, "VALIDATION_ERROR", "Invalid directory query.")
@@ -148,7 +156,7 @@ class IdentityClient:
         except (jwt.PyJWTError, ValueError, TypeError, KeyError) as error:
             raise unauthorized() from error
         data = await self.request(
-            "GET", "/v1/users/me", headers={"Authorization": f"Bearer {token}"}
+            "GET", "/v1/users/me", user_session=True, headers={"Authorization": f"Bearer {token}"}
         )
         try:
             me = Me.model_validate(data)
@@ -186,7 +194,9 @@ class IdentityClient:
 
     async def search(self, principal, query):
         headers = {**self.service_headers(), "Authorization": f"Bearer {principal.token}"}
-        data = await self.request("GET", "/v1/internal/chat/users", headers=headers, params=query)
+        data = await self.request(
+            "GET", "/v1/internal/chat/users", user_session=True, headers=headers, params=query
+        )
         try:
             page = SearchPage.model_validate(data)
             if any(p.userId == principal.user_id for p in page.items):
