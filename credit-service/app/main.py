@@ -14,6 +14,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings, get_settings
 from app.credits.errors import ApiError, CreditError
+from app.credits.internal_api import router as internal_router
+from app.credits.ledger import CreditLedger
 from app.db import Database, DatabaseUnavailableError
 
 _SAFE_REQUEST_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
@@ -67,7 +69,13 @@ def create_app(
     )
     app.state.settings = service_settings
     app.state.database = service_database
-    app.state.ledger = ledger
+    app.state.ledger = (
+        ledger
+        if ledger is not None
+        else CreditLedger(
+            service_database.session_context, service_settings.initial_credit_allocation
+        )
+    )
     app.state.identity = identity
 
     @app.exception_handler(ApiError)
@@ -108,6 +116,7 @@ def create_app(
         TimeoutError,
     ):
         app.add_exception_handler(error_type, database_error)
+    app.include_router(internal_router)
 
     @app.middleware("http")
     async def correlate_request(request: Request, call_next):
