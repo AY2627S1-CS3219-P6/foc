@@ -237,6 +237,7 @@ jobs:
 
       - name: Install locked chat service dependencies
         run: |
+          npm ci
           python -m pip install uv==0.11.7
           uv sync --locked --extra dev
 
@@ -250,8 +251,8 @@ jobs:
 
       - name: Rebuild the isolated Chat database from migrations
         run: |
-          npx --yes supabase@2.120.0 db start
-          npx --yes supabase@2.120.0 db reset --local
+          npx supabase db start
+          npx supabase db reset --local
           uv run python -m scripts.provision_test_role
 
       - name: Start the dedicated Chat test broker
@@ -364,7 +365,7 @@ jobs:
               docker rm --force "$container"
             fi
           done
-          npx --yes supabase@2.120.0 stop --no-backup
+          npx supabase stop --no-backup
 
   ci-passed:
     name: CI passed
