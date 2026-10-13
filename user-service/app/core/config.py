@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     jwt_refresh_token_ttl_seconds: int = Field(default=86_400, ge=300, le=2_592_000)
     jwt_session_idle_timeout_seconds: int = Field(default=1_800, ge=60, le=1_800)
     otp_hmac_secret: SecretStr | None = None
+    chat_service_shared_secret: SecretStr | None = None
     supplier_service_shared_secret: SecretStr | None = Field(
         default=None,
         validation_alias=AliasChoices(
@@ -78,6 +79,7 @@ class Settings(BaseSettings):
 
     @field_validator(
         "otp_hmac_secret",
+        "chat_service_shared_secret",
         "bootstrap_super_admin_password",
         "rabbitmq_url",
         mode="before",
