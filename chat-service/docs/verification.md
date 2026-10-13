@@ -1,8 +1,9 @@
 # Backend implementation and verification
 
-Verified 10–11 October 2026 (Asia/Singapore), on `feature/chat-service` in the assigned
-`worktrees/foc-chat-service` checkout. Implementation/commits are restricted to `chat-service/**`.
-This is a backend handoff, not full Sprint 3 UI acceptance or Sprint 4 performance certification.
+Initial backend verified 10–11 October 2026 (Asia/Singapore), on `feature/chat-service`
+in the assigned `worktrees/foc-chat-service` checkout, initially within `chat-service/**`.
+Shared startup/browser routing was added and verified on 13 October as recorded below.
+This is not full Sprint 3 UI acceptance or Sprint 4 performance certification.
 
 ## Actual results
 
@@ -37,6 +38,49 @@ to broker-confirmed publication 709.44 ms; sender-send to recipient live frame 8
 authenticated history request 41.82 ms. Publisher polling/default startup/backlog affect these
 samples. Do not extrapolate throughput, p95, latest-50 formal performance or 1,000 connections.
 
+## Shared startup and browser routing — 13 October 2026
+
+- Root Compose validates with the optional `chat` profile enabled. Without the profile,
+  base startup validates even when Chat's `.env` is absent. Chat's Docker database URL
+  remains separate from User Service's overlapping configuration variable.
+- **84 frontend tests passed**, including HTTP route/query/header preservation, bounded
+  Chat prefix matching, and bidirectional WebSocket frames through the actual Vite proxy
+  with a test backend. Frontend lint and the production web/Chat image builds passed.
+- An isolated Nginx container started without any Chat DNS entry: website and User routes
+  returned 200, lookalike Chat paths stayed with User, and disabled Chat returned 502.
+  The temporary containers and network were removed after the check.
+- The normal development stack was switched from the service-local Chat containers to
+  root `foc-dev-chat-service-1` and `foc-dev-chat-outbox-1`. Both run as uid 1000, use Chat's
+  database on 17422, and connect to the existing shared RabbitMQ. The real User Service
+  participant identity probe still returned 200. API/database/broker readiness passed.
+- Existing message/outbox row counts survived the switch. User, Supplier and Chat `.env`
+  files remained byte-for-byte unchanged. No database was reset or migrated.
+- Subsequent local-setup simplification, requested on 13 October: Chat's two database
+  URLs now use the local Supabase `postgres`/`postgres` defaults on 17422. Both root
+  API/publisher database connections and readiness passed; all 124 existing messages
+  were retained. Other Chat settings and User/Supplier `.env` files were unchanged.
+  Restricted-role privilege checks above apply to the isolated test login; deployment
+  still requires a dedicated restricted login. No database password or schema was changed.
+- Live Nginx on port 3000 and temporary Vite on 5173 both forwarded Chat HTTP requests
+  and completed WebSocket upgrades (101). Chat rejected invalid tokens with close 4401
+  and invalid browser origins with HTTP 403; the proxies preserved Origin and HTTP
+  correlation IDs. All four exact allowed local origins worked through Nginx.
+- The live routing probes deliberately used invalid tokens, not new authenticated message
+  sends. Earlier real authenticated delivery evidence remains recorded above. The temporary
+  Vite process was stopped; the integrated Docker stack remains running. Final Chat UI,
+  refresh/recovery/read handling and an actual User + Chat CI regression remain follow-up.
+
+From the repository root, the unified command is:
+
+```sh
+docker compose --env-file user-service/.env --profile chat up --build -d
+```
+
+To run the manual checks through the browser proxy, use `CHAT_BASE_URL=http://localhost:3000`,
+`CHAT_WS_URL=ws://localhost:3000/v1/chat/ws`, and `WS_ORIGIN=http://localhost:3000` in Postman.
+Direct API checks on port 8003 remain supported. See the root and Chat READMEs for the one-time
+stop of the service-local API/publisher when changing launchers and the local origin override.
+
 ## Manual Postman walkthrough
 
 This is the ordered manual test guide. There is no bundled Chat Postman collection; import
@@ -56,9 +100,8 @@ and [WebSocket variables](https://learning.postman.com/docs/use/send-requests/pr
 - Have a migrated Chat database, running Chat API, independent `chat-outbox` publisher, and
   RabbitMQ. Normal development can use the shared RabbitMQ on 5672. Broker restart exercises
   below require the isolated test broker on 17425 instead, configured in both Chat processes.
-- Run User Service with the new `/v1/internal/chat/users` and `/participants` interfaces.
-  It must contain the `feature/user-service-chat-interface` worker's implementation; the
-  original main version used to start this Chat branch did not have these endpoints.
+- Run User Service with `/v1/internal/chat/users` and `/participants`; these interfaces
+  are included in the latest main merged into this branch.
   Configure the same dedicated `CHAT_SERVICE_SHARED_SECRET` in both backends. The old temporary
   demo on 18080 has been removed; these examples use the normal User Service port 8000.
   No internal service secret or Supabase credential is needed in these public Postman requests.
@@ -700,15 +743,18 @@ only; do not stop the shared User/Supplier broker or reset any database. Both Ch
 publisher must be configured for the resource you interrupt. Keep the A/B sockets open.
 
 To isolate publisher behaviour, stop just `chat-outbox` (Ctrl+C in its native terminal, or
-`docker compose --env-file .env --profile chat stop chat-outbox` from `chat-service`). Send this
+`docker compose --env-file user-service/.env --profile chat stop chat-outbox` from the
+repository root for the unified launcher). Send this
 on A: A receives durable acceptance, and HTTP history contains it, while B's live event waits.
 
 ```json
 {"type":"message.send","requestId":"10000000-0000-4000-8000-000000000022","conversationId":"{{CONVERSATION_AB}}","clientMessageId":"{{CLIENT_PUBLISHER_PAUSE}}","text":"Persisted while publisher stopped"}
 ```
 
-Restart with `uv run chat-outbox` or the service-local
-Compose `start chat-outbox`; B receives the event after confirmed publication. Record its
+Restart with `uv run chat-outbox` for native startup, or
+`docker compose --env-file user-service/.env --profile chat start chat-outbox` from the root.
+For the service-local launcher, use its own `.env` and Compose directory for both commands.
+B receives the event after confirmed publication. Record its
 persisted message/client ID before retrying the same payload to check duplicate-safe acceptance.
 
 For broker recovery, only when both Chat processes use `foc-chat-test-rabbitmq` on 17425:
@@ -903,8 +949,9 @@ escalation during this session. GitHub/gh was not used.
 
 ```powershell
 uv sync --locked --extra dev
-npx --yes supabase@2.120.0 start -x studio,imgproxy,inbucket,postgrest,realtime,storage-api,edge-runtime,logflare,vector,supavisor
-npx --yes supabase@2.120.0 db reset --local
+npm ci
+npx supabase start -x studio,imgproxy,inbucket,postgrest,realtime,storage-api,edge-runtime,logflare,vector,supavisor
+npx supabase db reset --local
 uv run python -m scripts.provision_test_role
 docker run --detach --name foc-chat-test-rabbitmq --publish 127.0.0.1:17425:5672 rabbitmq:4.1-management
 $env:CHAT_TEST_DATABASE_URL='postgresql+asyncpg://chat_test:local-chat-test-only@127.0.0.1:17422/postgres'

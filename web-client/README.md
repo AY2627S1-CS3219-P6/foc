@@ -1,7 +1,7 @@
 # FoC Web Client
 
 The React, Vite, and TypeScript client uses same-origin `/v1/` requests for
-User/Order Services and `/api/v1/` for Supplier Service. The APIs own authentication
+User/Order/Chat Services and `/api/v1/` for Supplier Service. The APIs own authentication
 and authorization decisions. The client does not connect to any service database.
 
 ## Local development
@@ -13,11 +13,23 @@ npm ci
 npm run dev
 ```
 
-Vite listens on port 5173. It proxies Order paths under `/v1/` to port 8002,
+Vite listens on port 5173. It proxies `/v1/chat` HTTP and WebSocket requests to
+Chat on port 8003, Order paths under `/v1/` to port 8002,
 other `/v1/` paths to User Service on port 8000, and Supplier API requests to
 Supplier Service on port 8001. Start the required services
 and their local databases using the [root setup guide](../README.md) for the
 complete UI. Sign in before opening Supplier pages.
+
+Enable Chat with the root Compose `chat` profile described in the root guide.
+Use `ws://localhost:5173/v1/chat/ws` in Vite development and
+`ws://localhost:3000/v1/chat/ws` with Docker. Both proxies preserve the path,
+query, bearer/correlation headers and browser Origin. Chat still requires its
+authentication frame within five seconds of connecting. The root profile's
+allow-list includes both browser ports; native/service-local Chat uses
+`ALLOWED_ORIGINS` from its own settings. Nginx resolves Chat only on requests,
+so the base website starts when the optional Chat profile is disabled.
+Chat pages, token refresh/reconnection, read acknowledgements and history
+recovery UI remain follow-up work.
 
 | Route | Audience | Purpose |
 | --- | --- | --- |

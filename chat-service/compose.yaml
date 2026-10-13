@@ -1,4 +1,4 @@
-# Standalone service-local launcher. Root Compose integration remains a separate change.
+# Standalone service-local launcher. Use the root chat profile for unified startup.
 name: foc-chat-dev
 services:
   chat-service:
