@@ -139,12 +139,12 @@ and allocation on first use (wallet view, first errand, or first payout).
 
 ## D3 demo
 
-1. Register two users (requester and courier). Each `GET /v1/wallets/me` (the Credits
+1. Register two users (requester and courier). Each `GET /v1/wallets/me` (the Wallet
    page) shows `available 20, reserved 0, total 20`.
-2. The requester creates an errand with reward 5: `15 / 5 / 20`, history shows
-   *Reserved for errand*.
+2. The requester creates an errand with reward 5: `15 / 5 / 20`, recent activity shows
+   *Reserved −5*.
 3. The courier accepts, picks up and delivers; the requester completes. Requester
-   `15 / 0 / 15`; courier `25 / 0 / 25`, history shows *Errand reward +5*.
+   `15 / 0 / 15` with *Paid −5*; courier `25 / 0 / 25` with *Earned +5*.
 4. The requester creates and cancels another errand: the reserve and its release both
    appear in history and the balance returns.
 5. Redelivery: in the RabbitMQ UI (`http://localhost:15672`) publish the completion

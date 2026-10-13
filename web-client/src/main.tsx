@@ -6,6 +6,7 @@ import "./styles/app.css";
 import "./styles/supplier.css";
 import "./styles/workspace.css";
 import "./styles/order.css";
+import "./styles/wallet.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

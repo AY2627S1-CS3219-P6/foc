@@ -3,20 +3,62 @@ import { Link } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
 import { creditService, type CreditPage, type CreditTransaction, type Wallet } from "../api/credit-service";
 import { useAuth } from "../app/use-auth";
+import { OrderPagination } from "../components/order-ui";
 import { WorkspaceShell } from "../components/workspace-shell";
 
 const PAGE_SIZE = 10;
-const labels: Record<CreditTransaction["type"], string> = {
-  ALLOCATION: "Welcome credits",
-  RESERVATION: "Reserved for errand",
-  RELEASE: "Returned from errand",
-  TRANSFER: "Errand reward",
-};
+const SUMMARY = "Credits are reserved for open errands and transferred only after completion.";
 
-function signedAmount(item: CreditTransaction, me: string): string {
-  if (item.type === "TRANSFER") return item.counterpartyUserId === me ? `+${item.amount}` : `−${item.amount}`;
-  if (item.type === "RESERVATION") return `−${item.amount}`;
-  return `+${item.amount}`;
+type Activity = { label: string; tone: "reserved" | "earned" | "released" | "paid"; sign: "+" | "−" };
+
+function activity(item: CreditTransaction, me: string): Activity {
+  if (item.type === "ALLOCATION") return { label: "Welcome", tone: "earned", sign: "+" };
+  if (item.type === "RESERVATION") return { label: "Reserved", tone: "reserved", sign: "−" };
+  if (item.type === "RELEASE") return { label: "Released", tone: "released", sign: "+" };
+  return item.counterpartyUserId === me
+    ? { label: "Earned", tone: "earned", sign: "+" }
+    : { label: "Paid", tone: "paid", sign: "−" };
+}
+
+const sgtDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Singapore" });
+const sgtDate = new Intl.DateTimeFormat("en-SG", { timeZone: "Asia/Singapore", day: "numeric", month: "short", year: "numeric" });
+const sgtClock = new Intl.DateTimeFormat("en-SG", { timeZone: "Asia/Singapore", hour: "numeric", minute: "2-digit" });
+
+function activityTime(value: string, now = new Date()): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Time unavailable";
+  const day = sgtDay.format(date);
+  const yesterday = new Date(now.getTime() - 86_400_000);
+  const label = day === sgtDay.format(now) ? "Today" : day === sgtDay.format(yesterday) ? "Yesterday" : sgtDate.format(date);
+  return `${label} · ${sgtClock.format(date).toUpperCase()}`;
+}
+
+function BalanceStat({ label, value, note, compact = false }: { label: string; value: number; note?: string; compact?: boolean }) {
+  return <article className={`wallet-stat${compact ? " wallet-stat-compact" : ""}`}>
+    <p>{label}</p>
+    <strong>{value}<span className="wallet-unit"> credits</span></strong>
+    {note ? <span>{note}</span> : null}
+  </article>;
+}
+
+function ActivityRow({ item, me }: { item: CreditTransaction; me: string }) {
+  const { label, tone, sign } = activity(item, me);
+  const title = item.orderId ? `${label} · #${item.orderId.slice(0, 8).toUpperCase()}` : `${label} credits`;
+  const content = <>
+    <span className="wallet-activity-detail">
+      <strong>{title}</strong>
+      <time dateTime={item.createdAt}>{activityTime(item.createdAt)}</time>
+    </span>
+    <span className="wallet-activity-amount">
+      <span className={`wallet-pill wallet-tone-${tone}`}>{label.toUpperCase()}</span>
+      <strong className={`wallet-tone-${tone}`}>{sign}{item.amount}</strong>
+    </span>
+  </>;
+  return <li>
+    {item.orderId
+      ? <Link aria-label={`${title}, ${sign}${item.amount} credits. View errand`} className="wallet-activity-row" to={`/orders/${item.orderId}`}>{content}</Link>
+      : <div className="wallet-activity-row">{content}</div>}
+  </li>;
 }
 
 export function WalletPage() {
@@ -49,32 +91,23 @@ export function WalletPage() {
     return () => { active = false; };
   }, [page, withCurrentAccess]);
 
-  const lastPage = history ? Math.max(1, Math.ceil(history.total / history.pageSize)) : 1;
-  return <WorkspaceShell className="order-shell" userDescription="Your credits for requesting and delivering errands.">
-    {error ? <section className="order-panel" role="alert"><p>{error}</p></section> : null}
-    {wallet ? <section className="order-panel" aria-label="Credit balance">
-      <h1>Credits</h1>
-      <dl>
-        <div><dt>Available</dt><dd>{wallet.available}</dd></div>
-        <div><dt>Reserved</dt><dd>{wallet.reserved}</dd></div>
-        <div><dt>Total</dt><dd>{wallet.total}</dd></div>
-      </dl>
+  return <WorkspaceShell className="order-shell wallet-shell" userDescription="Your credits for requesting and delivering errands.">
+    <header className="order-heading"><div><h1>Credit wallet</h1><p>{SUMMARY}</p></div></header>
+    {error ? <section className="order-panel order-error" role="alert"><p>{error}</p></section> : null}
+    {wallet ? <section aria-label="Credit balance" className="wallet-balances">
+      <BalanceStat label="Available" note="Spendable now" value={wallet.available} />
+      <BalanceStat compact label="Reserved" value={wallet.reserved} />
+      <BalanceStat compact label="Total" note="Closed campus economy" value={wallet.total} />
     </section> : null}
-    {history && user ? <section className="order-panel" aria-label="Credit history">
-      <h2>History</h2>
-      {history.items.length === 0 ? <p>No credit activity yet.</p> : <ul>
-        {history.items.map((item) => <li key={item.transactionId}>
-          <span>{labels[item.type]}</span>{" "}
-          <strong>{signedAmount(item, user.userId)}</strong>{" "}
-          {item.orderId ? <Link to={`/orders/${item.orderId}`}>View errand</Link> : null}{" "}
-          <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
-        </li>)}
-      </ul>}
-      <nav aria-label="History pages">
-        <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button>
-        <span>Page {page} of {lastPage}</span>
-        <button type="button" disabled={page >= lastPage} onClick={() => setPage(page + 1)}>Next</button>
-      </nav>
+    {history && user ? <section aria-label="Credit history" className="wallet-activity">
+      <h2>Recent activity</h2>
+      {history.items.length === 0
+        ? <p className="wallet-empty">No credit activity yet.</p>
+        : <ul>{history.items.map((item) => <ActivityRow item={item} key={item.transactionId} me={user.userId} />)}</ul>}
+      {history.total > history.pageSize
+        ? <OrderPagination onPage={setPage} page={page} pageSize={history.pageSize} total={history.total} />
+        : null}
     </section> : null}
+    {wallet ? <p className="wallet-footnote">Credits stay inside campus — they cannot be cashed out or transferred outside an errand.</p> : null}
   </WorkspaceShell>;
 }
