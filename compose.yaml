@@ -81,6 +81,7 @@ services:
     environment:
       USER_SERVICE_BASE_URL: http://user-service:8000
       SUPPLIER_SERVICE_BASE_URL: http://supplier-service:8001
+      CREDIT_SERVICE_BASE_URL: http://credit-service:8003
     extra_hosts:
       - host.docker.internal:host-gateway
     ports:
@@ -96,6 +97,7 @@ services:
     environment:
       USER_SERVICE_BASE_URL: http://user-service:8000
       SUPPLIER_SERVICE_BASE_URL: http://supplier-service:8001
+      CREDIT_SERVICE_BASE_URL: http://credit-service:8003
     extra_hosts:
       - host.docker.internal:host-gateway
     depends_on:
@@ -135,6 +137,41 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    healthcheck:
+      disable: true
+    networks:
+      - support
+
+  # Optional until every teammate has configured Credit's own local database.
+  # Enable with --profile credit. No database migrations run on API startup.
+  credit-service:
+    profiles: [credit]
+    build: ./credit-service
+    env_file: ./credit-service/.env.docker
+    environment:
+      USER_SERVICE_BASE_URL: http://user-service:8000
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "127.0.0.1:8003:8003"
+    networks:
+      - edge
+
+  credit-consumer:
+    profiles: [credit]
+    build: ./credit-service
+    command: [credit-consumer]
+    env_file: ./credit-service/.env.docker
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-foc_user_service}:${RABBITMQ_PASSWORD:?Pass --env-file user-service/.env}@rabbitmq:5672/
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      credit-service:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       disable: true
     networks:

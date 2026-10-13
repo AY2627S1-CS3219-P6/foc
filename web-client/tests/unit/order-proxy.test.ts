@@ -9,7 +9,7 @@ let baseUrl: string;
 
 beforeAll(async () => {
   const targets = new Map<string, string>();
-  for (const [port, name] of [[8000, "user"], [8001, "supplier"], [8002, "order"]] as const) {
+  for (const [port, name] of [[8000, "user"], [8001, "supplier"], [8002, "order"], [8003, "credit"]] as const) {
     const backend = await createServer({
       configFile: false, logLevel: "silent",
       server: { host: "127.0.0.1", port: 0, hmr: false },
@@ -57,6 +57,11 @@ it.each([
   ["/v1/orders-other", "user"],
   ["/api/v1/suppliers?page_size=6", "supplier"],
   ["/api/v1/admin/suppliers", "supplier"],
+  ["/v1/wallets/me", "credit"],
+  ["/v1/wallets/me/transactions?page=1&pageSize=20", "credit"],
+  ["/v1/admin/wallets/id", "credit"],
+  ["/v1/wallets-other", "user"],
+  ["/v1/internal/order-reservations/id", "user"],
 ])("routes %s only to %s", async (path, service) => {
   const response = await fetch(new URL(path, baseUrl));
   expect(response.status).toBe(200);

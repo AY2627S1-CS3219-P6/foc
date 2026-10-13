@@ -26,6 +26,7 @@ function navigationGroups(user: CurrentUser, mode: WorkspaceMode): NavigationGro
       { label: "Suppliers", to: "/suppliers", Icon: SupplierNavigationIcon },
       { label: "Open errands", to: "/orders", Icon: OrderIcon },
       { label: "My errands", to: "/orders/mine", Icon: OrderIcon },
+      { label: "Credits", to: "/wallet", Icon: ProfileIcon },
     ] });
   }
 
