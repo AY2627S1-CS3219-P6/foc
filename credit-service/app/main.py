@@ -13,7 +13,9 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings, get_settings
+from app.credits.api import router as user_router
 from app.credits.errors import ApiError, CreditError
+from app.credits.identity import UserDirectory
 from app.credits.internal_api import router as internal_router
 from app.credits.ledger import CreditLedger
 from app.db import Database, DatabaseUnavailableError
@@ -76,7 +78,9 @@ def create_app(
             service_database.session_context, service_settings.initial_credit_allocation
         )
     )
-    app.state.identity = identity
+    app.state.identity = (
+        identity if identity is not None else UserDirectory(service_settings, http)
+    )
 
     @app.exception_handler(ApiError)
     async def domain_error(request: Request, error: ApiError):
@@ -117,6 +121,7 @@ def create_app(
     ):
         app.add_exception_handler(error_type, database_error)
     app.include_router(internal_router)
+    app.include_router(user_router)
 
     @app.middleware("http")
     async def correlate_request(request: Request, call_next):
