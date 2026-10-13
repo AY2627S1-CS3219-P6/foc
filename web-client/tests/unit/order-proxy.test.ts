@@ -9,7 +9,12 @@ let baseUrl: string;
 
 beforeAll(async () => {
   const targets = new Map<string, string>();
-  for (const [port, name] of [[8000, "user"], [8001, "supplier"], [8002, "order"]] as const) {
+  for (const [targetUrl, name] of [
+    ["http://localhost:8000", "user"],
+    ["http://localhost:8001", "supplier"],
+    ["http://localhost:8002", "order"],
+    ["http://127.0.0.1:8003", "chat"],
+  ] as const) {
     const backend = await createServer({
       configFile: false, logLevel: "silent",
       server: { host: "127.0.0.1", port: 0, hmr: false },
@@ -25,7 +30,7 @@ beforeAll(async () => {
     });
     backends.push(backend);
     await backend.listen();
-    targets.set(`http://localhost:${port}`, backend.resolvedUrls!.local[0]);
+    targets.set(targetUrl, backend.resolvedUrls!.local[0]);
   }
   const proxy = Object.fromEntries(Object.entries(viteConfig.server!.proxy!).map(([prefix, options]) => {
     const target = typeof options === "string" ? options : String(options.target);
