@@ -1,4 +1,4 @@
-"""Authenticated create/read endpoints; Order owns relationship authorization."""
+"""Authenticated creation, retrieval and OPEN lifecycle endpoints."""
 
 from typing import Annotated
 from uuid import UUID
@@ -12,6 +12,7 @@ from app.orders.schemas import (
     AdminQuery,
     CreateOrder,
     CreationResponse,
+    FailOrder,
     HistoryEntry,
     OpenQuery,
     OrderAssessment,
@@ -72,10 +73,59 @@ async def creation_status(operation_id: UUID, request: Request, auth: Auth):
     return operation_view(operation)
 
 
+async def empty_action(request: Request):
+    # Commands have no client-owned actor/state fields, even in query parameters.
+    raw = await request.body()
+    if request.query_params:
+        raise ApiError(422, "VALIDATION_ERROR", "This action accepts no query fields.")
+    if raw:
+        try:
+            body = await request.json()
+        except ValueError:
+            raise ApiError(422, "VALIDATION_ERROR", "Use an empty body or JSON object.") from None
+        if body != {}:
+            raise ApiError(422, "VALIDATION_ERROR", "This action accepts no body fields.")
+
+
+@router.post("/orders/{order_id}/accept", response_model=OrderParticipant)
+async def accept_order(order_id: UUID, request: Request, auth: Auth):
+    await empty_action(request)
+    row = await request.app.state.lifecycle.transition(order_id, auth[0].user_id, "accept")
+    return project_order(row, participant=True)
+
+
+@router.post("/orders/{order_id}/cancel", response_model=OrderParticipant)
+async def cancel_order(order_id: UUID, request: Request, auth: Auth):
+    await empty_action(request)
+    row = await request.app.state.lifecycle.transition(order_id, auth[0].user_id, "cancel")
+    return project_order(row, participant=True)
+
+
 @router.get("/orders", response_model=Page[OrderAssessment])
 async def open_orders(request: Request, auth: Auth, query: Annotated[OpenQuery, Query()]):
     rows, total = await request.app.state.repository.list_orders(query, available=True)
     return page_result([project_order(row) for row in rows], total, query)
+
+
+@router.post("/orders/{order_id}/pickup", response_model=OrderParticipant)
+async def pickup_order(order_id: UUID, request: Request, auth: Auth):
+    await empty_action(request)
+    row = await request.app.state.lifecycle.transition(order_id, auth[0].user_id, "pickup")
+    return project_order(row, participant=True)
+
+
+@router.post("/orders/{order_id}/deliver", response_model=OrderParticipant)
+async def deliver_order(order_id: UUID, request: Request, auth: Auth):
+    await empty_action(request)
+    row = await request.app.state.lifecycle.transition(order_id, auth[0].user_id, "deliver")
+    return project_order(row, participant=True)
+
+
+@router.post("/orders/{order_id}/complete", response_model=OrderParticipant)
+async def complete_order(order_id: UUID, request: Request, auth: Auth):
+    await empty_action(request)
+    row = await request.app.state.lifecycle.transition(order_id, auth[0].user_id, "complete")
+    return project_order(row, participant=True)
 
 
 @router.get("/orders/mine", response_model=Page[OrderParticipant])
@@ -85,6 +135,16 @@ async def own_orders(request: Request, auth: Auth, query: Annotated[OwnQuery, Qu
         **{query.relationship: auth[0].user_id},
     )
     return page_result([project_order(row, participant=True) for row in rows], total, query)
+
+
+@router.post("/orders/{order_id}/fail", response_model=OrderParticipant)
+async def fail_order(order_id: UUID, request: Request, body: FailOrder, auth: Auth):
+    if request.query_params:
+        raise ApiError(422, "VALIDATION_ERROR", "This action accepts no query fields.")
+    row = await request.app.state.lifecycle.transition(
+        order_id, auth[0].user_id, "fail", failure=body.model_dump()
+    )
+    return project_order(row, participant=True)
 
 
 @router.get("/admin/orders", response_model=Page[OrderParticipant])
@@ -123,6 +183,8 @@ async def order_history(
                 "actorId": row["actor_id"],
                 "actorType": row["actor_type"],
                 "occurredAt": row["occurred_at"],
+                "failureReason": row.get("failure_reason"),
+                "failureDetails": row.get("failure_details"),
             }
             for row in rows
         ],

@@ -9,6 +9,7 @@ description = "FoC Order Service"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+  "aio-pika>=9.5,<10.0",
   "asyncpg>=0.30,<1.0",
   "fastapi>=0.115,<1.0",
   "httpx>=0.28,<1.0",
@@ -35,6 +36,8 @@ markers = ["integration: checks against explicitly configured isolated Order dat
 
 [project.scripts]
 order-recovery = "app.orders.worker:main"
+order-expiry = "app.orders.lifecycle_worker:expiry_main"
+order-outbox = "app.orders.lifecycle_worker:publisher_main"
 
 [tool.ruff]
 target-version = "py313"

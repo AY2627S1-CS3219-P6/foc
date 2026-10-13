@@ -5,7 +5,9 @@ import type { OrderAssessment, OrderState } from "../api/order-service";
 import { WorkspaceShell } from "./workspace-shell";
 
 export function OrderShell({ children }: PropsWithChildren) {
-  return <WorkspaceShell className="order-shell" userDescription="Find what you need—or help someone along your route.">{children}</WorkspaceShell>;
+  return <WorkspaceShell className="order-shell" userDescription="Find what you need—or help someone along your route.">
+    {import.meta.env.VITE_ORDER_DEMO === "true" ? <section className="order-panel order-reservation" aria-label="Demo mode"><strong>Demo mode — test credits</strong><p>Credits in this demo are for testing and do not affect your real balance.</p></section> : null}
+    {children}</WorkspaceShell>;
 }
 
 export function OrderBadge({ state }: { state: OrderState }) {

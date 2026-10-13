@@ -2,6 +2,17 @@ import { requestJson } from "./client";
 
 export type OrderState = "OPEN" | "ACCEPTED" | "PICKED_UP" | "DELIVERED" | "COMPLETED" | "CANCELLED" | "EXPIRED" | "FAILED";
 export type OrderRelationship = "requester" | "courier";
+export type OrderAction = "accept" | "cancel" | "pickup" | "deliver" | "complete";
+export const failureReasons = {
+  ITEM_UNAVAILABLE: "Item unavailable",
+  ITEM_DAMAGED: "Item damaged",
+  UNABLE_TO_PICK_UP: "Unable to pick up",
+  UNABLE_TO_DELIVER: "Unable to deliver",
+  PARTICIPANT_UNREACHABLE: "Participant unreachable",
+  OTHER: "Other",
+} as const;
+export type FailureReason = keyof typeof failureReasons;
+export type OrderFailureInput = { reason: FailureReason; details?: string | null };
 
 export type OrderInput = {
   supplierId: string;
@@ -31,6 +42,17 @@ export type OrderParticipant = OrderAssessment & {
   requesterId: string;
   courierId: string | null;
   updatedAt: string;
+  acceptedAt?: string | null;
+  cancelledAt?: string | null;
+  expiredAt?: string | null;
+  pickedUpAt?: string | null;
+  deliveredAt?: string | null;
+  completedAt?: string | null;
+  overdueAt?: string | null;
+  failedAt?: string | null;
+  failedBy?: string | null;
+  failureReason?: FailureReason | null;
+  failureDetails?: string | null;
 };
 
 export type OrderDetail = OrderAssessment | OrderParticipant;
@@ -48,9 +70,11 @@ export type OrderHistoryEntry = {
   sequence: number;
   previousState: OrderState | null;
   newState: OrderState;
-  actorId: string;
+  actorId: string | null;
   actorType: "USER" | "SYSTEM";
   occurredAt: string;
+  failureReason?: FailureReason | null;
+  failureDetails?: string | null;
 };
 
 export type OrderPage<T> = { items: T[]; page: number; pageSize: number; total: number };
@@ -90,6 +114,20 @@ export const orderService = {
   },
   detail: (orderId: string, token: string) =>
     requestJson<OrderDetail>(`/orders/${encodeURIComponent(orderId)}`, { method: "GET" }, token),
+  accept: (orderId: string, token: string) =>
+    requestJson<OrderParticipant>(`/orders/${encodeURIComponent(orderId)}/accept`, { method: "POST" }, token),
+  cancel: (orderId: string, token: string) =>
+    requestJson<OrderParticipant>(`/orders/${encodeURIComponent(orderId)}/cancel`, { method: "POST" }, token),
+  pickup: (orderId: string, token: string) =>
+    requestJson<OrderParticipant>(`/orders/${encodeURIComponent(orderId)}/pickup`, { method: "POST" }, token),
+  deliver: (orderId: string, token: string) =>
+    requestJson<OrderParticipant>(`/orders/${encodeURIComponent(orderId)}/deliver`, { method: "POST" }, token),
+  complete: (orderId: string, token: string) =>
+    requestJson<OrderParticipant>(`/orders/${encodeURIComponent(orderId)}/complete`, { method: "POST" }, token),
+  fail: (orderId: string, input: OrderFailureInput, token: string) =>
+    requestJson<OrderParticipant>(`/orders/${encodeURIComponent(orderId)}/fail`, {
+      method: "POST", body: JSON.stringify({ reason: input.reason, details: input.details ?? null }),
+    }, token),
   history: (orderId: string, query: OrderPageQuery, token: string) => {
     const params = pageParams(query);
     return requestJson<OrderPage<OrderHistoryEntry>>(`/orders/${encodeURIComponent(orderId)}/history${params.size ? `?${params}` : ""}`, { method: "GET" }, token);

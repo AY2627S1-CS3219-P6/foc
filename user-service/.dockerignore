@@ -7,6 +7,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+.test-resources/
 node_modules/
 supabase/.branches/
 supabase/.temp/

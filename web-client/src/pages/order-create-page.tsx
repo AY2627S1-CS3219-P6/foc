@@ -18,7 +18,7 @@ function OrderCreateForm({ userId }: { userId: string }) {
   const { withCurrentAccess } = useAuth();
   const [initial] = useState(() => {
     try { return { attempt: readAttempt(userId), error: null }; }
-    catch { return { attempt: null, error: "Saved request recovery is unavailable. Do not post again until you have checked your existing errands and recovered this tab's saved request." }; }
+    catch { return { attempt: null, error: "We could not restore your saved request. Check My errands and reload this page before posting again." }; }
   });
   const [attempt, setAttempt] = useState<CreationAttempt | null>(initial.attempt);
   const [storageError, setStorageError] = useState<string | null>(initial.error);
@@ -33,14 +33,14 @@ function OrderCreateForm({ userId }: { userId: string }) {
 
   function persist(next: CreationAttempt | null) {
     try { saveAttempt(userId, next); setAttempt(next); return true; }
-    catch { setStorageError("This tab could not save recovery information. No new request will be sent. Enable session storage and reload before continuing."); return false; }
+    catch { setStorageError("Your browser could not save the request details. Check My errands and reload this page before posting again."); return false; }
   }
 
   function acceptProgress(next: OrderCreation) {
     setAttempt((current) => current ? { ...current, operation: next, closed: next.stage === "ABORTED" } : current);
     if (next.stage === "ABORTED" && attempt) {
       try { saveAttempt(userId, { ...attempt, closed: true }); }
-      catch { setStorageError("Could not save the closed attempt. Reload to recover before creating another errand."); }
+      catch { setStorageError("We could not save the latest update. Reload before creating another errand."); }
     }
   }
 
@@ -113,16 +113,15 @@ function OrderCreateForm({ userId }: { userId: string }) {
   return <OrderShell>
     <Link className="order-back" to="/orders">← Open errands</Link>
     {success ? <>
-      <div className="order-heading"><div><h1>{success.state === "OPEN" ? "Your errand is open" : "Your errand is confirmed"}</h1><p>{success.state === "OPEN" ? "Credit reservation is confirmed and your request is visible to eligible couriers." : "This saved request was already created. Here is its current state."}</p></div></div>
+      <div className="order-heading"><div><h1>{success.state === "OPEN" ? "Your errand is open" : "Your errand is confirmed"}</h1><p>{success.state === "OPEN" ? "Your errand is ready for someone to accept." : "Your errand was already posted. Here is its latest update."}</p></div></div>
       <section className="order-panel order-confirmation"><OrderBadge state={success.state} /><h2>{success.itemDescription}</h2><OrderSummary order={success} /><Link to={`/orders/${success.orderId}`}>View errand details</Link></section>
       <div className="order-actions"><Link className="order-button" to="/orders/mine">View my errands</Link><button className="order-button order-secondary" disabled={Boolean(storageError)} type="button" onClick={reset}>Create another</button></div>
     </> : <>
       <div className="order-heading"><div><h1>Create an errand</h1><p>Choose a pickup supplier, set the deadlines and offer a credit reward.</p></div></div>
-      {attempt ? <section className="order-panel order-pending" aria-label="Creation progress"><h2>{attempt.closed ? "This attempt is closed" : attempt.operation?.stage === "SUCCEEDED" ? "Creation confirmed" : "Request saved · confirmation pending"}</h2>
-        <p>{attempt.closed ? "No new errand will be created by this attempt. You can start a new request." : "Do not submit a separate request. Your original details and retry key are saved in this browser tab until the result is resolved."}</p>
-        {attempt.operation ? <p className="order-muted">{attempt.operation.stage.replaceAll("_", " ")}{attempt.operation.errorCode ? ` · ${attempt.operation.errorCode}` : ""}</p> : null}
+      {attempt ? <section className="order-panel order-pending" aria-label="Creation progress"><h2>{attempt.closed ? "Your errand was not posted" : attempt.operation?.stage === "SUCCEEDED" ? "Your errand is posted" : "Checking your errand"}</h2>
+        <p>{attempt.closed ? "You can create a new errand now." : attempt.operation?.stage === "SUCCEEDED" ? "View your errand below." : "We are checking whether your errand was posted. Keep this page open and do not post it again."}</p>
         <div className="order-actions">
-          {attempt.closed ? <button className="order-button" type="button" disabled={busy || Boolean(storageError)} onClick={reset}>Start a new request</button> : attempt.operation?.stage === "SUCCEEDED" && attempt.operation.orderId ? <><Link className="order-button" to={`/orders/${attempt.operation.orderId}`}>View confirmed errand</Link><button className="order-button order-secondary" type="button" disabled={busy || Boolean(storageError)} onClick={reset}>Create another</button></> : <button className="order-button" disabled={busy || Boolean(storageError) || Boolean(attempt.operation && !attempt.operation.retryCreation)} type="button" onClick={() => void submit()}>{busy ? "Checking…" : attempt.operation?.retryCreation ? "Finish creating errand" : "Retry same request"}</button>}
+          {attempt.closed ? <button className="order-button" type="button" disabled={busy || Boolean(storageError)} onClick={reset}>Start a new request</button> : attempt.operation?.stage === "SUCCEEDED" && attempt.operation.orderId ? <><Link className="order-button" to={`/orders/${attempt.operation.orderId}`}>View confirmed errand</Link><button className="order-button order-secondary" type="button" disabled={busy || Boolean(storageError)} onClick={reset}>Create another</button></> : <button className="order-button" disabled={busy || Boolean(storageError) || Boolean(attempt.operation && !attempt.operation.retryCreation)} type="button" onClick={() => void submit()}>{busy ? "Checking…" : attempt.operation?.retryCreation ? "Finish posting errand" : "Try again"}</button>}
           {operationId && !attempt.closed ? <button className="order-button order-secondary" disabled={busy} type="button" onClick={() => void checkProgress()}>Check status</button> : null}
         </div>
       </section> : null}
@@ -133,14 +132,14 @@ function OrderCreateForm({ userId }: { userId: string }) {
           {fields.supplierId ? <p className="field-error" role="alert">{fields.supplierId}</p> : null}
           <FormField label="Delivery location" value={form.deliveryLocation} onChange={(event) => update("deliveryLocation", event.target.value)} maxLength={300} required error={fields.deliveryLocation} placeholder="e.g. COM3 level 1 collection point" />
           <FormField label="Latest acceptance time (SGT)" type="datetime-local" value={form.acceptanceDeadline} onChange={(event) => update("acceptanceDeadline", event.target.value)} required error={fields.acceptanceDeadline} />
-          <FormField label="Latest delivery time (SGT)" type="datetime-local" value={form.deliveryDeadline} onChange={(event) => update("deliveryDeadline", event.target.value)} required error={fields.deliveryDeadline} hint="All dates and times are in Singapore time (UTC+08:00)." />
+          <FormField label="Latest delivery time (SGT)" type="datetime-local" value={form.deliveryDeadline} onChange={(event) => update("deliveryDeadline", event.target.value)} required error={fields.deliveryDeadline} hint="Dates and times are shown in Singapore time." />
         </fieldset>
         <div><fieldset disabled={locked} className="order-form-fields"><legend className="sr-only">Instructions and reward</legend>
           <label className="order-label">Instructions<textarea aria-label="Instructions" required maxLength={1000} rows={4} value={form.itemDescription} onChange={(event) => update("itemDescription", event.target.value)} aria-invalid={Boolean(fields.itemDescription)} aria-describedby={fields.itemDescription ? "order-description-error" : "order-description-hint"} placeholder="e.g. One vegetarian sandwich, no chilli" /></label>
           {fields.itemDescription ? <p className="field-error" role="alert" id="order-description-error">{fields.itemDescription}</p> : <p className="field-hint" id="order-description-hint">Visible to people browsing this errand. Do not include private contact details.</p>}
           <FormField label="Credit reward" type="number" min={1} max={2147483647} step={1} value={form.reward} onChange={(event) => update("reward", event.target.value)} error={fields.reward} required hint="Whole-number credits only." />
         </fieldset>
-          <section className="order-panel order-reservation"><h2>Credit reservation</h2><p>Your request becomes OPEN only after Credit confirms the reward reservation.</p><p>Wallet balance is not available in this release. We will show an error or pending status if Credit cannot confirm.</p></section>
+          <section className="order-panel order-reservation"><h2>Your reward</h2><p>The reward is set aside when your errand is posted.</p><p>Your courier can receive it after you confirm receipt of the item.</p></section>
           {!attempt ? <button className="order-button order-submit" disabled={locked} type="submit">{busy ? "Posting…" : "Post errand"}</button> : null}
         </div>
       </form>

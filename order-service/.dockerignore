@@ -12,6 +12,7 @@ node_modules/
 supabase/
 tests/
 docs/
+demo/
 AGENTS.md
 PLAN.md
 .git/

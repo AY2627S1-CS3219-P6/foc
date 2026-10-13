@@ -20,6 +20,32 @@ class ApiModel(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, extra="forbid")
 
 
+FailureReason = Literal[
+    "ITEM_UNAVAILABLE",
+    "ITEM_DAMAGED",
+    "UNABLE_TO_PICK_UP",
+    "UNABLE_TO_DELIVER",
+    "PARTICIPANT_UNREACHABLE",
+    "OTHER",
+]
+
+
+class FailOrder(ApiModel):
+    reason: FailureReason
+    details: str | None = Field(default=None, min_length=1, max_length=500)
+
+    @field_validator("details", mode="before")
+    @classmethod
+    def trim_details(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def explain_other(self):
+        if self.reason == "OTHER" and not self.details:
+            raise ValueError("Provide details when selecting Other")
+        return self
+
+
 class CreateOrder(ApiModel):
     supplier_id: UUID
     item_description: str = Field(min_length=1, max_length=1000)
@@ -147,6 +173,17 @@ class OrderParticipant(OrderAssessment):
     requester_id: UUID
     courier_id: UUID | None
     updated_at: AwareDatetime
+    accepted_at: AwareDatetime | None = None
+    cancelled_at: AwareDatetime | None = None
+    expired_at: AwareDatetime | None = None
+    picked_up_at: AwareDatetime | None = None
+    delivered_at: AwareDatetime | None = None
+    completed_at: AwareDatetime | None = None
+    overdue_at: AwareDatetime | None = None
+    failed_at: AwareDatetime | None = None
+    failed_by: UUID | None = None
+    failure_reason: FailureReason | None = None
+    failure_details: str | None = None
 
 
 class CreationResponse(ApiModel):
@@ -164,9 +201,11 @@ class HistoryEntry(ApiModel):
     sequence: int
     previous_state: OrderState | None
     new_state: OrderState
-    actor_id: UUID
+    actor_id: UUID | None
     actor_type: Literal["USER", "SYSTEM"]
     occurred_at: AwareDatetime
+    failure_reason: FailureReason | None = None
+    failure_details: str | None = None
 
 
 class Page[T](ApiModel):

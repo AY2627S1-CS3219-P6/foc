@@ -44,6 +44,17 @@ def project_order(order, *, participant=False):
             requesterId=order["requester_id"],
             courierId=order["courier_id"],
             updatedAt=order["updated_at"],
+            acceptedAt=order.get("accepted_at"),
+            cancelledAt=order.get("cancelled_at"),
+            expiredAt=order.get("expired_at"),
+            pickedUpAt=order.get("picked_up_at"),
+            deliveredAt=order.get("delivered_at"),
+            completedAt=order.get("completed_at"),
+            overdueAt=order.get("overdue_at"),
+            failedAt=order.get("failed_at"),
+            failedBy=order.get("failed_by"),
+            failureReason=order.get("failure_reason"),
+            failureDetails=order.get("failure_details"),
         )
     return result
 

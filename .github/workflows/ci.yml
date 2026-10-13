@@ -17,8 +17,13 @@ jobs:
   changes:
     name: Detect changed components
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
-      services: ${{ steps.filter.outputs.changes }}
+      services: ${{ steps.components.outputs.services }}
+      chat_changed: ${{ steps.filter.outputs.chat-service }}
+      chat_available: ${{ steps.components.outputs.chat_available }}
     steps:
       - name: Check out repository
         # actions/checkout@v4.2.2
@@ -40,6 +45,28 @@ jobs:
             order-service:
               - 'order-service/**'
               - '.github/workflows/ci.yml'
+            chat-service:
+              - 'chat-service/**'
+              - '.github/workflows/ci.yml'
+
+      - name: Select component checks
+        id: components
+        env:
+          CHANGED_COMPONENTS: ${{ steps.filter.outputs.changes }}
+          CHAT_CHANGED: ${{ steps.filter.outputs.chat-service }}
+        run: |
+          services=$(jq -c 'map(select(. != "chat-service"))' <<< "$CHANGED_COMPONENTS")
+          echo "services=$services" >> "$GITHUB_OUTPUT"
+          # The CI-only PR can merge before the separate Chat backend PR.
+          # Once its manifest lands, missing implementation files fail validation.
+          if [ -f chat-service/pyproject.toml ]; then
+            echo "chat_available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "chat_available=false" >> "$GITHUB_OUTPUT"
+            if [ "$CHAT_CHANGED" = "true" ]; then
+              echo "Chat checks await the separate backend implementation PR." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
 
   validate:
     name: Validate ${{ matrix.service }}
@@ -176,9 +203,172 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
+  validate-chat:
+    name: Validate chat-service
+    needs: changes
+    if: ${{ needs.changes.outputs.chat_changed == 'true' && needs.changes.outputs.chat_available == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: chat-service
+    env:
+      # Deliberately public credentials for disposable runner-local resources only.
+      CHAT_TEST_DATABASE_URL: postgresql+asyncpg://chat_test:local-chat-test-only@127.0.0.1:17422/postgres
+      CHAT_TEST_RABBITMQ_URL: amqp://guest:guest@127.0.0.1:17425/
+      CHAT_TEST_BROKER_RESTART: '1'
+      CHAT_TEST_DATABASE_RESTART: '1'
+    steps:
+      - name: Check out repository
+        # actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Python for chat service
+        # actions/setup-python@v5.6.0
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+
+      - name: Set up Node.js for the local Supabase CLI
+        # actions/setup-node@v4.4.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Install locked chat service dependencies
+        run: |
+          python -m pip install uv==0.11.7
+          uv sync --locked --extra dev
+
+      - name: Lint and check chat service formatting
+        run: |
+          uv run ruff check app tests scripts
+          uv run ruff format --check app tests scripts
+
+      - name: Run chat service unit tests without infrastructure
+        run: uv run pytest -m "not integration and not broker" -q --tb=short
+
+      - name: Rebuild the isolated Chat database from migrations
+        run: |
+          npx --yes supabase@2.120.0 db start
+          npx --yes supabase@2.120.0 db reset --local
+          uv run python -m scripts.provision_test_role
+
+      - name: Start the dedicated Chat test broker
+        run: |
+          docker run --detach --name foc-chat-test-rabbitmq \
+            --publish 127.0.0.1:17425:5672 \
+            --health-cmd 'rabbitmq-diagnostics -q ping' \
+            --health-interval 5s --health-timeout 5s --health-retries 24 \
+            rabbitmq:4.1-management
+          for _ in {1..60}; do
+            if [ "$(docker inspect --format '{{.State.Health.Status}}' foc-chat-test-rabbitmq)" = healthy ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Chat test broker did not become healthy" >&2
+          exit 1
+
+      - name: Run all Chat tests with PostgreSQL and RabbitMQ
+        env:
+          CHAT_TEST_REPORT: ${{ runner.temp }}/chat-tests.xml
+        run: |
+          # Sequential tests own these resources, including guarded restart cases.
+          # User Service identity is a test-only HTTP contract fake in this suite.
+          uv run pytest -q --tb=short --junitxml="$CHAT_TEST_REPORT"
+          python - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          suites = ET.parse(os.environ["CHAT_TEST_REPORT"]).getroot().iter("testsuite")
+          skipped = sum(int(suite.get("skipped", "0")) for suite in suites)
+          if skipped:
+              raise SystemExit(f"Full Chat CI suite unexpectedly skipped {skipped} tests")
+          PY
+
+      - name: Set up Docker Buildx for chat service
+        # docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Build and load the chat service image
+        # docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: ./chat-service
+          file: ./chat-service/Dockerfile
+          push: false
+          load: true
+          tags: foc-chat-service:ci
+          cache-from: type=gha,scope=chat-service
+          cache-to: type=gha,mode=max,scope=chat-service
+
+      - name: Smoke test the non-root Chat API and independent publisher
+        env:
+          DATABASE_URL: ${{ env.CHAT_TEST_DATABASE_URL }}
+          RABBITMQ_URL: ${{ env.CHAT_TEST_RABBITMQ_URL }}
+        run: |
+          # Host networking reaches loopback-only fixtures on the Linux runner.
+          docker run --detach --name foc-chat-ci-api --network host \
+            --env DATABASE_URL --env RABBITMQ_URL foc-chat-service:ci
+          docker run --detach --name foc-chat-ci-publisher --network host \
+            --env DATABASE_URL --env RABBITMQ_URL foc-chat-service:ci chat-outbox
+
+          wait_ready() {
+            for _ in {1..30}; do
+              if curl --fail --silent --max-time 3 http://127.0.0.1:8003/health/ready \
+                | jq --exit-status '.status == "ready" and .delivery == "ready"' > /dev/null; then
+                return 0
+              fi
+              sleep 1
+            done
+            return 1
+          }
+          wait_ready
+          test "$(docker exec foc-chat-ci-api id -u)" != 0
+          test "$(docker exec foc-chat-ci-publisher id -u)" != 0
+
+          count_code=$(cat <<'PY'
+          import asyncio, os
+          from app.db import Database
+          from sqlalchemy import text
+          async def main():
+              db = Database(os.environ["DATABASE_URL"])
+              async with db.transaction() as session:
+                  print((await session.execute(text("SELECT count(*) FROM chat_service.messages"))).scalar_one())
+              await db.close()
+          asyncio.run(main())
+          PY
+          )
+          before=$(docker exec foc-chat-ci-api python -c "$count_code")
+          docker restart foc-chat-ci-api
+          wait_ready
+          test "$(docker inspect --format '{{.State.Running}}' foc-chat-ci-publisher)" = true
+          test "$(docker exec foc-chat-ci-api python -c "$count_code")" = "$before"
+
+      - name: Show Chat diagnostics on failure
+        if: ${{ failure() }}
+        run: |
+          docker ps -a --format '{{.Names}} | {{.Status}}'
+          for container in foc-chat-ci-api foc-chat-ci-publisher foc-chat-test-rabbitmq supabase_db_foc-chat-service; do
+            if docker container inspect "$container" > /dev/null 2>&1; then
+              docker logs --tail 100 "$container"
+            fi
+          done
+
+      - name: Remove disposable Chat CI resources
+        if: ${{ always() }}
+        run: |
+          for container in foc-chat-ci-api foc-chat-ci-publisher foc-chat-test-rabbitmq; do
+            if docker container inspect "$container" > /dev/null 2>&1; then
+              docker rm --force "$container"
+            fi
+          done
+          npx --yes supabase@2.120.0 stop --no-backup
+
   ci-passed:
     name: CI passed
-    needs: [changes, validate]
+    needs: [changes, validate, validate-chat]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -186,6 +376,8 @@ jobs:
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           VALIDATE_RESULT: ${{ needs.validate.result }}
+          CHAT_RESULT: ${{ needs.validate-chat.result }}
+          CHAT_REQUIRED: ${{ needs.changes.outputs.chat_changed == 'true' && needs.changes.outputs.chat_available == 'true' }}
         run: |
           if [ "$CHANGES_RESULT" != "success" ]; then
             echo "Change detection did not complete successfully: $CHANGES_RESULT"
@@ -194,5 +386,10 @@ jobs:
 
           if [ "$VALIDATE_RESULT" = "failure" ] || [ "$VALIDATE_RESULT" = "cancelled" ]; then
             echo "Component validation did not complete successfully: $VALIDATE_RESULT"
+            exit 1
+          fi
+
+          if [ "$CHAT_REQUIRED" = "true" ] && [ "$CHAT_RESULT" != "success" ]; then
+            echo "Chat validation did not complete successfully: $CHAT_RESULT"
             exit 1
           fi

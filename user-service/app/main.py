@@ -13,6 +13,8 @@ from app.api.admin import router as admin_router
 from app.api.authentication import jwks_router
 from app.api.authentication import router as authentication_router
 from app.api.authorization import router as authorization_router
+from app.api.chat import CHAT_INTERFACE_PATHS
+from app.api.chat import router as chat_router
 from app.api.errors import ApiError, FieldError
 from app.api.registration import router as registration_router
 from app.api.users import router as users_router
@@ -161,6 +163,22 @@ def create_app(
             )
             for item in error.errors()
         ]
+        if request.url.path in CHAT_INTERFACE_PATHS:
+            # Unexpected field names and parser/validator messages are untrusted too.
+            allowed_fields = {"username", "limit", "cursor", "userIds"}
+            field_errors = [
+                FieldError(
+                    field=".".join(
+                        str(part)
+                        for part in item["loc"]
+                        if part in allowed_fields or isinstance(part, int)
+                    )
+                    or "request",
+                    code="INVALID_VALUE",
+                    message="Invalid value.",
+                )
+                for item in error.errors()
+            ]
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content=error_payload(
@@ -186,6 +204,7 @@ def create_app(
     app.include_router(jwks_router)
     app.include_router(users_router)
     app.include_router(authorization_router)
+    app.include_router(chat_router)
     app.include_router(admin_router)
 
     return app
