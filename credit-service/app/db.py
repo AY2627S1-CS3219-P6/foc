@@ -69,7 +69,17 @@ class Database:
                     result = await connection.scalar(
                         text(
                             "SELECT has_schema_privilege(current_user, "
-                            "to_regnamespace('credit_service')::oid, 'USAGE')"
+                            "to_regnamespace('credit_service')::oid, 'USAGE') "
+                            "AND has_table_privilege(current_user, "
+                            "to_regclass('credit_service.wallets')::oid, 'SELECT') "
+                            "AND has_table_privilege(current_user, "
+                            "to_regclass('credit_service.order_reservations')::oid, 'SELECT') "
+                            "AND has_table_privilege(current_user, "
+                            "to_regclass('credit_service.credit_transactions')::oid, 'SELECT') "
+                            "AND has_table_privilege(current_user, "
+                            "to_regclass('credit_service.processed_events')::oid, 'SELECT') "
+                            "AND has_table_privilege(current_user, "
+                            "to_regclass('credit_service.event_failures')::oid, 'SELECT')"
                         )
                     )
                     return result is True
