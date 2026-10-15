@@ -9,6 +9,10 @@ export default defineConfig({
         target: "http://localhost:8002",
         changeOrigin: true,
       },
+      "^/v1/(wallets|admin/wallets)([/?]|$)": {
+        target: "http://localhost:8003",
+        changeOrigin: true,
+      },
       "/v1": {
         target: "http://localhost:8000",
         changeOrigin: true,

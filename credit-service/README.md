@@ -89,11 +89,90 @@ disposable Credit database**. The reset deletes local application data. Ordinary
 
 Integration tests **write and truncate data**. Set `CREDIT_TEST_DATABASE_URL` in your
 terminal to your own disposable, migrated Credit database (for example the local
-administrative URL from `npx supabase status`), then run:
+administrative URL from `npx supabase status`). The broker tests also need
+`CREDIT_TEST_RABBITMQ_URL`; they use a throwaway exchange and queues, never `foc.events`.
 
 ```bash
+export CREDIT_TEST_DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:16522/postgres'
+export CREDIT_TEST_RABBITMQ_URL='amqp://<user>:<password>@127.0.0.1:5672/'
 .venv/Scripts/python.exe -m pytest -q -m integration
 ```
 
 CI runs lint, the unit/ASGI tests and an image build. Tests marked `integration` are
 explicitly deselected there, not counted as passing.
+
+## Event consumer
+
+`credit-consumer` is a separate process from the same image. It binds
+`credit-service.events` to `foc.events` for `user.registered.v1` and the four
+`order.*.v1` terminal events, plus a `.retry` queue (TTL, dead-letters back) and a
+`.dlq` queue. It refuses to start without `INITIAL_CREDIT_ALLOCATION` or `RABBITMQ_URL`.
+
+```bash
+.venv/Scripts/credit-consumer
+```
+
+Changing `CONSUMER_RETRY_DELAY_SECONDS` changes the retry queue's arguments: delete
+`credit-service.events.retry` in the RabbitMQ UI before restarting, or RabbitMQ rejects
+the redeclaration. Contracts, states and retry rules are in [API.md](API.md).
+
+## Running with the whole stack
+
+From the repository root, after User's setup (its `.env`) and with Credit's database
+running:
+
+1. Copy `credit-service/.env.docker.example` to `credit-service/.env.docker` and fill in
+   `DATABASE_URL` (host `host.docker.internal:16522`) and a random `ORDER_SERVICE_SECRET`.
+2. Put the same secret in `order-service/.env.docker` as `CREDIT_SERVICE_SECRET`.
+3. Start everything:
+
+   ```bash
+   docker compose --env-file user-service/.env --profile order --profile credit up --build -d
+   ```
+
+Compose starts `credit-service` (port `127.0.0.1:8003`) and `credit-consumer`, and gives
+Order the internal origin `http://credit-service:8003`. The web client reaches
+`/v1/wallets...` and `/v1/admin/wallets...` through nginx; `/v1/internal/*` is not routed
+to Credit. Start the consumer before users register: RabbitMQ drops events published
+while no Credit queue is bound. Users who registered earlier still receive their wallet
+and allocation on first use (wallet view, first errand, or first payout).
+
+## D3 demo
+
+1. Register two users (requester and courier). Each `GET /v1/wallets/me` (the Wallet
+   page) shows `available 20, reserved 0, total 20`.
+2. The requester creates an errand with reward 5: `15 / 5 / 20`, recent activity shows
+   *Reserved −5*.
+3. The courier accepts, picks up and delivers; the requester completes. Requester
+   `15 / 0 / 15` with *Paid −5*; courier `25 / 0 / 25` with *Earned +5*.
+4. The requester creates and cancels another errand: the reserve and its release both
+   appear in history and the balance returns.
+5. Redelivery: in the RabbitMQ UI (`http://localhost:15672`) publish the completion
+   payload again to `foc.events` with routing key and `type` `order.completed.v1`.
+   Balances do not change; the consumer logs `outcome=DUPLICATE`.
+6. Consumer outage: `docker compose stop credit-consumer`, cancel an errand, then
+   `docker compose start credit-consumer`. The release is applied after restart.
+7. Durability: `docker compose restart credit-service credit-consumer`; balances are
+   unchanged.
+
+## Observability
+
+- Consumer log lines: `event processed event_id=… type=… entity_id=… outcome=…
+  attempt=… duration_ms=…`, `event scheduled for retry …` and `event dead-lettered …`
+  (`docker compose logs -f credit-consumer`). Logs never contain tokens or secrets.
+- Every HTTP response carries `X-Correlation-ID` (echoed from the request when safe).
+- Queue depth: RabbitMQ UI → Queues → `credit-service.events`, `.retry`, `.dlq`.
+- Processing records (Credit Studio `http://localhost:16523` or `psql`):
+
+  ```sql
+  SELECT event_type, outcome, count(*) FROM credit_service.processed_events GROUP BY 1, 2;
+  SELECT * FROM credit_service.event_failures ORDER BY failed_at DESC LIMIT 20;
+  ```
+
+- Invariant check (credits held always equal credits allocated):
+
+  ```sql
+  SELECT (SELECT sum(available + reserved) FROM credit_service.wallets) AS held,
+         (SELECT sum(amount) FROM credit_service.credit_transactions
+           WHERE type = 'ALLOCATION') AS allocated;
+  ```

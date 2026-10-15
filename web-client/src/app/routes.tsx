@@ -13,6 +13,7 @@ import { VerifyEmailPage } from "../pages/verify-email-page";
 import { OrderListPage } from "../pages/order-list-page";
 import { OrderCreatePage } from "../pages/order-create-page";
 import { OrderDetailPage } from "../pages/order-detail-page";
+import { WalletPage } from "../pages/wallet-page";
 
 function SessionLoading() {
   return <main className="session-loading"><span className="loading-dot" />Checking your session</main>;
@@ -78,6 +79,7 @@ export function AppRoutes() {
         <Route path="/orders/new" element={<ProtectedRoute><OrderCreatePage /></ProtectedRoute>} />
         <Route path="/orders/mine" element={<ProtectedRoute><OrderListPage mine /></ProtectedRoute>} />
         <Route path="/orders/:orderId" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
+        <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
         <Route path="/suppliers" element={<ProtectedRoute><SupplierListPage /></ProtectedRoute>} />
         <Route path="/suppliers/:supplierId" element={<ProtectedRoute><SupplierDetailPage /></ProtectedRoute>} />
         <Route path="/admin/users" element={<SuperAdminRoute><AdminUserManagementPage /></SuperAdminRoute>} />
