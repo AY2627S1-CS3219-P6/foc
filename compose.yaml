@@ -154,6 +154,8 @@ services:
       - host.docker.internal:host-gateway
     ports:
       - "127.0.0.1:8003:8003"
+    # M4NFR5.1: Docker restarts a crashed API; confirmed balances live only in PostgreSQL.
+    restart: unless-stopped
     networks:
       - edge
 
