@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import DBAPIError, IntegrityError, OperationalError
 
 from app.core.config import Settings
 from app.credits.consumer import (
@@ -187,3 +187,36 @@ async def test_failure_record_outage_does_not_block_acknowledgement():
     msg = message(completion())
     await handler.handle(msg)
     assert msg.acked and exchange.published[0][1] == "credit-service.events.dlq"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        ConnectionRefusedError("database down"),
+        DBAPIError("select", {}, Exception("connection lost"), connection_invalidated=True),
+    ],
+)
+async def test_database_outage_keeps_retrying_past_max_attempts(error):
+    # M6NFR1.3: an unreachable database is never dead-lettered, so no replay is needed.
+    ledger = FakeLedger()
+    ledger.error = error
+    handler, exchange = processor(ledger)
+    await handler.handle(message(completion(), attempt=SETTINGS.consumer_max_attempts + 2))
+    republished, queue = exchange.published[0]
+    assert queue == "credit-service.events.retry"
+    assert republished.headers["x-foc-error"] == "STORAGE_UNAVAILABLE"
+    assert ledger.failures[0]["dead_lettered"] is False
+
+
+async def test_other_storage_errors_stay_bounded():
+    # A bug or constraint violation must not loop forever: retried, then dead-lettered.
+    error = IntegrityError("insert", {}, Exception("violates constraint"))
+    ledger = FakeLedger()
+    ledger.error = error
+    handler, exchange = processor(ledger)
+    await handler.handle(message(registration(), attempt=1))
+    await handler.handle(message(registration(), attempt=SETTINGS.consumer_max_attempts))
+    (first, first_queue), (last, last_queue) = exchange.published
+    assert first_queue == "credit-service.events.retry"
+    assert last_queue == "credit-service.events.dlq"
+    assert first.headers["x-foc-error"] == last.headers["x-foc-error"] == "STORAGE_ERROR"

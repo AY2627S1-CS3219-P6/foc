@@ -70,15 +70,22 @@ courier wallet is get-or-created before the transfer.
 - Delivery is at least once. Each event is applied in one transaction that also records
   its `eventId` in `processed_events`; a redelivery returns `DUPLICATE` with no change.
   The message is acknowledged only after that transaction commits.
-- Temporary failures (database unavailable, wallet not ready) are republished to
-  `credit-service.events.retry`, whose TTL (`CONSUMER_RETRY_DELAY_SECONDS`, default 5)
-  dead-letters them back to the main queue. After `CONSUMER_MAX_ATTEMPTS` (default 5,
-  minimum 3) they go to `credit-service.events.dlq`. The attempt is carried in the
-  `x-foc-attempt` header and the error code in `x-foc-error`.
+- Retries go through `credit-service.events.retry`, whose TTL
+  (`CONSUMER_RETRY_DELAY_SECONDS`, default 5) dead-letters them back to the main queue. The
+  attempt is carried in the `x-foc-attempt` header and the error code in `x-foc-error`.
+- **Database unreachable** (`STORAGE_UNAVAILABLE`: connection refused or lost, database
+  starting or shutting down, connection pool exhausted, no database configured) is retried
+  for as long as the outage lasts and is never dead-lettered, so an interruption needs no
+  manual action (M6NFR1.3).
+- **Other temporary failures** (`WALLET_NOT_READY`, and `STORAGE_ERROR` for any other
+  database error) are retried up to `CONSUMER_MAX_ATTEMPTS` (default 5, minimum 3), then go
+  to `credit-service.events.dlq`. Bounding them stops a defect from retrying forever.
 - Permanent failures (invalid event, unknown reservation, identity or settlement
   conflict) go straight to the DLQ. Every failure is logged and recorded in
-  `event_failures`. A DLQ message needs an operator: fix the cause, then move it back
-  to `credit-service.events` from the RabbitMQ UI.
+  `event_failures`.
+- **Resolving the DLQ**: fix the cause, then run `credit-replay-dlq` (`--list` first to
+  inspect). It moves each message back to `credit-service.events` as a first attempt;
+  replaying is safe to repeat because `processed_events` ignores duplicates.
 - Republishing waits for the broker's publisher confirm before the original is
   acknowledged; if the broker fails, the original stays unacknowledged and is redelivered.
 - Events for different orders are processed independently. A completion for a courier
