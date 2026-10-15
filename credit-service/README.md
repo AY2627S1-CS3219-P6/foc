@@ -116,6 +116,23 @@ Changing `CONSUMER_RETRY_DELAY_SECONDS` changes the retry queue's arguments: del
 `credit-service.events.retry` in the RabbitMQ UI before restarting, or RabbitMQ rejects
 the redeclaration. Contracts, states and retry rules are in [API.md](API.md).
 
+### Resolving dead-lettered events
+
+While Credit's database is unreachable, events keep being retried every
+`CONSUMER_RETRY_DELAY_SECONDS` until it is back, so an outage resolves itself. Events that
+cannot be applied for another reason (invalid data, an unknown reservation, a conflict, or
+a database error that persists) end in `credit-service.events.dlq` and in
+`credit_service.event_failures`. After fixing the cause, inspect and replay them:
+
+```bash
+.venv/Scripts/credit-replay-dlq --list        # show what is waiting; moves nothing
+.venv/Scripts/credit-replay-dlq               # replay all (or --limit N)
+```
+
+Each message returns to `credit-service.events` as a first attempt. Replaying is safe to
+repeat: events already applied are ignored by the `processed_events` inbox. In Docker:
+`docker compose --env-file user-service/.env --profile credit exec credit-consumer credit-replay-dlq --list`.
+
 ## Running with the whole stack
 
 From the repository root, after User's setup (its `.env`) and with Credit's database
