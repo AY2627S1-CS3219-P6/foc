@@ -7,8 +7,10 @@ import time
 
 import aio_pika
 from asyncpg import PostgresError
+from asyncpg.exceptions import AdminShutdownError, CannotConnectNowError, PostgresConnectionError
 from pydantic import ValidationError
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import InterfaceError, OperationalError, SQLAlchemyError
+from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 
 from app.core.config import Settings, get_settings
 from app.credits.errors import CreditError
@@ -27,6 +29,31 @@ EVENT_TYPES = (
 )
 ATTEMPT_HEADER = "x-foc-attempt"
 TEMPORARY = (SQLAlchemyError, PostgresError, DatabaseUnavailableError, OSError, TimeoutError)
+# The database cannot be reached right now (down, restarting, pool exhausted, not configured).
+# Retried for as long as the outage lasts and never dead-lettered, so an interruption needs no
+# manual replay (M6NFR1.3). Other storage errors stay bounded by CONSUMER_MAX_ATTEMPTS.
+UNREACHABLE = (
+    OSError,
+    TimeoutError,
+    DatabaseUnavailableError,
+    PoolTimeoutError,
+    OperationalError,
+    InterfaceError,
+    PostgresConnectionError,
+    CannotConnectNowError,
+    AdminShutdownError,
+)
+
+
+def unreachable(error: BaseException | None) -> bool:
+    """True when the error, or one it wraps, means the database could not be reached."""
+    for _ in range(5):
+        if error is None:
+            return False
+        if isinstance(error, UNREACHABLE) or getattr(error, "connection_invalidated", False):
+            return True
+        error = getattr(error, "orig", None) or error.__cause__
+    return False
 
 
 class InvalidEvent(Exception):
@@ -107,8 +134,13 @@ class EventProcessor:
         except (InvalidEvent, CreditError) as error:
             await self._fail(message, event, attempt, error.code, retry=error.retryable)
             return
-        except TEMPORARY:
-            await self._fail(message, event, attempt, "STORAGE_UNAVAILABLE", retry=True)
+        except TEMPORARY as error:
+            if unreachable(error):
+                await self._fail(
+                    message, event, attempt, "STORAGE_UNAVAILABLE", retry=True, bounded=False
+                )
+            else:
+                await self._fail(message, event, attempt, "STORAGE_ERROR", retry=True)
             return
         # Ack only after the ledger transaction committed (or the event was a known duplicate).
         await message.ack()
@@ -123,8 +155,10 @@ class EventProcessor:
             (time.monotonic() - started) * 1000,
         )
 
-    async def _fail(self, message, event, attempt: int, code: str, *, retry: bool) -> None:
-        dead = not retry or attempt >= self.settings.consumer_max_attempts
+    async def _fail(
+        self, message, event, attempt: int, code: str, *, retry: bool, bounded: bool = True
+    ) -> None:
+        dead = not retry or (bounded and attempt >= self.settings.consumer_max_attempts)
         _, retry_queue, dlq = queue_names(self.settings)
         # Publisher confirms: the copy is durable in RabbitMQ before the original is acked.
         await self.channel.default_exchange.publish(
