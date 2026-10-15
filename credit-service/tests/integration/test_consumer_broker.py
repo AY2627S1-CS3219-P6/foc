@@ -2,6 +2,7 @@
 and CREDIT_TEST_RABBITMQ_URL; uses a throwaway exchange and queues, never foc.events."""
 
 import asyncio
+import io
 import json
 import os
 from contextlib import suppress
@@ -14,6 +15,7 @@ from sqlalchemy import text
 
 from app.core.config import Settings
 from app.credits.consumer import run
+from app.credits.replay import replay
 from app.db import Database
 
 pytestmark = pytest.mark.integration
@@ -167,3 +169,37 @@ async def test_unprocessable_events_are_dead_lettered_and_recorded(environment):
         )
     ).split(",")
     assert codes == ["INVALID_EVENT", "UNKNOWN_RESERVATION"]
+
+
+async def test_replay_applies_an_event_dead_lettered_earlier(environment):
+    settings, database, channel, _ = environment
+    user = uuid4()
+    payload = registration(user)
+    # As if it had been dead-lettered before the cause was fixed.
+    await channel.default_exchange.publish(
+        aio_pika.Message(
+            body=json.dumps(payload).encode(),
+            content_type="application/json",
+            delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+            message_id=payload["eventId"],
+            type=payload["eventType"],
+            headers={"x-foc-attempt": 3, "x-foc-error": "STORAGE_ERROR"},
+        ),
+        routing_key=settings.consumer_queue_name + ".dlq",
+    )
+    listing = io.StringIO()
+    assert await replay(settings, limit=None, list_only=True, out=listing) == 1
+    assert "error=STORAGE_ERROR" in listing.getvalue()
+    assert await replay(settings, limit=None, list_only=False, out=io.StringIO()) == 1
+
+    async def credited():
+        return await scalar(
+            database,
+            "SELECT available = 20 FROM credit_service.wallets WHERE user_id = :u",
+            u=user,
+        )
+
+    await wait_for(credited)
+    dlq = await channel.declare_queue(settings.consumer_queue_name + ".dlq", durable=True)
+    assert dlq.declaration_result.message_count == 0
+    assert await replay(settings, limit=None, list_only=False, out=io.StringIO()) == 0
