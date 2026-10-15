@@ -35,6 +35,8 @@ async function renderPage() {
   await act(async () => { render(<MemoryRouter initialEntries={["/wallet"]}><WalletPage /></MemoryRouter>); });
 }
 
+const amounts = (entries: HTMLElement[]) => entries.map((entry) => entry.querySelector(".wallet-activity-amount > strong")?.textContent);
+
 describe("Wallet page", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -50,17 +52,37 @@ describe("Wallet page", () => {
   it("shows available, reserved and total balances with signed history", async () => {
     const fetchMock = respondWith([wallet, 200], [history, 200]);
     await renderPage();
+    expect(screen.getByRole("heading", { level: 1, name: "Credit wallet" })).toBeVisible();
     const balance = await screen.findByRole("region", { name: "Credit balance" });
-    expect(within(balance).getByText("15")).toBeVisible();
-    expect(within(balance).getByText("5")).toBeVisible();
-    expect(within(balance).getByText("20")).toBeVisible();
+    expect(Array.from(balance.querySelectorAll("article"), (stat) => stat.textContent)).toEqual([
+      "Available15 creditsSpendable now",
+      "Reserved5 credits",
+      "Total20 creditsClosed campus economy",
+    ]);
     const entries = within(screen.getByRole("region", { name: "Credit history" })).getAllByRole("listitem");
-    expect(entries.map((entry) => entry.querySelector("strong")?.textContent)).toEqual(["+5", "−5", "+20"]);
-    expect(within(entries[0]).getByRole("link", { name: "View errand" })).toHaveAttribute("href", "/orders/o1");
+    expect(entries.map((entry) => entry.querySelector(".wallet-activity-detail strong")?.textContent)).toEqual([
+      "Earned · #O1", "Reserved · #O2", "Welcome credits",
+    ]);
+    expect(amounts(entries)).toEqual(["+5", "−5", "+20"]);
+    expect(within(entries[0]).getByRole("link", { name: /View errand/ })).toHaveAttribute("href", "/orders/o1");
+    expect(within(entries[2]).queryByRole("link")).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Result pages" })).toBeNull();
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       "/v1/wallets/me",
       "/v1/wallets/me/transactions?page=1&pageSize=10",
     ]);
+  });
+
+  it("labels a requester's outgoing transfer as paid and paginates long histories", async () => {
+    const paid = { ...history, total: 25, items: [
+      { transactionId: "t9", type: "TRANSFER", amount: 7, walletUserId: "me", counterpartyUserId: "courier", orderId: "abcdef12-0000", createdAt: "2026-10-13T03:00:00Z" },
+    ] };
+    respondWith([wallet, 200], [paid, 200]);
+    await renderPage();
+    const entries = await screen.findAllByRole("listitem");
+    expect(entries[0]).toHaveTextContent("Paid · #ABCDEF12");
+    expect(amounts(entries)).toEqual(["−7"]);
+    expect(screen.getByRole("navigation", { name: "Result pages" })).toHaveTextContent("Page 1 of 3");
   });
 
   it("explains a wallet that is still being set up", async () => {
