@@ -37,6 +37,7 @@ markers = ["integration: checks against an explicitly configured disposable Cred
 
 [project.scripts]
 credit-consumer = "app.credits.consumer:main"
+credit-verify = "app.credits.verify:main"
 
 [tool.ruff]
 target-version = "py313"

@@ -116,6 +116,29 @@ Changing `CONSUMER_RETRY_DELAY_SECONDS` changes the retry queue's arguments: del
 `credit-service.events.retry` in the RabbitMQ UI before restarting, or RabbitMQ rejects
 the redeclaration. Contracts, states and retry rules are in [API.md](API.md).
 
+## Integrity check and recovery
+
+`credit-verify` is a read-only check for use after a restart or recovery (M4NFR5.2). It
+prints PASS/FAIL for each invariant and exits 1 if any fails: no negative balances, one
+initial allocation per wallet, reserved balance equal to the wallet's active reservations,
+every balance rebuilt exactly from the ledger, and credits held equal to credits allocated.
+It also reports dead-lettered events that were never applied.
+
+```bash
+.venv/Scripts/credit-verify
+docker compose --env-file user-service/.env --profile credit exec credit-service credit-verify
+```
+
+Compose restarts `credit-service` and `credit-consumer` automatically if their process
+exits (`restart: unless-stopped`, M4NFR5.1); stopping them through Docker is treated as
+intentional. Confirmed balance changes live only in PostgreSQL, so nothing is lost. Drill:
+
+```bash
+docker compose --env-file user-service/.env --profile credit exec credit-service sh -c 'kill 1'
+curl http://localhost:8003/health/ready      # ready again within seconds (RESTARTS = 1)
+docker compose --env-file user-service/.env --profile credit exec credit-service credit-verify
+```
+
 ## Running with the whole stack
 
 From the repository root, after User's setup (its `.env`) and with Credit's database

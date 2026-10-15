@@ -1,6 +1,7 @@
 """WRITES DATA. Point CREDIT_TEST_DATABASE_URL only at a disposable migrated Credit database."""
 
 import asyncio
+import io
 import os
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
@@ -8,6 +9,7 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy import text
 
+from app.core.config import Settings
 from app.credits.errors import (
     IdentityConflict,
     InsufficientCredit,
@@ -17,6 +19,7 @@ from app.credits.errors import (
 )
 from app.credits.ledger import CreditLedger
 from app.credits.schemas import OrderTerminal, ReservationRequest, UserRegistered
+from app.credits.verify import verify
 from app.db import Database
 
 pytestmark = pytest.mark.integration
@@ -410,3 +413,32 @@ async def test_failures_are_recorded(ledger, database):
         dead_lettered=False,
     )
     assert await count(database, "SELECT count(*) FROM credit_service.event_failures") == 1
+
+
+# ---- Integrity check (credit-verify, M4NFR5.2) --------------------------------------------
+
+
+async def test_verify_passes_after_activity_and_flags_tampering(ledger, database):
+    requester, courier = await funded(ledger), await funded(ledger)
+    paid, cancelled = uuid4(), uuid4()
+    row, _ = await ledger.reserve(paid, ask(requester, 5))
+    await ledger.settle(completed(paid, row["reservation_id"], requester, courier, 5), 1)
+    row, _ = await ledger.reserve(cancelled, ask(requester, 2))
+    await ledger.settle(released("order.cancelled.v1", cancelled, row["reservation_id"]), 1)
+    await ledger.reserve(uuid4(), ask(requester, 3))
+    settings = Settings(_env_file=None, database_url=os.environ["CREDIT_TEST_DATABASE_URL"])
+
+    report = io.StringIO()
+    assert await verify(settings, out=report)
+    assert "FAIL" not in report.getvalue() and "ACTION" not in report.getvalue()
+
+    # A balance edited outside the ledger no longer matches its history or the economy.
+    async with database.session_context() as session, session.begin():
+        await session.execute(
+            text("UPDATE credit_service.wallets SET available = available + 1 WHERE user_id=:u"),
+            {"u": courier},
+        )
+    report = io.StringIO()
+    assert not await verify(settings, out=report)
+    assert "FAIL (1) M4F6.1" in report.getvalue()
+    assert "FAIL (1) M4NFR1.4" in report.getvalue()
