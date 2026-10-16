@@ -6,8 +6,6 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-ARG VITE_ORDER_DEMO=false
-ENV VITE_ORDER_DEMO=$VITE_ORDER_DEMO
 RUN npm run build
 
 FROM nginx:1.27-alpine AS runtime
