@@ -183,7 +183,7 @@ active Super Admin exists.
 
 If an older service-level Compose stack or local API already occupies ports
 `3000`, `8000`–`8003`, `5672`, `15672` or `8025`, stop that specific stack or
-process first. Do not start the separate port-3001 mock demo for this workflow.
+process first.
 
 ```sh
 docker compose --env-file user-service/.env --profile order --profile credit up --build -d
@@ -307,8 +307,7 @@ explicit one-shot command, not a database-startup side effect.
 ### 4. Start the real integrated application
 
 Stop any older service-level application stack or local process occupying the
-application ports first; leave the four database stacks running. Keep the
-isolated mock demo on port 3001 stopped.
+application ports first; leave the four database stacks running.
 
 ```powershell
 docker compose --env-file user-service/.env --profile order --profile credit up --build -d
@@ -482,9 +481,9 @@ Readiness does not prove every downstream interaction. Test the full workflow:
 The web proxy routes Order paths to Order, wallet paths to Credit, Supplier
 paths to Supplier and other `/v1/` routes to User. The edge does not route
 Credit's `/v1/internal/*` endpoints to Credit; Order calls those privately with
-its service secret. No service reads another service's tables. The separate
-[mock demo](order-service/demo/README.md) on port **3001** remains test-only and
-is not part of this real-Credit stack.
+its service secret. No service reads another service's tables. The retired
+port-3001 mock demo has been removed. Test doubles remain under automated-test
+directories only; the application uses real Credit and has no simulated fallback.
 
 ### Troubleshooting and data safety
 

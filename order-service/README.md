@@ -3,22 +3,24 @@
 Order creation/read, acceptance, cancellation, expiry, pickup, delivery, completion
 unilateral participant failure and overdue tracking are implemented.
 Identity is checked through User; Supplier details are captured through its API.
-Credit HTTP calls follow the **proposed** contract in [API.md](API.md). Credit is
-not implemented in this checkout: real funded creation is not yet integrated.
-Test doubles exist in tests and an opt-in [isolated local demo](demo/README.md).
-Cancellation/expiry/failure events are persisted and
-published asynchronously; a real Credit release consumer is still pending.
+Credit HTTP calls follow the contract in [API.md](API.md), implemented by the
+separate [Credit Service](../credit-service/API.md). Root Compose connects to
+real Credit for reservations and asynchronous settlement. Automated test
+doubles live under `tests/` and are excluded from the Order package/image.
+Cancellation/expiry/failure events are persisted and published asynchronously
+for Credit to release the reserved reward.
 Role-appropriate lifecycle UI controls are available on the errand detail page.
 Either participant can mark ACCEPTED/PICKED_UP failed with a required reason and
 confirmation. No second approval or admin is needed; no penalty is applied.
 
-## Try creation and lifecycle UI before Credit is ready
+## Run the real integrated workflow
 
-Follow [the isolated demo guide](demo/README.md) for a website on **port 3001**
-with a visible simulated-Credit banner. It runs its own Order database, broker and
-test Credit HTTP/event consumer, using existing local User/Supplier APIs. No real
-Credit implementation or existing Supabase reset is needed. The default port-3000
-setup and production Order image never include the simulator.
+Follow the root [macOS/Windows setup guide](../README.md#local-setup-overview).
+Start the four local database stacks, configure Order/Credit's own database
+logins and matching service secret, then enable both `order` and `credit`
+Compose profiles. The website on **port 3000** uses real Credit. The former
+port-3001 mock demo has been retired; there is no application mock mode or
+fallback when Credit is unavailable.
 
 Requesters can cancel an OPEN errand after confirmation; others can accept it.
 Actions stop being offered at the acceptance deadline, with server-side guards
@@ -285,10 +287,10 @@ User Service's operational envelope. Business APIs use `/v1` and camelCase.
 
 ### Lifecycle demo checklist
 
-Use a real funded OPEN order once Credit is integrated. An unconfirmed 503 create
-attempt is not such an order; do not bypass the reservation check in the app.
-For local simulated funding, use [the isolated demo](demo/README.md), with Postman
-`orderBaseUrl = http://localhost:18002`. Its records are not real Credit evidence.
+Use a real funded OPEN order with User, Supplier and Credit running. An
+unconfirmed 503 create attempt is not such an order; do not bypass the reservation
+check. Use Postman `orderBaseUrl = http://localhost:8002`, or port 3000 through
+the website proxy. Check the real Wallet/ledger after terminal outcomes.
 Automated integration fixtures deliberately seed fictional reserved orders only
 inside disposable test databases, not the development Supabase projects.
 
@@ -301,7 +303,7 @@ inside disposable test databases, not the development Supabase projects.
 5. Let another OPEN order reach its deadline. Both accept/cancel reject; the expiry
    worker records EXPIRED, a SYSTEM history entry and one event. Accepted orders
    never expire from this deadline.
-6. Inspect event publication/retry and, when implemented, actual Credit release.
+6. Inspect event publication/retry and actual Credit release.
    A broker message alone does not meet D3's meaningful consumer-effect requirement.
 
 API/state guards, race tests and detailed event contract: [API.md](API.md).
@@ -316,7 +318,12 @@ use `verify-full` with a trusted certificate for verified remote connections.
 See [asyncpg connection options](https://magicstack.github.io/asyncpg/current/api/index.html)
 and [Supabase CLI configuration](https://supabase.com/docs/guides/local-development/cli/config).
 
-## UI and isolated Credit simulation verification (2026-10-11)
+## Historical UI and isolated Credit simulation verification (2026-10-11)
+
+The following dated results describe the former demo, not a current setup
+instruction. Its deployable files, containers and simulated data were removed
+on 2026-10-16 after real Credit integration. Automated regression doubles and
+tests remain; the old simulation results do not prove real Credit settlement.
 
 ### Fulfilment/completion extension
 

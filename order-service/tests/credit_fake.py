@@ -1,22 +1,15 @@
-"""LOCAL TEST DOUBLE ONLY. Not a Credit Service, wallet or production dependency."""
+"""Automated-test Credit double; not packaged or deployable as a FoC service."""
 
-import asyncio
 import hmac
 import json
-import logging
-import os
 import sqlite3
-from contextlib import asynccontextmanager, contextmanager, suppress
-from pathlib import Path
+from contextlib import contextmanager
 from typing import Literal
 from uuid import UUID, uuid4
 
-import aio_pika
 from fastapi import Depends, FastAPI, Header
 from fastapi.responses import JSONResponse
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt, model_validator
-
-log = logging.getLogger("credit-simulator")
 
 
 class Request(BaseModel):
@@ -150,67 +143,11 @@ class Store:
             db.execute("INSERT INTO events VALUES (?)", (str(event.eventId),))
 
 
-async def consume(store, broker_url, ready):
-    while True:
-        try:
-            async with await aio_pika.connect(broker_url) as connection:
-                channel = await connection.channel()
-                await channel.set_qos(prefetch_count=1)
-                exchange = await channel.declare_exchange(
-                    "foc.order-demo.events", aio_pika.ExchangeType.TOPIC, durable=True
-                )
-                queue = await channel.declare_queue("credit-simulator.releases", durable=True)
-                for key in (
-                    "order.cancelled.v1",
-                    "order.expired.v1",
-                    "order.completed.v1",
-                    "order.failed.v1",
-                ):
-                    await queue.bind(exchange, routing_key=key)
-                ready.set()
-                async with queue.iterator() as messages:
-                    async for message in messages:
-                        try:
-                            event = TerminalEvent.model_validate_json(message.body)
-                            if message.routing_key != event.eventType:
-                                raise ValueError("Routing mismatch")
-                            store.release(event)
-                        except ValueError:
-                            log.warning("SIMULATION: rejected invalid/unmatched terminal event")
-                            await message.reject(requeue=False)
-                        except sqlite3.Error:
-                            await message.nack(requeue=True)
-                            await asyncio.sleep(1)
-                        else:
-                            await message.ack()
-                            log.info(
-                                "SIMULATION: terminal event recorded for order %s", event.orderId
-                            )
-        except (OSError, aio_pika.exceptions.AMQPException):
-            log.warning("SIMULATION: broker unavailable; reconnecting")
-        finally:
-            ready.clear()
-        await asyncio.sleep(2)
-
-
-def create_app(store: Store, secret: str, mode="success", broker_url=None):
+def create_app(store: Store, secret: str, mode="success"):
     modes = {"success", "insufficient_credit", "wallet_not_ready", "unavailable"}
     if not secret or mode not in modes:
         raise ValueError("Simulator requires a secret and a supported mode")
-    ready = asyncio.Event()
-
-    @asynccontextmanager
-    async def lifespan(app):
-        task = asyncio.create_task(consume(store, broker_url, ready)) if broker_url else None
-        try:
-            yield
-        finally:
-            if task:
-                task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await task
-
-    app = FastAPI(title="LOCAL Credit simulator — NOT real Credit", lifespan=lifespan)
+    app = FastAPI(title="Automated-test Credit double")
 
     @app.exception_handler(StubError)
     async def error_handler(request, error):
@@ -227,8 +164,6 @@ def create_app(store: Store, secret: str, mode="success", broker_url=None):
 
     @app.get("/health/ready")
     def health():
-        if broker_url and not ready.is_set():
-            raise StubError(503, "BROKER_UNAVAILABLE")
         return {"simulation": True, "mode": mode}
 
     prefix = "/v1/internal/order-reservations/{order_id}"
@@ -255,25 +190,3 @@ def create_app(store: Store, secret: str, mode="success", broker_url=None):
     return app
 
 
-def from_environment():
-    if os.environ.get("CREDIT_SIMULATOR_ENABLED") != "local-only":
-        raise RuntimeError("Explicit local-only opt-in required")
-    return create_app(
-        Store(os.environ.get("SIMULATOR_DB", "/data/credit.sqlite")),
-        os.environ["CREDIT_SERVICE_SECRET"],
-        os.environ.get("SIMULATOR_MODE", "success"),
-        os.environ["RABBITMQ_URL"],
-    )
-
-
-if __name__ == "__main__":
-    # Local Docker exec inspection only: no public status/admin endpoint or credentials printed.
-    db_path = os.environ.get("SIMULATOR_DB", "/data/credit.sqlite")
-    if not Path(db_path).is_file():
-        raise SystemExit("No simulator data exists yet")
-    with sqlite3.connect(db_path) as db:
-        for (body,) in db.execute("SELECT body FROM reservations"):
-            value = json.loads(body)
-            print(json.dumps({key: value[key] for key in ("orderId", "amount", "state")}))
-        count = db.execute("SELECT count(*) FROM events").fetchone()[0]
-        print("Simulated terminal events consumed:", count)

@@ -12,7 +12,7 @@ from sqlalchemy import update
 from app.core.config import Settings
 from app.orders.outbox import OutboxRepository, RabbitPublisher, event_payload, publish_once
 from app.orders.tables import outbox
-from demo.credit_stub import Request, Store, TerminalEvent
+from tests.credit_fake import Request, Store, TerminalEvent
 from tests.integration.test_lifecycle import lifecycle_db as _lifecycle_database  # noqa: F401
 from tests.integration.test_lifecycle import snapshot
 
