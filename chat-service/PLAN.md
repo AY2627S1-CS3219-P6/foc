@@ -242,6 +242,8 @@ Record baseline acceptance, publication, delivery, and history-query timings wit
 
 ### Phase 6 - Final chat UI and integrated Sprint 3 acceptance
 
+Implementation and verification: [Phase 6 UI evidence](docs/ui-verification.md).
+
 Add protected `/messages` and `/messages/:conversationId` routes, shared navigation access, API/WebSocket clients, conversation list, username search, thread history, composer, retry, and block/unblock.
 
 Reuse `WorkspaceShell`, `WorkspaceTopbar`, shared design tokens, and the project's Figma design authority. Use a desktop list/thread layout and a single-pane mobile flow with back navigation.

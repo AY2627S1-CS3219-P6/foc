@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { ApiRequestError, isApiRequestError } from "../api/client";
@@ -23,17 +24,24 @@ function isUnauthorized(error: unknown): boolean {
 export function AuthProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<AuthStatus>("restoring");
   const [user, setUser] = useState<CurrentUser | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const accessToken = useRef<string | null>(null);
+  const refreshInFlight = useRef<Promise<string> | null>(null);
+  const restoration = useRef<Promise<{ session: AccessSession; currentUser: CurrentUser }> | null>(null);
+  const sessionGeneration = useRef(0);
 
   const clearSession = useCallback(() => {
-    setAccessToken(null);
+    accessToken.current = null;
+    refreshInFlight.current = null;
+    ++sessionGeneration.current;
     setUser(null);
     setStatus("anonymous");
   }, []);
 
   const acceptSession = useCallback(async (session: AccessSession): Promise<CurrentUser> => {
+    ++sessionGeneration.current;
+    refreshInFlight.current = null;
     const currentUser = await userService.getCurrentUser(session.accessToken);
-    setAccessToken(session.accessToken);
+    accessToken.current = session.accessToken;
     setUser(currentUser);
     setStatus("authenticated");
     return currentUser;
@@ -41,17 +49,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let active = true;
-    void userService
-      .refreshSession()
-      .then(async (session) => {
-        const currentUser = await userService.getCurrentUser(session.accessToken);
-        if (!active) return;
-        setAccessToken(session.accessToken);
+    const generation = sessionGeneration.current;
+    // React StrictMode remounts effects in development; a refresh cookie may only rotate once.
+    restoration.current ??= userService.refreshSession().then(async (session) => ({ session, currentUser: await userService.getCurrentUser(session.accessToken) }));
+    void restoration.current
+      .then(({ session, currentUser }) => {
+        if (!active || generation !== sessionGeneration.current) return;
+        accessToken.current = session.accessToken;
         setUser(currentUser);
         setStatus("authenticated");
       })
       .catch(() => {
-        if (active) clearSession();
+        if (active && generation === sessionGeneration.current) clearSession();
       });
     return () => {
       active = false;
@@ -60,25 +69,39 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const withCurrentAccess = useCallback(
     async <T,>(operation: (token: string) => Promise<T>): Promise<T> => {
-      if (!accessToken) throw new ApiRequestError(401, "Sign in to continue.", { code: "AUTH_REQUIRED" });
+      const originalToken = accessToken.current;
+      const generation = sessionGeneration.current;
+      if (!originalToken) throw new ApiRequestError(401, "Sign in to continue.", { code: "AUTH_REQUIRED" });
       try {
-        return await operation(accessToken);
+        return await operation(originalToken);
       } catch (error) {
         if (!isUnauthorized(error)) throw error;
       }
 
-      try {
-        const refreshed = await userService.refreshSession();
-        const refreshedUser = await userService.getCurrentUser(refreshed.accessToken);
-        setAccessToken(refreshed.accessToken);
-        setUser(refreshedUser);
-        return await operation(refreshed.accessToken);
-      } catch (error) {
-        clearSession();
-        throw error;
+      let token = accessToken.current;
+      if (!token || generation !== sessionGeneration.current) throw new ApiRequestError(401, "Sign in to continue.", { code: "AUTH_REQUIRED" });
+      if (token === originalToken) {
+        if (!refreshInFlight.current) {
+          // Chat HTTP recovery and socket reconnect may detect expiry together.
+          // Rotate the cookie once and share that refresh across concurrent callers.
+          const pending = userService.refreshSession().then(async (refreshed) => {
+            const refreshedUser = await userService.getCurrentUser(refreshed.accessToken);
+            if (generation !== sessionGeneration.current) throw new ApiRequestError(401, "Sign in to continue.", { code: "AUTH_REQUIRED" });
+            accessToken.current = refreshed.accessToken;
+            setUser(refreshedUser);
+            return refreshed.accessToken;
+          }).catch((error) => {
+            if (generation === sessionGeneration.current) clearSession();
+            throw error;
+          }).finally(() => { if (refreshInFlight.current === pending) refreshInFlight.current = null; });
+          refreshInFlight.current = pending;
+        }
+        token = await refreshInFlight.current;
       }
+      try { return await operation(token); }
+      catch (error) { if (isUnauthorized(error) && generation === sessionGeneration.current) clearSession(); throw error; }
     },
-    [accessToken, clearSession],
+    [clearSession],
   );
 
   const signIn = useCallback(

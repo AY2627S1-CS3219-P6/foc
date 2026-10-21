@@ -29,8 +29,12 @@ authentication frame within five seconds of connecting. The root profile's
 allow-list includes both browser ports; native/service-local Chat uses
 `ALLOWED_ORIGINS` from its own settings. Nginx resolves Chat only on requests,
 so the base website starts when the optional Chat profile is disabled.
-Chat pages, token refresh/reconnection, read acknowledgements and history
-recovery UI remain follow-up work.
+Open `/messages` after signing in. Username search opens a private conversation directly;
+`/messages/:conversationId` shows paginated history, live sends, explicit retry and
+block controls. The browser handles session refresh/reconnection, duplicate-safe optimistic
+messages, sequence catch-up and focused/visible read acknowledgements. Mobile uses a
+single-pane flow with back navigation. See [Chat UI verification](../chat-service/docs/ui-verification.md)
+for FR/NFR mapping, focus/read rules and real-service browser test commands.
 
 | Route | Audience | Purpose |
 | --- | --- | --- |
