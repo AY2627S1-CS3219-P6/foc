@@ -139,17 +139,30 @@ after the Supplier Service HTTP tests.
 
 Run linting with `.venv/bin/ruff check app tests scripts`. Ruff checks application
 code, tests, and scripts using the same rule groups as the other Python services.
-Run the HTTP tests with `.venv/bin/python -m pytest -q`. The optional database
-update and deactivation tests run when `SUPPLIER_TEST_DATABASE_URL` points to
-the local Supplier database on port 55322; they remove their temporary suppliers.
+Run the HTTP tests with `.venv/bin/python -m pytest -q`. The seven database
+tests cover categories, supplier reads, updates, and deactivation. They run when
+`SUPPLIER_TEST_DATABASE_URL` points to a migrated local Supplier database on port
+55322; tests that create temporary suppliers remove them afterward. Without the
+variable, database tests skip for local development. To include them using the
+default local Supabase database:
+
+```sh
+npx supabase start
+SUPPLIER_TEST_DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:55322/postgres' \
+  .venv/bin/python -m pytest -q
+```
+
 To check the live authenticated path, send POST, PATCH, and DELETE requests with an
 administrator token and confirm the changes in the Supplier Service database.
 Seed SQL verifies the migration and sample data, but it does not exercise the
 API.
-The repository CI runs linting, then these HTTP tests, then builds the Docker
-image for Supplier Service changes on pull requests to `main` and pushes to
-`main`. Linting and the HTTP tests do not require Supabase credentials or a
-running database; CI uses Docker for the image build.
+The repository CI runs linting, starts an isolated PostgreSQL 17 container, applies
+the committed Supplier migrations and seed data, and runs both API and database
+tests before building the Docker image. The test database uses loopback port
+55322 and disposable test credentials; no hosted Supabase credentials or running
+User Service are needed. CI fails if any tests skip and removes the database
+container and its volume after the job, including on failure. These checks run
+for Supplier Service changes on pull requests to `main` and pushes to `main`.
 
 ## Database choice
 
