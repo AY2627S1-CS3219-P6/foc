@@ -28,3 +28,11 @@ export function UsersIcon() {
     <path d="M16.2 5.5a2.75 2.75 0 0 1 0 5.35M17.15 14.9c2.08.2 3.28 1.76 3.65 4.1" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
   </svg>;
 }
+
+export function WalletIcon() {
+  return <svg aria-hidden="true" fill="none" height="20" viewBox="0 0 29.2 28.2" width="20">
+    <path d="M22.1 6.1H7.1a6 6 0 0 0-6 6v9a6 6 0 0 0 6 6h15a6 6 0 0 0 6-6v-9a6 6 0 0 0-6-6Z" stroke="currentColor" strokeWidth="2.2" />
+    <path d="M3.1 7.1v-3c0-1.7 1.3-3 3-3h17" stroke="currentColor" strokeLinecap="round" strokeWidth="2.2" />
+    <circle cx="22.1" cy="17.1" fill="currentColor" r="2" />
+  </svg>;
+}

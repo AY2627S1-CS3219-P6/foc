@@ -1,7 +1,7 @@
 # FoC Web Client
 
 The React, Vite, and TypeScript client uses same-origin `/v1/` requests for
-User/Order/Chat Services and `/api/v1/` for Supplier Service. The APIs own authentication
+User/Order/Credit/Chat Services and `/api/v1/` for Supplier Service. The APIs own authentication
 and authorization decisions. The client does not connect to any service database.
 
 ## Local development
@@ -14,7 +14,8 @@ npm run dev
 ```
 
 Vite listens on port 5173. It proxies `/v1/chat` HTTP and WebSocket requests to
-Chat on port 8003, Order paths under `/v1/` to port 8002,
+Chat on port 8004, Order paths under `/v1/` to port 8002,
+wallet paths to Credit on port 8003,
 other `/v1/` paths to User Service on port 8000, and Supplier API requests to
 Supplier Service on port 8001. Start the required services
 and their local databases using the [root setup guide](../README.md) for the

@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+!.env.docker.example
+.venv
+node_modules
+supabase/.temp
+supabase/.branches
+tests
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache

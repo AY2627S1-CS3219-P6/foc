@@ -38,7 +38,7 @@ asyncio.run(main())
             "--name",
             api,
             "--publish",
-            "127.0.0.1:8003:8003",
+            "127.0.0.1:8004:8003",
             "--env",
             "DATABASE_URL",
             "--env",
@@ -65,7 +65,7 @@ asyncio.run(main())
             async with asyncio.timeout(30):
                 while True:
                     try:
-                        r = await client.get("http://127.0.0.1:8003/health/ready")
+                        r = await client.get("http://127.0.0.1:8004/health/ready")
                         assert r.status_code == 200 and r.json()["delivery"] == "ready"
                         break
                     except (AssertionError, httpx.HTTPError):
@@ -75,7 +75,7 @@ asyncio.run(main())
             async with asyncio.timeout(20):
                 while True:
                     try:
-                        r = await client.get("http://127.0.0.1:8003/health/ready")
+                        r = await client.get("http://127.0.0.1:8004/health/ready")
                         assert r.status_code == 200
                         break
                     except (AssertionError, httpx.HTTPError):

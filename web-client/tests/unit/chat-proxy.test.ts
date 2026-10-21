@@ -25,7 +25,7 @@ beforeAll(async () => {
   const targets = new Map<string, string>();
   for (const [target, service] of [
     ["http://localhost:8000", "user"],
-    ["http://127.0.0.1:8003", "chat"],
+    ["http://127.0.0.1:8004", "chat"],
   ]) {
     const backend = createHttpServer((req, res) => {
       res.setHeader("Content-Type", "application/json");

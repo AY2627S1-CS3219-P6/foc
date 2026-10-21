@@ -36,7 +36,7 @@ Provision an isolated Supabase PostgreSQL database with a `chat_service` schema 
 
 Use the service's Supabase SQL migrations as its sole schema history. Validate migrations through a clean `npx supabase db reset`. Runtime models must not create tables or apply migrations at startup.
 
-Use backend port `8003` and a separate local Supabase port range beginning at `17420`, avoiding the existing service configurations. Add an optional Compose `chat` profile containing Chat Service and its outbox publisher, connected to the existing RabbitMQ and appropriate internal networks.
+Use container backend port `8003`, published/native host port `8004` (Credit owns host port `8003`), and a separate local Supabase port range beginning at `17420`, avoiding the existing service configurations. Add an optional Compose `chat` profile containing Chat Service and its outbox publisher, connected to the existing RabbitMQ and appropriate internal networks.
 
 Keep database URLs, RabbitMQ credentials, and internal-service secrets in ignored local configuration and secret management. Provide safe `.env.example` placeholders. Browser clients communicate only with application services.
 

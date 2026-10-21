@@ -13,7 +13,7 @@
 - Use Python 3.13, FastAPI, Uvicorn, Pydantic v2, SQLAlchemy async with `asyncpg`, `httpx` for asynchronous HTTP calls, and `aio-pika` for RabbitMQ. Keep request handlers and WebSocket processing non-blocking.
 - Use an isolated Supabase PostgreSQL database and the `chat_service` schema. Restrict the runtime database role to the privileges it needs. Supabase is PostgreSQL storage only; do not use Supabase Auth, its Data API/client SDKs, or browser-to-Supabase access.
 - Keep `supabase/migrations/` as Chat Service's sole schema history. Create timestamped SQL migrations and validate them with `npx supabase db reset` against Chat Service's local project. Do not reset another service's database, add a second migration framework, or create/alter tables at application startup.
-- Use backend port `8003` and a separate local Supabase port range beginning at `17420`, as planned. Check existing configurations before assigning individual ports.
+- Use container backend port `8003` and published/native host port `8004` because Credit owns host port `8003`. Use a separate local Supabase port range beginning at `17420`, as planned. Check existing configurations before assigning individual ports.
 - Extend [the root Compose configuration](../compose.yaml) with an optional `chat` profile and a separately restartable Chat Service outbox publisher. Use the existing RabbitMQ service and the networks needed to reach User Service and RabbitMQ; do not repurpose User Service's publisher.
 - Keep local secrets ignored and document safe placeholders in `.env.example`. Do not overwrite existing secrets or expose database/RabbitMQ credentials or internal-service secrets to browser configuration, URLs, logs, responses, or events.
 

@@ -78,7 +78,7 @@ docker compose --env-file user-service/.env --profile chat up --build -d
 
 To run the manual checks through the browser proxy, use `CHAT_BASE_URL=http://localhost:3000`,
 `CHAT_WS_URL=ws://localhost:3000/v1/chat/ws`, and `WS_ORIGIN=http://localhost:3000` in Postman.
-Direct API checks on port 8003 remain supported. See the root and Chat READMEs for the one-time
+Direct API checks on port 8004 (Credit uses host port 8003) remain supported. See the root and Chat READMEs for the one-time
 stop of the service-local API/publisher when changing launchers and the local origin override.
 
 ## Manual Postman walkthrough
@@ -129,9 +129,9 @@ access tokens and OTPs local/secret; do not export or commit their populated val
 
 | Variable | Initial value / where to obtain it |
 |---|---|
-| `CHAT_BASE_URL` | `http://127.0.0.1:8003` (direct API; shared web routing is pending) |
+| `CHAT_BASE_URL` | `http://127.0.0.1:8004` (direct API; or `http://localhost:3000` through the shared proxy) |
 | `USER_BASE_URL` | `http://127.0.0.1:8000` |
-| `CHAT_WS_URL` | `ws://127.0.0.1:8003/v1/chat/ws` |
+| `CHAT_WS_URL` | `ws://127.0.0.1:8004/v1/chat/ws` (or `ws://localhost:3000/v1/chat/ws`) |
 | `WS_ORIGIN` | `http://localhost:3000`, which must be in Chat's `ALLOWED_ORIGINS` |
 | `EMAIL_A`, `EMAIL_B`, `EMAIL_C` | Your three disposable account emails |
 | `PASSWORD_A`, `PASSWORD_B`, `PASSWORD_C` | Their passwords; use valid User Service password policy |
@@ -403,10 +403,10 @@ Use the corresponding frame in each request; expect `ready` with the matching `u
 
 Optionally connect a second B socket with the same B authentication to watch multi-tab unread
 updates. To test two API processes, run a second API in another terminal from `chat-service`
-using the same backend configuration and connect B to `ws://127.0.0.1:8004/v1/chat/ws`:
+using the same backend configuration and connect B to `ws://127.0.0.1:8005/v1/chat/ws`:
 
 ```powershell
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8004 --no-access-log --ws-max-size 65536
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8005 --no-access-log --ws-max-size 65536
 ```
 
 On A, send ping; expect `pong` with the same request ID:

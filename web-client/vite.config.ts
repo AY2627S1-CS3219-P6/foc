@@ -6,12 +6,16 @@ export default defineConfig({
   server: {
     proxy: {
       "^/v1/chat([/?]|$)": {
-        target: "http://127.0.0.1:8003",
+        target: "http://127.0.0.1:8004",
         changeOrigin: true,
         ws: true,
       },
       "^/v1/(orders|order-creations|admin/orders)([/?]|$)": {
         target: "http://localhost:8002",
+        changeOrigin: true,
+      },
+      "^/v1/(wallets|admin/wallets)([/?]|$)": {
+        target: "http://localhost:8003",
         changeOrigin: true,
       },
       "/v1": {

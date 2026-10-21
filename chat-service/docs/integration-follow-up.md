@@ -26,11 +26,11 @@ database/broker URLs at container startup, avoiding the root User environment's 
 variable names. A missing Chat env file does not prevent base-profile startup; enabling
 Chat requires its own Docker URLs and matching service secret. User's publisher is separate.
 
-The API publishes loopback port 8003 and joins edge, user-internal and support networks.
+The API publishes loopback port 8004 (container port 8003) and joins edge, user-internal and support networks.
 The publisher joins support and can restart independently. Both use the existing broker's
 `foc.chat.events` topic exchange and per-API exclusive queues. The service-local launcher
 remains available on the existing `foc-dev_*` networks; stop its API/publisher before
-switching to root Compose so port 8003 and the Chat service DNS alias have a single owner.
+switching to root Compose so host port 8004 and the Chat service DNS alias have a single owner.
 
 Production migration tooling provisions a dedicated Chat Service Supabase project and a
 restricted login inheriting `chat_runtime`. Migrations contain no passwords and execute only
@@ -40,7 +40,7 @@ only application routes and no infrastructure credentials.
 
 ## Proxy routing
 
-Vite routes the bounded `/v1/chat` prefix before generic `/v1` to `http://127.0.0.1:8003`
+Vite routes the bounded `/v1/chat` prefix before generic `/v1` to `http://127.0.0.1:8004`
 with `ws: true`. Nginx dynamically resolves `chat-service:8003`, preserving path/query,
 HTTP/1.1 WebSocket upgrades, bearer/correlation headers and browser Origin. Its timeout
 is 60 seconds; clients should send keepalive pings every 20 seconds. Dynamic DNS permits

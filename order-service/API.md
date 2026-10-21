@@ -1,11 +1,11 @@
 # Order Service API and event contracts
 
-Implemented Order-side contract, updated 2026-10-11. D3 is the main implementation/demo
-guide; requirement IDs remain the team's M3/M4 identifiers. Credit's interface
-below is a proposal awaiting its owner and real integration. No fake Credit
-success is enabled in the runtime. This release adds acceptance, cancellation and
+Implemented Order-side contract, updated 2026-10-16. D3 is the main implementation/demo
+guide; requirement IDs remain the team's M3/M4 identifiers. Credit implements
+the interface below in its [own service](../credit-service/API.md). No fake Credit
+success is enabled in the runtime. Order supports acceptance, cancellation and
 expiry, pickup, delivery, completion, unilateral failure and overdue tracking with durable terminal-event
-publication. Real Credit consumption remains pending; publishing does not confirm wallet settlement.
+publication. Real Credit consumes these events; publishing alone does not confirm wallet settlement.
 
 ## Identity and conventions
 
@@ -164,10 +164,11 @@ can record pickup first then failure, or failure first then reject pickup.
 The UI requires confirmation, freezes an ambiguous report for the same-body retry,
 shows recorded reason/history and says credit release is processed separately.
 
-## Terminal events: proposed Credit-facing v1 contract
+## Terminal events: Credit-facing v1 contract
 
-Order implements these producer messages; Credit's queue, consumer and settlement
-transaction still require owner agreement and implementation. Example:
+Order implements these producer messages; Credit owns the queue, consumer and
+settlement transaction documented in [its contract](../credit-service/API.md).
+Example:
 
 ```json
 {
@@ -292,14 +293,15 @@ cleanup in this slice, so used keys remain reserved to their original request.
   Safe deferred logs carry operation/order IDs and error codes, not request contents.
   Unavailable Credit or an incompatible contract remains visible/pending, not success.
 
-## Proposed Credit interface — coordinate before implementation
+## Order-to-Credit interface
 
 The runtime client uses a dedicated `CREDIT_SERVICE_SECRET` as
 `X-FoC-Service-Secret`. Credit must provision/validate an Order-specific identity
 with only the permitted operations. This is **not** Supplier's secret or a user
 bearer token. Credential rotation and final contract compatibility require the
-Credit owner's agreement. Leave Credit settings blank until it is compatible;
-new creation then returns 503 without creating an operation/reserving anything.
+Credit owner's agreement. Configure the real Credit origin and matching secret
+as described in the root README. If either setting is blank, new creation returns
+503 without creating an operation/reserving anything; there is no mock fallback.
 
 | Request | Required behavior |
 | --- | --- |
@@ -316,7 +318,7 @@ completion/transfer; those belong to later terminal-event integration.
 
 Credit abort must serialize against reserve for the same order. Merely releasing
 an existing reservation is insufficient: a delayed reserve could arrive afterward.
-This proposed creation-abort operation compensates an unpublished attempt; it is
+This creation-abort operation compensates an unpublished attempt; it is
 not cancellation of an OPEN Order and does not fabricate a lifecycle event.
 
 ## Verification and remaining work
@@ -331,5 +333,6 @@ security/retry invariants. M3F8 is implemented under the approved unilateral rev
 the original other-party confirm/reject criteria are not claimed as fulfilled unchanged.
 They do not prove real Credit integration, NFR load targets or D3's required
 meaningful terminal-event consumer effect. Credit conservation/ledger correctness
-remains Credit-owned. Core lifecycle UI and isolated simulated settlement are
-implemented, but neither is evidence of actual Credit integration.
+remains Credit-owned. Core lifecycle UI and real Credit wiring are implemented;
+the deployable mock demo has been removed. Automated test doubles remain only
+under `tests/`; their results must not be presented as real wallet evidence.

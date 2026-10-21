@@ -1,7 +1,9 @@
 """Test-only simulator contract checks, never substituted into the production app."""
 
+import tomllib
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 import httpx
@@ -10,7 +12,7 @@ import pytest
 from app.core.config import Settings
 from app.orders.clients import ServiceClients
 from app.orders.errors import ApiError
-from demo.credit_stub import Request, Store, StubError, TerminalEvent, create_app, from_environment
+from tests.credit_fake import Request, Store, StubError, TerminalEvent, create_app
 
 
 @pytest.fixture
@@ -92,10 +94,14 @@ async def test_secret_and_payload_validation(store, operation):
     assert store.get(operation["order_id"]) is None
 
 
-def test_simulator_requires_explicit_local_opt_in(monkeypatch):
-    monkeypatch.delenv("CREDIT_SIMULATOR_ENABLED", raising=False)
-    with pytest.raises(RuntimeError, match="opt-in"):
-        from_environment()
+def test_credit_fake_is_test_only_not_a_deployment_entrypoint():
+    from tests import credit_fake
+
+    root = Path(__file__).resolve().parents[1]
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    assert project["tool"]["setuptools"]["packages"]["find"]["include"] == ["app*"]
+    assert "tests" in Path(credit_fake.__file__).parts
+    assert not hasattr(credit_fake, "from_environment")
 
 
 def test_abort_before_reserve_is_a_durable_fence(store, operation):

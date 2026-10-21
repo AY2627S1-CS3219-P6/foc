@@ -23,7 +23,7 @@ The template's native URL uses `127.0.0.1:17422`; its Docker URL uses
 a local reset. Deployment uses a dedicated login inheriting the restricted
 `chat_runtime` role instead of the local administrator account.
 
-Start the API with `uv run uvicorn app.main:app --port 8003 --no-access-log --ws-max-size 65536`.
+Start the API with `uv run uvicorn app.main:app --port 8004 --no-access-log --ws-max-size 65536`.
 Start the independent publisher with `uv run chat-outbox` after broker configuration.
 `/health/live` checks the process; `/health/ready` checks every owned database table.
 
@@ -37,12 +37,15 @@ Root Compose loads `chat-service/.env` directly and selects its `DATABASE_URL_DO
 and `RABBITMQ_URL_DOCKER` inside the API/publisher containers. The global `--env-file`
 remains User Service's file so its database values stay independent. The API uses
 `http://user-service:8000`; both Chat processes connect to the existing RabbitMQ.
+Chat is published on `http://127.0.0.1:8004`, leaving Credit on host port `8003`.
+The Chat container and Nginx upstream retain internal port `8003`.
 Both Docker URL settings must be populated. No database migrations run on startup.
 
 The service-local launcher remains available after the root stack has created its
 networks: `docker compose --env-file .env --profile chat up --build -d` from this
 directory. Stop its `chat-service` and `chat-outbox` before moving to the root
-launcher; run only one launcher at a time because both bind port 8003.
+launcher; run only one launcher at a time because both bind host port `8004`
+(container port `8003`). Credit uses host port `8003`.
 
 Browser/Postman same-origin requests use `http://localhost:3000/v1/chat/...` and
 `ws://localhost:3000/v1/chat/ws`. Vite uses port 5173 with the same paths. Root
