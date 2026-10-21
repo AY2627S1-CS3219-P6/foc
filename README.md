@@ -508,6 +508,7 @@ check their logs as well as `ps`.
 | --- | --- |
 | `http://localhost:3000` | Web UI and same-origin API proxy |
 | `http://localhost:3000/wallet` | Own real Credit wallet after signing in |
+| `http://localhost:3000/messages` | Private Chat conversations after signing in |
 | `http://localhost:8000/health/ready` | User database readiness; expect HTTP 200 |
 | `http://localhost:8001/docs` | Supplier API documentation |
 | `http://localhost:8002/health/ready` | Order database/schema readiness; expect HTTP 200 |
@@ -551,7 +552,9 @@ Chat containers still listen internally on `8003` under their own service name.
 If your Postman environment used direct port `8003`, change `CHAT_BASE_URL` to
 `http://127.0.0.1:8004` and `CHAT_WS_URL` to `ws://127.0.0.1:8004/v1/chat/ws`.
 Follow the [ordered Chat manual walkthrough](chat-service/docs/verification.md).
-Chat screens remain follow-up work; these backend routes are available now.
+Open **Messages** after signing in to search usernames, send messages, manage
+blocks and read retained history. See [Chat UI verification](chat-service/docs/ui-verification.md)
+for browser behavior, requirement mapping and the opt-in real-service test.
 
 ### Troubleshooting and data safety
 

@@ -4,7 +4,7 @@ import type { CurrentUser } from "../api/user-service";
 import { APP_NAME } from "../app/branding";
 import type { WorkspaceMode } from "../app/use-workspace-mode";
 import { AppBrand } from "./app-brand";
-import { OrderIcon, ProfileIcon, SupplierNavigationIcon, UsersIcon, WalletIcon } from "./navigation-icons";
+import { MessagesIcon, OrderIcon, ProfileIcon, SupplierNavigationIcon, UsersIcon, WalletIcon } from "./navigation-icons";
 
 type NavigationProps = { user: CurrentUser; mode?: WorkspaceMode };
 type NavigationItem = { label: string; to: string; Icon: ComponentType };
@@ -27,6 +27,7 @@ function navigationGroups(user: CurrentUser, mode: WorkspaceMode): NavigationGro
       { label: "Open errands", to: "/orders", Icon: OrderIcon },
       { label: "My errands", to: "/orders/mine", Icon: OrderIcon },
       { label: "Wallet", to: "/wallet", Icon: WalletIcon },
+      { label: "Messages", to: "/messages", Icon: MessagesIcon },
     ] });
   }
 

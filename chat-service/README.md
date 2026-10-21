@@ -69,8 +69,11 @@ and preserve the caller's Origin. Nginx can start while Chat is disabled. Chat C
 includes lint/unit/PostgreSQL/RabbitMQ and container checks; its identity dependency
 is a test-only contract fake. An actual User + Chat regression job remains follow-up.
 
-Final chat UI, focus/visibility detection, plain-text rendering, optimistic deduplication,
-retry UX, responsive/keyboard checks and two-browser acceptance remain external follow-up.
+Phase 6 adds the protected Messages screens, visible/focused read handling, plain-text
+rendering, optimistic deduplication, explicit retry, block management and reconnect recovery.
+See [UI verification](docs/ui-verification.md) for requirements, automated checks and the
+real two-browser acceptance procedure. Production deployment and automated real-service CI
+provisioning remain separate integration work.
 No Sprint 4 scale/performance compliance is claimed.
 
 See [integration-follow-up.md](docs/integration-follow-up.md) for exact shared routing/CI work

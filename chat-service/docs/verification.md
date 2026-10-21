@@ -81,6 +81,13 @@ To run the manual checks through the browser proxy, use `CHAT_BASE_URL=http://lo
 Direct API checks on port 8004 (Credit uses host port 8003) remain supported. See the root and Chat READMEs for the one-time
 stop of the service-local API/publisher when changing launchers and the local origin override.
 
+## Phase 6 browser UI
+
+The protected Messages UI and its Sprint 3 acceptance are documented in
+[UI verification](ui-verification.md), including browser/component checks and the
+opt-in test against real User Service, Chat, PostgreSQL and RabbitMQ. The results
+above remain historical backend/routing evidence; no Sprint 4 compliance is claimed.
+
 ## Manual Postman walkthrough
 
 This is the ordered manual test guide. There is no bundled Chat Postman collection; import

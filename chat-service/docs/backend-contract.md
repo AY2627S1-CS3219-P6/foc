@@ -87,7 +87,7 @@ Text validation counts Python Unicode code points on the raw input before trimmi
 empty/whitespace-only text and lengths above 4096, and trims only outer whitespace. Internal
 whitespace, line breaks and Unicode are unchanged. NUL and isolated surrogates are rejected as
 invalid PostgreSQL/Unicode text. JSON-escaped supplementary characters are supported through
-4096 code points. Use `[...text].length` in the eventual browser client, not UTF-16 `.length`.
+4096 code points. Use `[...text].length` in the browser client, not UTF-16 `.length`.
 
 On uncertain send outcome preserve the same client message ID and text. Retrying an accepted
 ID after current authentication/membership checks returns the original message even if the pair
@@ -133,4 +133,5 @@ unblock replay. PostgreSQL is the offline recovery source; transient live queues
 mailboxes. A successful subscription/re-subscription sends `sync.required` to connected clients.
 
 No typing, first-contact workflows, reporting, attachments, groups, errand context or scale
-features are implemented. Formal load/p95 targets and final UI acceptance remain deferred.
+features are implemented. Formal load/p95 targets remain deferred. Phase 6 browser behavior and acceptance
+evidence are recorded in [UI verification](ui-verification.md).
