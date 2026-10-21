@@ -26,7 +26,7 @@ withdrawn, or exchanged for money, and only circulate within the platform.
 
 This repository follows a **one-service-per-folder** structure: each
 microservice (`user-service/`, `supplier-service/`, `order-service/`,
-`credit-service/`) lives in its own top-level folder.
+`credit-service/`, `chat-service/`) lives in its own top-level folder.
 
 ```text
 .
@@ -35,6 +35,7 @@ microservice (`user-service/`, `supplier-service/`, `order-service/`,
 ├── web-client/
 ├── order-service/
 ├── credit-service/
+├── chat-service/
 ├── <n2h-service>/
 └── README.md
 ```
@@ -50,9 +51,9 @@ microservice (`user-service/`, `supplier-service/`, `order-service/`,
 
 ## Local setup overview
 
-The root [Compose file](compose.yaml) runs the website, User, Supplier, Order
-and Credit APIs, their background workers, RabbitMQ and Mailpit. Each backend
-owns a separate local Supabase PostgreSQL database. Start those four database
+The root [Compose file](compose.yaml) runs the website, User, Supplier, Order,
+Credit and Chat APIs, their background workers, RabbitMQ and Mailpit. Each backend
+owns a separate local Supabase PostgreSQL database. Start those five database
 stacks with the Supabase CLI before starting the application containers.
 No hosted Supabase project is required, and the browser never connects to
 Supabase directly.
@@ -72,6 +73,7 @@ Both use the same [local configuration](#shared-local-configuration).
   installed, run `wsl --install` in an administrator PowerShell, restart if
   requested, then open Docker Desktop. Check `wsl --status` and `docker info`.
 
+Docker Compose 2.24 or newer is required for optional Chat configuration files.
 Each service installs its project-pinned Supabase CLI with `npm ci`. No global
 Supabase CLI, `supabase init`, cloud login or project linking is needed. For
 this Docker workflow, do not also start `npm run dev` or local Python APIs.
@@ -84,10 +86,12 @@ this Docker workflow, do not also start `npm run dev` or local Python APIs.
 | `supplier-service` | `55322` | `http://localhost:55323` | `supplier_service` |
 | `order-service` | `16422` | `http://localhost:16423` | `order_service` |
 | `credit-service` | `16522` | `http://localhost:16523` | `credit_service` |
+| `chat-service` | `17422` | Disabled | `chat_service` |
 
 These are the ports in the committed `supabase/config.toml` files. PostgreSQL
 ports are not webpages. Open Studio, select **Table Editor** and choose the
-application schema; the `public` schema may be empty.
+application schema; the `public` schema may be empty. Chat disables Studio,
+Supabase Auth and the Data API; its database is accessed through PostgreSQL tools.
 
 **Existing User setup on port `54322`:** before following the startup steps,
 run `npx supabase stop` from `user-service/`. Change only the port in its ignored
@@ -100,7 +104,7 @@ Do not reset the database or regenerate secrets for this port change.
 Use Terminal or VS Code's terminal. Start from the repository root. Wait for
 each command to finish and resolve failures before continuing.
 
-### 1. Start and migrate all four databases
+### 1. Start and migrate all five databases
 
 ```sh
 docker info
@@ -121,6 +125,11 @@ npx supabase start
 npx supabase migration up --local
 
 cd ../credit-service
+npm ci
+npx supabase start
+npx supabase migration up --local
+
+cd ../chat-service
 npm ci
 npx supabase start
 npx supabase migration up --local
@@ -161,6 +170,9 @@ fi
 if [ ! -f credit-service/.env.docker ]; then
   cp credit-service/.env.docker.example credit-service/.env.docker
 fi
+if [ ! -f chat-service/.env ]; then
+  cp chat-service/.env.example chat-service/.env
+fi
 ```
 
 Complete [Shared local configuration](#shared-local-configuration) before
@@ -182,13 +194,13 @@ active Super Admin exists.
 ### 4. Start the real integrated application
 
 If an older service-level Compose stack or local API already occupies ports
-`3000`, `8000`–`8003`, `5672`, `15672` or `8025`, stop that specific stack or
+`3000`, `8000`–`8004`, `5672`, `15672` or `8025`, stop that specific stack or
 process first.
 
 ```sh
-docker compose --env-file user-service/.env --profile order --profile credit up --build -d
-docker compose --env-file user-service/.env --profile order --profile credit ps
-docker compose --env-file user-service/.env --profile order --profile credit logs --tail 30 credit-consumer
+docker compose --env-file user-service/.env --profile order --profile credit --profile chat up --build -d
+docker compose --env-file user-service/.env --profile order --profile credit --profile chat ps
+docker compose --env-file user-service/.env --profile order --profile credit --profile chat logs --tail 30 credit-consumer
 ```
 
 Wait for the API health checks and the consumer's `consumer ready` log before
@@ -203,18 +215,20 @@ Keep the existing environments and secrets. From the repository root:
 (cd supplier-service && npx supabase start && npx supabase migration up --local)
 (cd order-service && npx supabase start && npx supabase migration up --local)
 (cd credit-service && npx supabase start && npx supabase migration up --local)
-docker compose --env-file user-service/.env --profile order --profile credit up --build -d
+(cd chat-service && npx supabase start && npx supabase migration up --local)
+docker compose --env-file user-service/.env --profile order --profile credit --profile chat up --build -d
 ```
 
 To stop, first finish any pending demo actions, then stop the application
 containers before the databases:
 
 ```sh
-docker compose --env-file user-service/.env --profile order --profile credit stop
+docker compose --env-file user-service/.env --profile order --profile credit --profile chat stop
 (cd user-service && npx supabase stop)
 (cd supplier-service && npx supabase stop)
 (cd order-service && npx supabase stop)
 (cd credit-service && npx supabase stop)
+(cd chat-service && npx supabase stop)
 ```
 
 ## Local setup (Windows)
@@ -225,7 +239,7 @@ Windows `.venv` or `node_modules` with a WSL checkout. `npm.cmd` and `npx.cmd`
 avoid PowerShell blocking the corresponding `.ps1` launchers; no execution-policy
 change or virtual-environment activation is needed.
 
-### 1. Start and migrate all four databases
+### 1. Start and migrate all five databases
 
 ```powershell
 docker info
@@ -246,6 +260,11 @@ npx.cmd supabase start
 npx.cmd supabase migration up --local
 
 Set-Location ..\credit-service
+npm.cmd ci
+npx.cmd supabase start
+npx.cmd supabase migration up --local
+
+Set-Location ..\chat-service
 npm.cmd ci
 npx.cmd supabase start
 npx.cmd supabase migration up --local
@@ -286,6 +305,9 @@ if (-not (Test-Path -LiteralPath order-service/.env.docker)) {
 if (-not (Test-Path -LiteralPath credit-service/.env.docker)) {
     Copy-Item -LiteralPath credit-service/.env.docker.example -Destination credit-service/.env.docker
 }
+if (-not (Test-Path -LiteralPath chat-service/.env)) {
+    Copy-Item -LiteralPath chat-service/.env.example -Destination chat-service/.env
+}
 ```
 
 Complete [Shared local configuration](#shared-local-configuration) and **save
@@ -307,12 +329,12 @@ explicit one-shot command, not a database-startup side effect.
 ### 4. Start the real integrated application
 
 Stop any older service-level application stack or local process occupying the
-application ports first; leave the four database stacks running.
+application ports first; leave the five database stacks running.
 
 ```powershell
-docker compose --env-file user-service/.env --profile order --profile credit up --build -d
-docker compose --env-file user-service/.env --profile order --profile credit ps
-docker compose --env-file user-service/.env --profile order --profile credit logs --tail 30 credit-consumer
+docker compose --env-file user-service/.env --profile order --profile credit --profile chat up --build -d
+docker compose --env-file user-service/.env --profile order --profile credit --profile chat ps
+docker compose --env-file user-service/.env --profile order --profile credit --profile chat logs --tail 30 credit-consumer
 ```
 
 Wait for health checks and the `consumer ready` log, then use
@@ -335,14 +357,17 @@ npx.cmd supabase migration up --local
 Set-Location ..\credit-service
 npx.cmd supabase start
 npx.cmd supabase migration up --local
+Set-Location ..\chat-service
+npx.cmd supabase start
+npx.cmd supabase migration up --local
 Set-Location ..
-docker compose --env-file user-service/.env --profile order --profile credit up --build -d
+docker compose --env-file user-service/.env --profile order --profile credit --profile chat up --build -d
 ```
 
-Stop application containers first, then the four databases:
+Stop application containers first, then the five databases:
 
 ```powershell
-docker compose --env-file user-service/.env --profile order --profile credit stop
+docker compose --env-file user-service/.env --profile order --profile credit --profile chat stop
 Set-Location user-service
 npx.cmd supabase stop
 Set-Location ..\supplier-service
@@ -350,6 +375,8 @@ npx.cmd supabase stop
 Set-Location ..\order-service
 npx.cmd supabase stop
 Set-Location ..\credit-service
+npx.cmd supabase stop
+Set-Location ..\chat-service
 npx.cmd supabase stop
 Set-Location ..
 ```
@@ -366,6 +393,7 @@ Compose command explicitly uses `user-service/.env`, not the root `.env.example`
 | `supplier-service/.env` | Copy `SUPPLIER_SERVICE_SHARED_SECRET` exactly from User's `.env`. The template uses Supplier's local DB; root Compose connects to it through `host.docker.internal:55322`. |
 | `order-service/.env.docker` | Set its own `DATABASE_URL` and `CREDIT_SERVICE_SECRET`. Root Compose supplies User/Supplier/Credit origins and the outbox worker's RabbitMQ URL. |
 | `credit-service/.env.docker` | Set its own `DATABASE_URL`, `ORDER_SERVICE_SECRET` and `INITIAL_CREDIT_ALLOCATION=20`. Root Compose supplies User's origin and the consumer's RabbitMQ URL. |
+| `chat-service/.env` | Keep its own database URLs on `17422`; configure `RABBITMQ_URL`, `RABBITMQ_URL_DOCKER` and a dedicated `CHAT_SERVICE_SHARED_SECRET` matching User's `.env`. |
 
 The Supplier and Order-to-Credit secrets must be **different**. Generate one
 random Order-to-Credit secret and copy that same value into Order's
@@ -385,7 +413,7 @@ user-service/.venv/bin/python -c 'import secrets; print(secrets.token_hex(32))'
 Do not reuse this service secret as a database password. Do not send it to the
 browser or put it in a `VITE_*` variable. The backend images install their own
 Python dependencies; this Docker workflow does not require additional local
-Python environments for Supplier, Order or Credit, or host `.env` files for
+Python environments for Supplier, Order, Credit or Chat, or host `.env` files for
 Order/Credit.
 
 ### Order and Credit database logins
@@ -431,6 +459,34 @@ at another service's database. Local administrative credentials used by the
 User generator/Supplier template are development conveniences, not production
 credential guidance.
 
+### Chat database and service configuration
+
+Chat's local template uses Supabase's default `postgres` username/password on
+its isolated database; no extra login creation is required:
+
+```dotenv
+# chat-service/.env
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:17422/postgres
+DATABASE_URL_DOCKER=postgresql+asyncpg://postgres:postgres@host.docker.internal:17422/postgres
+RABBITMQ_URL_DOCKER=amqp://REPLACE_WITH_RABBITMQ_USER:REPLACE_WITH_RABBITMQ_PASSWORD@rabbitmq:5672/
+```
+
+Keep an already working configuration. Copy User's existing `RABBITMQ_URL` to
+Chat's native `RABBITMQ_URL`, and use the same broker username/password in the
+Docker URL above. The shared broker uses port `5672`; `17425` belongs only to
+the separate automated-test broker. No additional broker is needed for Chat.
+
+Reuse User's existing `CHAT_SERVICE_SHARED_SECRET` in Chat. If neither file
+has it, generate a dedicated random secret using the command above and add the
+same key/value to both files. User's generator does not create this key. Keep it
+different from Supplier's and Order-to-Credit's secrets.
+
+Root Compose loads Chat's `.env` directly and selects its Docker URLs inside
+the API and publisher containers. Keep User's `.env` as the single global
+`--env-file` so the services' overlapping database variable names cannot mix.
+Production uses a restricted Chat login inheriting `chat_runtime`; the local
+`postgres/postgres` defaults are development conveniences.
+
 ### First Super Admin fields
 
 In `user-service/.env`, set `BOOTSTRAP_SUPER_ADMIN_USERNAME`,
@@ -443,9 +499,9 @@ from your operating-system section. Do not invent hardcoded default accounts.
 
 ## Check the application
 
-The two profiles enable the real Order API/recovery/expiry/outbox workers and
-Credit API/consumer. With both enabled, root Compose starts twelve
-application/support services. Background workers do not have HTTP health checks;
+The three profiles enable the real Order API/recovery/expiry/outbox workers,
+Credit API/consumer and Chat API/outbox publisher. With all enabled, root Compose
+starts fourteen application/support services. Background workers do not have HTTP health checks;
 check their logs as well as `ps`.
 
 | Local address | Purpose |
@@ -456,6 +512,8 @@ check their logs as well as `ps`.
 | `http://localhost:8001/docs` | Supplier API documentation |
 | `http://localhost:8002/health/ready` | Order database/schema readiness; expect HTTP 200 |
 | `http://localhost:8003/health/ready` | Credit database/schema readiness; expect HTTP 200 |
+| `http://127.0.0.1:8004/health/ready` | Chat database and live-delivery readiness; expect HTTP 200 |
+| `http://127.0.0.1:8004/docs` | Chat API documentation |
 | `http://localhost:8000/docs`, `:8002/docs`, `:8003/docs` | User, Order and Credit API documentation |
 | `http://localhost:8025` | Mailpit registration verification emails |
 | `http://localhost:15672` | RabbitMQ management; use your local RabbitMQ credentials |
@@ -478,12 +536,22 @@ Readiness does not prove every downstream interaction. Test the full workflow:
    held reward instead. Order completion or outbox `PUBLISHED` alone does not
    prove settlement; confirm the wallet/ledger result.
 
-The web proxy routes Order paths to Order, wallet paths to Credit, Supplier
-paths to Supplier and other `/v1/` routes to User. The edge does not route
+The web proxy routes `/v1/chat` HTTP/WebSocket paths to Chat, Order paths to
+Order, wallet paths to Credit, Supplier paths to Supplier and other `/v1/` routes
+to User. The edge does not route
 Credit's `/v1/internal/*` endpoints to Credit; Order calls those privately with
 its service secret. No service reads another service's tables. The retired
 port-3001 mock demo has been removed. Test doubles remain under automated-test
 directories only; the application uses real Credit and has no simulated fallback.
+
+Chat HTTP requests use `http://localhost:3000/v1/chat/...` and WebSockets use
+`ws://localhost:3000/v1/chat/ws`; Vite development uses the same paths on port
+`5173`. Native/direct Chat access now uses port `8004`, leaving Credit on `8003`.
+Chat containers still listen internally on `8003` under their own service name.
+If your Postman environment used direct port `8003`, change `CHAT_BASE_URL` to
+`http://127.0.0.1:8004` and `CHAT_WS_URL` to `ws://127.0.0.1:8004/v1/chat/ws`.
+Follow the [ordered Chat manual walkthrough](chat-service/docs/verification.md).
+Chat screens remain follow-up work; these backend routes are available now.
 
 ### Troubleshooting and data safety
 
@@ -508,7 +576,52 @@ directories only; the application uses real Credit and has no simulated fallback
   Use explicitly disposable databases and test queues. Do not paste `.env`
   contents, private keys, passwords or tokens into chat or Git.
 
+### Remove application containers
+
+For an intentional teardown after finishing pending work, use all enabled
+profiles from the repository root:
+
+```sh
+docker compose --env-file user-service/.env --profile order --profile credit --profile chat down
+```
+
+The same Docker command works in PowerShell. This removes application containers
+and networks; it does not remove the separately managed Supabase databases.
+RabbitMQ/Mailpit have no explicit persistent volumes here, so pending broker data
+and captured mail can be lost on recreation. Use `stop` for routine shutdown.
+Stop each Supabase stack using the operating-system steps above when finished.
+
+### Reset disposable local application data
+
+Reset only when you intentionally want to erase that service's local data.
+Stop application containers first. For Chat alone, run from the repository root:
+
+```sh
+docker compose --env-file user-service/.env --profile order --profile credit --profile chat stop
+(cd chat-service && npx supabase start && npx supabase db reset --local)
+```
+
+On Windows / PowerShell:
+
+```powershell
+docker compose --env-file user-service/.env --profile order --profile credit --profile chat stop
+Set-Location chat-service
+npx.cmd supabase start
+npx.cmd supabase db reset --local
+Set-Location ..
+```
+
+This deletes Chat conversations, messages, blocks, unread cursors and outbox rows,
+then reapplies Chat migrations. It does not reset User, Supplier, Order or Credit.
+To reset another disposable local database, run `npx supabase db reset --local`
+from that service's directory and follow its README for login/seed recovery.
+If resetting the entire demo, reset each service separately, recreate any local
+Order/Credit login grants and bootstrap the first Super Admin again. Retain existing
+secret files. Never run a reset against hosted, shared or non-disposable data.
+Rebuild/start the application with the same enabled profiles after reconfiguration.
+
 For service-specific APIs, development commands and test requirements, see
 [User](user-service/README.md), [Supplier](supplier-service/README.md),
-[Order](order-service/README.md) and [Credit](credit-service/README.md).
-The root instructions above describe the combined real-Credit Docker workflow.
+[Order](order-service/README.md), [Credit](credit-service/README.md) and
+[Chat](chat-service/README.md).
+The root instructions above describe the combined real-service Docker workflow.
