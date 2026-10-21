@@ -18,7 +18,9 @@ def test_admin_list_uses_current_role_decision_and_status_filter(read_auth, role
 
         def list_admin_suppliers(self, filters, status):
             self.call = (filters, status)
-            return SupplierListResponse(items=[], page=filters.page, page_size=filters.page_size, total=0)
+            return SupplierListResponse(
+                items=[], page=filters.page, page_size=filters.page_size, total=0
+            )
 
     repository = FakeRepository()
     app.dependency_overrides[get_repository] = lambda: repository
@@ -49,13 +51,21 @@ def test_admin_list_denies_user_and_invalid_requests(read_auth):
     app.dependency_overrides[get_repository] = lambda: repository
     with TestClient(app) as client:
         assert client.get("/api/v1/admin/suppliers").status_code == 401
-        assert client.get(
-            "/api/v1/admin/suppliers", headers={"Authorization": "Bearer invalid"}
-        ).status_code == 401
+        assert (
+            client.get(
+                "/api/v1/admin/suppliers", headers={"Authorization": "Bearer invalid"}
+            ).status_code
+            == 401
+        )
         headers = {"Authorization": f"Bearer {token}"}
         assert client.get("/api/v1/admin/suppliers", headers=headers).status_code == 403
         decision.update(systemRole="ADMIN", allowed=True)
-        assert client.get("/api/v1/admin/suppliers", params={"status": "DISABLED"}, headers=headers).status_code == 422
+        assert (
+            client.get(
+                "/api/v1/admin/suppliers", params={"status": "DISABLED"}, headers=headers
+            ).status_code
+            == 422
+        )
     assert repository.calls == 0
     assert actions == ["SUPPLIER_UPDATE", "SUPPLIER_UPDATE"]
 

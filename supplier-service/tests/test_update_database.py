@@ -20,7 +20,9 @@ def _local_test_database_url() -> str:
         pytest.skip("Set SUPPLIER_TEST_DATABASE_URL to the local Supplier Supabase database")
     parsed = urlparse(url)
     if parsed.hostname not in ("localhost", "127.0.0.1") or parsed.port != 55322:
-        pytest.fail("Database update tests may run only against local Supplier Supabase on port 55322")
+        pytest.fail(
+            "Database update tests may run only against local Supplier Supabase on port 55322"
+        )
     return url
 
 
@@ -44,35 +46,43 @@ def test_update_preserves_omitted_fields_replaces_categories_and_rolls_back_reje
     suffix = uuid4().hex
     created_ids = []
     try:
-        first = repository.create(SupplierCreate(
-            name=f"Review Cafe {suffix}",
-            categories=["FOOD", "COFFEE"],
-            building_area="Review Area",
-            pickup_location_description="First location",
-            floor="2",
-            latitude=1.3,
-            longitude=103.8,
-            opening_time="09:00",
-            closing_time="18:00",
-            image_url="https://example.com/first.png",
-        ))
+        first = repository.create(
+            SupplierCreate(
+                name=f"Review Cafe {suffix}",
+                categories=["FOOD", "COFFEE"],
+                building_area="Review Area",
+                pickup_location_description="First location",
+                floor="2",
+                latitude=1.3,
+                longitude=103.8,
+                opening_time="09:00",
+                closing_time="18:00",
+                image_url="https://example.com/first.png",
+            )
+        )
         created_ids.append(first.id)
-        second = repository.create(SupplierCreate(
-            name=f"Other Cafe {suffix}",
-            categories=["FOOD"],
-            building_area="Review Area",
-            pickup_location_description="Second location",
-        ))
+        second = repository.create(
+            SupplierCreate(
+                name=f"Other Cafe {suffix}",
+                categories=["FOOD"],
+                building_area="Review Area",
+                pickup_location_description="Second location",
+            )
+        )
         created_ids.append(second.id)
 
-        partial = repository.update(first.id, SupplierPatch(pickup_location_description="New pickup point"))
+        partial = repository.update(
+            first.id, SupplierPatch(pickup_location_description="New pickup point")
+        )
         assert partial.id == first.id and partial.created_at == first.created_at
         assert partial.updated_at > first.updated_at
         assert partial.name == first.name and partial.floor == "2"
         assert partial.categories == ["COFFEE", "FOOD"]
         assert (partial.latitude, partial.longitude) == (first.latitude, first.longitude)
         assert (partial.opening_time, partial.closing_time, partial.image_url) == (
-            first.opening_time, first.closing_time, first.image_url
+            first.opening_time,
+            first.closing_time,
+            first.image_url,
         )
 
         time.sleep(0.01)
@@ -81,19 +91,22 @@ def test_update_preserves_omitted_fields_replaces_categories_and_rolls_back_reje
         assert category_only.updated_at > partial.updated_at
         assert category_only.created_at == first.created_at
 
-        full = repository.update(first.id, SupplierPatch(
-            name=f"Updated Cafe {suffix}",
-            categories=["PRINTING"],
-            building_area="Updated Area",
-            pickup_location_description="Updated pickup",
-            floor="3",
-            latitude=1.31,
-            longitude=103.81,
-            opening_time="10:00",
-            closing_time="20:00",
-            image_url="https://example.com/updated.png",
-            status="INACTIVE",
-        ))
+        full = repository.update(
+            first.id,
+            SupplierPatch(
+                name=f"Updated Cafe {suffix}",
+                categories=["PRINTING"],
+                building_area="Updated Area",
+                pickup_location_description="Updated pickup",
+                floor="3",
+                latitude=1.31,
+                longitude=103.81,
+                opening_time="10:00",
+                closing_time="20:00",
+                image_url="https://example.com/updated.png",
+                status="INACTIVE",
+            ),
+        )
         assert full.name == f"Updated Cafe {suffix}"
         assert full.categories == ["PRINTING"]
         assert full.building_area == "Updated Area"
@@ -105,27 +118,41 @@ def test_update_preserves_omitted_fields_replaces_categories_and_rolls_back_reje
         assert full.status == "INACTIVE"
         assert full.id == first.id and full.created_at == first.created_at
 
-        cleared = repository.update(first.id, SupplierPatch(
-            floor=None,
-            latitude=None,
-            longitude=None,
-            opening_time=None,
-            closing_time=None,
-            image_url=None,
-        ))
-        assert all(getattr(cleared, field) is None for field in (
-            "floor", "latitude", "longitude", "opening_time", "closing_time", "image_url"
-        ))
+        cleared = repository.update(
+            first.id,
+            SupplierPatch(
+                floor=None,
+                latitude=None,
+                longitude=None,
+                opening_time=None,
+                closing_time=None,
+                image_url=None,
+            ),
+        )
+        assert all(
+            getattr(cleared, field) is None
+            for field in (
+                "floor",
+                "latitude",
+                "longitude",
+                "opening_time",
+                "closing_time",
+                "image_url",
+            )
+        )
         assert cleared.status == "INACTIVE"
 
         before = _snapshot(url, first.id)
         with pytest.raises(ApiError) as duplicate:
-            repository.update(first.id, SupplierPatch(
-                name=f"  {second.name.upper()}  ",
-                building_area="  review   area  ",
-                floor=" ",
-                categories=["LANDMARK"],
-            ))
+            repository.update(
+                first.id,
+                SupplierPatch(
+                    name=f"  {second.name.upper()}  ",
+                    building_area="  review   area  ",
+                    floor=" ",
+                    categories=["LANDMARK"],
+                ),
+            )
         assert duplicate.value.status_code == 409
         assert _snapshot(url, first.id) == before
 
@@ -142,11 +169,14 @@ def test_update_preserves_omitted_fields_replaces_categories_and_rolls_back_reje
             assert rejected.value.status_code == 422
             assert _snapshot(url, first.id) == before
 
-        own_identity = repository.update(second.id, SupplierPatch(
-            name=f"  {second.name.upper()}  ",
-            building_area=" review   area ",
-            floor=" ",
-        ))
+        own_identity = repository.update(
+            second.id,
+            SupplierPatch(
+                name=f"  {second.name.upper()}  ",
+                building_area=" review   area ",
+                floor=" ",
+            ),
+        )
         assert own_identity.id == second.id
         assert own_identity.floor is None
 

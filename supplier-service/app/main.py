@@ -27,7 +27,6 @@ from app.schemas import (
     SupplierResponse,
 )
 
-
 app = FastAPI(title="FoC Supplier Service")
 app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
@@ -51,7 +50,9 @@ def supplier_list_filters(
 ) -> SupplierListFilters:
     if "building_area" in request.query_params:
         raise ApiError(
-            422, "VALIDATION_ERROR", "Supplier query is invalid",
+            422,
+            "VALIDATION_ERROR",
+            "Supplier query is invalid",
             [{"field": "building_area", "message": "Building/area filtering is not supported"}],
         )
     return SupplierListFilters(
@@ -72,7 +73,9 @@ def list_active_suppliers(
 ) -> SupplierListResponse:
     if "status" in request.query_params:
         raise ApiError(
-            422, "VALIDATION_ERROR", "Supplier query is invalid",
+            422,
+            "VALIDATION_ERROR",
+            "Supplier query is invalid",
             [{"field": "status", "message": "Status filtering requires administrator access"}],
         )
     return repository.list_active_suppliers(filters)

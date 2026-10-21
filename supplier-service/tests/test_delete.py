@@ -42,7 +42,12 @@ def setup(monkeypatch):
             return SimpleNamespace(key=key.public_key())
 
     monkeypatch.setattr(auth, "jwks_client", lambda _url: FakeJwks())
-    decision = {"subjectId": str(subject), "accountStatus": "ACTIVE", "systemRole": "ADMIN", "allowed": True}
+    decision = {
+        "subjectId": str(subject),
+        "accountStatus": "ACTIVE",
+        "systemRole": "ADMIN",
+        "allowed": True,
+    }
     actions = []
 
     def authorize(_url, *, headers, json, timeout):

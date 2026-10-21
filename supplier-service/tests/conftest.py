@@ -36,7 +36,12 @@ def read_auth(monkeypatch):
         def get_signing_key_from_jwt(self, _token):
             return SimpleNamespace(key=key.public_key())
 
-    decision = {"subjectId": str(subject), "accountStatus": "ACTIVE", "systemRole": "USER", "allowed": False}
+    decision = {
+        "subjectId": str(subject),
+        "accountStatus": "ACTIVE",
+        "systemRole": "USER",
+        "allowed": False,
+    }
     actions = []
 
     def authorize(_url, *, headers, json, timeout):

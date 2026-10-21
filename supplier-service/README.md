@@ -44,7 +44,7 @@ Use Python 3.13 for local development, matching Docker and CI. The macOS system
 
 ```sh
 python3.13 -m venv .venv
-.venv/bin/python -m pip install -e '.[test]'
+.venv/bin/python -m pip install -e '.[test,dev]'
 ```
 
 Copy [`.env.example`](.env.example) to an ignored `.env` if you do not already
@@ -137,6 +137,8 @@ This stops Supplier Service's API container. Its local Supabase database and
 User Service containers remain running. The CI workflow also builds the image
 after the Supplier Service HTTP tests.
 
+Run linting with `.venv/bin/ruff check app tests scripts`. Ruff checks application
+code, tests, and scripts using the same rule groups as the other Python services.
 Run the HTTP tests with `.venv/bin/python -m pytest -q`. The optional database
 update and deactivation tests run when `SUPPLIER_TEST_DATABASE_URL` points to
 the local Supplier database on port 55322; they remove their temporary suppliers.
@@ -144,9 +146,10 @@ To check the live authenticated path, send POST, PATCH, and DELETE requests with
 administrator token and confirm the changes in the Supplier Service database.
 Seed SQL verifies the migration and sample data, but it does not exercise the
 API.
-The repository CI runs these HTTP tests for Supplier Service changes on pull
-requests to `main` and pushes to `main`; it does not require Supabase
-credentials or Docker.
+The repository CI runs linting, then these HTTP tests, then builds the Docker
+image for Supplier Service changes on pull requests to `main` and pushes to
+`main`. Linting and the HTTP tests do not require Supabase credentials or a
+running database; CI uses Docker for the image build.
 
 ## Database choice
 
