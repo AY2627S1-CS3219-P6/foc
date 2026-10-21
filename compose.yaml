@@ -47,6 +47,7 @@ services:
 
   supplier-service:
     build: ./supplier-service
+    restart: unless-stopped
     env_file: ./supplier-service/.env
     environment:
       SUPPLIER_DATABASE_URL: ${SUPPLIER_DATABASE_URL_DOCKER:-postgresql://postgres:postgres@host.docker.internal:55322/postgres}
@@ -66,9 +67,9 @@ services:
         - CMD
         - python
         - -c
-        - import urllib.request; urllib.request.urlopen("http://127.0.0.1:8001/openapi.json")
+        - import urllib.request; urllib.request.urlopen("http://127.0.0.1:8001/health/ready", timeout=6)
       interval: 10s
-      timeout: 3s
+      timeout: 7s
       retries: 6
       start_period: 10s
 

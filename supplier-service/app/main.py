@@ -16,6 +16,7 @@ from app.auth import (
 )
 from app.config import Settings, get_settings
 from app.errors import ApiError, api_error_handler, validation_error_handler
+from app.health import router as health_router
 from app.repository import SupplierRepository, get_repository
 from app.schemas import (
     CategoryResponse,
@@ -30,6 +31,7 @@ from app.schemas import (
 app = FastAPI(title="FoC Supplier Service")
 app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.include_router(health_router)
 
 
 @app.get("/api/v1/categories", response_model=list[CategoryResponse])

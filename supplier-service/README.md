@@ -139,16 +139,43 @@ docker compose --env-file user-service/.env up --build -d --no-deps supplier-ser
 docker compose --env-file user-service/.env stop supplier-service
 ```
 
-Stopping Supplier leaves the other services and its database running. Supplier
-keeps its own Dockerfile and can still be built independently. The CI workflow
-also builds the image after the Supplier Service tests.
+Stopping Supplier leaves the other services and its database running. Compose
+uses `restart: unless-stopped` to restart Supplier after a process crash; an
+explicit stop leaves it stopped. Supplier keeps its own Dockerfile and can still
+be built independently. The CI workflow also builds the image after the Supplier
+Service tests.
+
+### Liveness and database readiness
+
+- `GET /health/live` returns `200 {"status":"live"}` without configuration,
+  database access, or User Service authentication.
+- `GET /health/ready` opens a fresh database connection and checks that the
+  Supplier tables exist and can be selected from, without reading supplier rows.
+  It returns `200 {"status":"ready"}` on success or a sanitized
+  `503 SERVICE_NOT_READY` for missing configuration, connection failures,
+  missing tables, insufficient permissions, or query timeouts. Connection setup
+  and SQL execution each have a two-second timeout; the entire probe has a
+  five-second limit.
+- Readiness checks Supplier PostgreSQL only. User Service authorization remains
+  checked by authenticated API operations. Apply migrations before starting the
+  application; the readiness probe does not create or migrate tables.
+- The Docker image and root Compose health checks call `/health/ready` every
+  ten seconds, with a six-second HTTP timeout, seven-second Docker timeout,
+  ten-second startup grace period, and six failure retries. The frontend waits
+  for Supplier readiness during Compose startup.
+- The API can start while its database is unavailable. Liveness stays healthy,
+  and later readiness requests recover when the database returns. Docker marks
+  failed health checks unhealthy; it does not automatically restart the service
+  or stop already-running dependents just because readiness fails.
+
+### Linting and tests
 
 From `supplier-service/`, run linting with `.venv/bin/ruff check app tests scripts`.
-Ruff checks application
-code, tests, and scripts using the same rule groups as the other Python services.
-Run the HTTP tests with `.venv/bin/python -m pytest -q`. The seven database
-tests cover categories, supplier reads, updates, and deactivation. They run when
-`SUPPLIER_TEST_DATABASE_URL` points to a migrated local Supplier database on port
+Ruff checks application code, tests, and scripts using the same rule groups as
+the other Python services.
+Run the HTTP tests with `.venv/bin/python -m pytest -q`. The eight database
+tests cover readiness, categories, supplier reads, updates, and deactivation.
+They run when `SUPPLIER_TEST_DATABASE_URL` points to a migrated local Supplier database on port
 55322; tests that create temporary suppliers remove them afterward. Without the
 variable, database tests skip for local development. To include them using the
 default local Supabase database:
