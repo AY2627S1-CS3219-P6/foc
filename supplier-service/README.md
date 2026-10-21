@@ -39,11 +39,11 @@ This service keeps Supabase CLI `2.117.0` as a development dependency. Run
 database and hosted-project commands. Node.js is not needed in the FastAPI
 container.
 
-Use Python 3.11 or newer. The macOS system `python3` may be older; use a
-matching interpreter such as `python3.12`. From `supplier-service/`:
+Use Python 3.13 for local development, matching Docker and CI. The macOS system
+`python3` may be older; use `python3.13` explicitly. From `supplier-service/`:
 
 ```sh
-python3.12 -m venv .venv
+python3.13 -m venv .venv
 .venv/bin/python -m pip install -e '.[test]'
 ```
 
