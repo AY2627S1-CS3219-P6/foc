@@ -281,22 +281,62 @@ jobs:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
           push: false
+          load: ${{ matrix.service == 'supplier-service' }}
+          tags: ${{ matrix.service == 'supplier-service' && 'foc-supplier-service:ci' || '' }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
-      - name: Show supplier database diagnostics on failure
+      - name: Smoke test the built supplier container
+        if: matrix.service == 'supplier-service'
+        env:
+          SUPPLIER_DATABASE_URL: postgresql://supplier_test:local-supplier-test-only@127.0.0.1:55322/supplier_test
+        run: |
+          # Linux host networking reaches the existing loopback-only test database.
+          docker run --detach --name foc-supplier-ci-api --network host \
+            --env SUPPLIER_DATABASE_URL foc-supplier-service:ci
+          docker exec -i foc-supplier-ci-api python - <<'PY'
+          import json
+          import time
+          from urllib.error import URLError
+          from urllib.request import urlopen
+
+          deadline = time.monotonic() + 30
+          last_error = "No readiness response"
+          while time.monotonic() < deadline:
+              try:
+                  with urlopen("http://127.0.0.1:8001/health/ready", timeout=6) as response:
+                      if response.status != 200 or json.load(response) != {"status": "ready"}:
+                          raise SystemExit("Unexpected supplier readiness response")
+                  break
+              except (URLError, TimeoutError) as exc:
+                  last_error = str(exc)
+                  time.sleep(1)
+          else:
+              raise SystemExit(f"Supplier container did not become ready: {last_error}")
+
+          with urlopen("http://127.0.0.1:8001/health/live", timeout=6) as response:
+              if response.status != 200 or json.load(response) != {"status": "live"}:
+                  raise SystemExit("Unexpected supplier liveness response")
+          print("Built Supplier container is live and ready against the test database")
+          PY
+
+      - name: Show supplier container diagnostics on failure
         if: ${{ failure() && matrix.service == 'supplier-service' }}
         run: |
-          if docker container inspect foc-supplier-test-postgres > /dev/null 2>&1; then
-            docker logs foc-supplier-test-postgres
-          fi
+          for container in foc-supplier-ci-api foc-supplier-test-postgres; do
+            if docker container inspect "$container" > /dev/null 2>&1; then
+              docker logs "$container"
+            fi
+          done
 
-      - name: Remove disposable supplier test database
+      - name: Remove disposable supplier CI containers
         if: ${{ always() && matrix.service == 'supplier-service' }}
         run: |
-          if docker container inspect foc-supplier-test-postgres > /dev/null 2>&1; then
-            docker rm --force --volumes foc-supplier-test-postgres
-          fi
+          for container in foc-supplier-ci-api foc-supplier-test-postgres; do
+            if docker container inspect "$container" > /dev/null 2>&1; then
+              docker rm --force --volumes "$container"
+            fi
+          done
 
   validate-chat:
     name: Validate chat-service

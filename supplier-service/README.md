@@ -142,8 +142,8 @@ docker compose --env-file user-service/.env stop supplier-service
 Stopping Supplier leaves the other services and its database running. Compose
 uses `restart: unless-stopped` to restart Supplier after a process crash; an
 explicit stop leaves it stopped. Supplier keeps its own Dockerfile and can still
-be built independently. The CI workflow also builds the image after the Supplier
-Service tests.
+be built independently. The CI workflow also builds and smoke tests the image
+after the Supplier Service tests.
 
 ### Liveness and database readiness
 
@@ -192,11 +192,15 @@ Seed SQL verifies the migration and sample data, but it does not exercise the
 API.
 The repository CI runs linting, starts an isolated PostgreSQL 17 container, applies
 the committed Supplier migrations and seed data, and runs both API and database
-tests before building the Docker image. The test database uses loopback port
-55322 and disposable test credentials; no hosted Supabase credentials or running
-User Service are needed. CI fails if any tests skip and removes the database
-container and its volume after the job, including on failure. These checks run
-for Supplier Service changes on pull requests to `main` and pushes to `main`.
+tests before building the Docker image. It then starts that image against the
+same temporary database and requires successful `/health/ready` and
+`/health/live` responses. The test database uses loopback port 55322 and
+disposable test credentials; no hosted Supabase credentials or running
+User Service are needed. CI fails if any tests skip or the built container fails
+its smoke test, shows container logs on failure, and removes both the API and
+database containers and their volumes after the job, including on failure.
+These checks run for Supplier Service changes on pull requests to `main` and
+pushes to `main`.
 
 ## Database choice
 
