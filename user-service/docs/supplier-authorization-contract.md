@@ -39,10 +39,10 @@ operation) on every other status, malformed response, network error, timeout,
 or `allowed: false`. Do not retry a caller's state-changing supplier operation
 after a failed authorization call.
 
-For local Compose, join Supplier Service to the externally named
-`${USER_SERVICE_INTERNAL_NETWORK:-foc-user-service-internal}` network created
-by User Service, call `http://user-service:8000`, and supply the generated
-`SUPPLIER_SERVICE_SHARED_SECRET` only through its local secret configuration.
+For local Compose, use the repository-root stack, which connects Supplier and
+User through its `user-internal` network. Call `http://user-service:8000`, and
+supply the generated `SUPPLIER_SERVICE_SHARED_SECRET` through
+`supplier-service/.env`.
 The User Service endpoint still requires the secret even on that internal
 network. In AWS, replace this shared secret with task IAM or mTLS-equivalent
 service identity; the request and fail-closed response contract stay the same.

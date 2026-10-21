@@ -112,32 +112,39 @@ Service tables or trust a role supplied in the request.
 
 ### Run the API in Docker
 
-Keep Docker Desktop, User Service, and this service's local Supabase stack
-running. User Service's Compose stack provides the
-`foc-user-service-internal` network. Stop the local `uvicorn` process if it is
-using port 8001, then run from `supplier-service/`:
+Use the [repository-root Compose setup](../README.md#local-setup-overview).
+Complete its first-time configuration and start the User and Supplier local
+Supabase databases. Stop any local Supplier API using port 8001, then run from
+the repository root:
 
 ```sh
-docker compose up --build -d
+docker compose --env-file user-service/.env up --build -d
 ```
 
 Open `http://127.0.0.1:8001/docs` and send the same administrator POST request
-shown above. Compose loads the ignored `.env` for the shared secret. Inside the
-container, it connects to Supplier PostgreSQL at `host.docker.internal:55322`
-and to User Service at `http://user-service:8000`. These replace the
-`127.0.0.1` addresses used when running Python directly on the Mac. For a
-different database or User Service address, set `SUPPLIER_DATABASE_URL_DOCKER`
-or `USER_SERVICE_BASE_URL_DOCKER` in `.env`. Never put secrets in the image.
+shown above, or open the website at `http://localhost:3000`. Root Compose creates
+the application networks and starts User, Supplier, the frontend, RabbitMQ,
+Mailpit, and User's outbox publisher. It loads `supplier-service/.env` for the
+shared secret and supplies `host.docker.internal:55322` for Supplier PostgreSQL
+and `http://user-service:8000` for User Service. To override the Docker database
+URL, export `SUPPLIER_DATABASE_URL_DOCKER` in the shell running Compose; setting
+it only in Supplier's `.env` does not supply root Compose interpolation. Never
+put secrets in the image.
+
+Once the stack is running, rebuild or stop only Supplier from the repository
+root:
 
 ```sh
-docker compose down
+docker compose --env-file user-service/.env up --build -d --no-deps supplier-service
+docker compose --env-file user-service/.env stop supplier-service
 ```
 
-This stops Supplier Service's API container. Its local Supabase database and
-User Service containers remain running. The CI workflow also builds the image
-after the Supplier Service HTTP tests.
+Stopping Supplier leaves the other services and its database running. Supplier
+keeps its own Dockerfile and can still be built independently. The CI workflow
+also builds the image after the Supplier Service tests.
 
-Run linting with `.venv/bin/ruff check app tests scripts`. Ruff checks application
+From `supplier-service/`, run linting with `.venv/bin/ruff check app tests scripts`.
+Ruff checks application
 code, tests, and scripts using the same rule groups as the other Python services.
 Run the HTTP tests with `.venv/bin/python -m pytest -q`. The seven database
 tests cover categories, supplier reads, updates, and deactivation. They run when
