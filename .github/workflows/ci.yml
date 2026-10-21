@@ -159,7 +159,12 @@ jobs:
         working-directory: supplier-service
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ".[test]"
+          python -m pip install ".[test,dev]"
+
+      - name: Lint supplier service
+        if: matrix.service == 'supplier-service'
+        working-directory: supplier-service
+        run: ruff check app tests scripts
 
       - name: Run supplier service API tests
         if: matrix.service == 'supplier-service'
