@@ -20,7 +20,7 @@ than claiming a pixel comparison with inaccessible Figma frames.
 | N1F1.6–N1F1.6.5 | Deleted counterpart history stays visible, with `Deleted User`, no username and an unavailable composer. Search/status remain authoritative backend decisions, so a replacement username cannot inherit history. |
 | N1NFR3.1 | Three task actions: enter a username query, select its result, compose/send. Search is live and opening does not require a separate creation confirmation. |
 | N1NFR3.2 | Visible connection, pending/success/failure and retry states; read/save failures do not imply successful persistence. |
-| N1NFR3.3 | Browser flow/screenshots at 360, 768, 1024 and 1440px; no horizontal page overflow. Shared navigation remains usable down to 320px in the existing regression suite. |
+| N1NFR3.3 | Viewport-bounded Chat at 320×568, 360×640, 375×667, 667×375, 768×600, 1024×768 and 1440×900; no horizontal or vertical page overflow. History and directory scroll inside their panes while shared navigation and the composer remain visible. |
 | N1NFR3.4 | Labeled search/composer, keyboard-opened search results, Enter-to-send/Shift+Enter newline, keyboard block controls, visible focus, status/error announcements and semantic lists/links/buttons. |
 
 The socket sends the in-memory bearer in its first frame, validates the current
@@ -35,6 +35,41 @@ Reconnect, `sync.required`, and sequence gaps reload summaries and catch up
 visited conversations from their processed sequence. Later messages are withheld
 while a gap is recovered. Reconnecting never automatically resends failed drafts.
 There are no sender-facing read receipts, typing indicators or first-contact states.
+
+Chat uses the shared shell's optional viewport layout, sized with `100dvh` and a
+`100vh` fallback. The mobile navigation occupies its own layout row, including
+safe-area padding, rather than covering the composer. Long message histories,
+conversation lists, search results and expanded blocked-user lists scroll within
+bounded panes. Positioned containers prevent hidden accessibility labels from
+extending the document as those lists grow. The composer has a bounded height;
+long drafts scroll inside its text field.
+
+Auto-scroll changes only the history pane and follows new messages while the
+reader is near its end. Incoming messages do not move a reader browsing older
+history. Loading an older page preserves the previous message's screen position.
+Composer focus does not scroll ancestors, and viewport resizing keeps the latest
+message visible when already following the end. Short screens use tighter
+spacing; landscape screens put Send beside the text field and retain connection
+status, the conversation header and both shared navigation areas.
+
+## Viewport regression follow-up — 21 October 2026
+
+- Ten new browser regressions cover 200 seeded messages, 40 conversations,
+  40 expanded blocked users, incoming bursts, send/focus, scroll boundaries,
+  older-page anchoring, viewport resizing and mobile admin validation.
+- All **21 Chat browser tests passed against the rebuilt Nginx container** on
+  `http://localhost:3000`, using test-only HTTP/WebSocket contract fixtures.
+  Desktop, small portrait and short landscape screenshots were inspected.
+- Frontend lint, TypeScript/production builds, the Docker web build and all
+  **121 frontend unit/component tests passed**.
+- The wider Vite browser run had **98 passed, one failed and one opt-in live case
+  skipped** before the final blocked-list regression was added. Its existing
+  `orders.spec.ts` deadline case also failed when rerun: the one-second deadline
+  had elapsed before its initial Cancel assertion. Order code/tests were not
+  changed for this Chat fix. This run is not claimed as a fully passing suite.
+- This follow-up changes browser layout/scrolling only. The previous real-service
+  acceptance evidence below remains historical; no database reset or backend
+  restart was needed.
 
 ## Automated checks
 

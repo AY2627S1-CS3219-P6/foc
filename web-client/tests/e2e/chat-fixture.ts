@@ -13,6 +13,7 @@ export class ChatFixture {
   rejectNextSend = false;
   failNextRead = false;
   openPair = true;
+  conversationCount = 1;
   private summary(me: string) {
     const counterpart = me === "alice" ? this.bob : this.alice;
     const lastReadSequence = this.reads.get(me) ?? 0;
@@ -40,7 +41,7 @@ export class ChatFixture {
       }
       if (url.pathname === "/v1/chat/conversations") {
         if (method === "POST") { this.openPair = true; return route.fulfill({ json: { conversationId: "ab" } }); }
-        return route.fulfill({ json: { items: this.openPair ? [this.summary(me)] : [], nextCursor: null } });
+        return route.fulfill({ json: { items: this.openPair ? Array.from({ length: this.conversationCount }, (_, index) => ({ ...this.summary(me), conversationId: index ? `other-${index}` : "ab" })) : [], nextCursor: null } });
       }
       if (!url.pathname.startsWith("/v1/chat/conversations/ab")) return error("CONVERSATION_NOT_FOUND", 404);
       if (url.pathname.endsWith("/messages")) {

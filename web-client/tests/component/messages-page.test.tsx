@@ -28,6 +28,7 @@ beforeEach(() => {
   vi.spyOn(document, "hasFocus").mockImplementation(() => focused);
   vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
   vi.stubGlobal("WebSocket", Socket);
+  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   auth.withCurrentAccess.mockImplementation((operation: (token: string) => Promise<unknown>) => operation("test-token"));
   vi.spyOn(userService, "getCurrentUser").mockResolvedValue(auth.user);
   vi.spyOn(chatService, "conversations").mockImplementation(async () => ({ items: [{ ...summary }], nextCursor: null }));
