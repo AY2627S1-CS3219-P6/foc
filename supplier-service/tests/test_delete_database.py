@@ -19,7 +19,9 @@ def _local_test_database_url() -> str:
         pytest.skip("Set SUPPLIER_TEST_DATABASE_URL to the local Supplier Supabase database")
     parsed = urlparse(url)
     if parsed.hostname not in ("localhost", "127.0.0.1") or parsed.port != 55322:
-        pytest.fail("Database delete tests may run only against local Supplier Supabase on port 55322")
+        pytest.fail(
+            "Database delete tests may run only against local Supplier Supabase on port 55322"
+        )
     return url
 
 
@@ -40,12 +42,14 @@ def test_delete_retains_row_and_categories_and_is_repeatable():
     repository = SupplierRepository(url)
     supplier_id = None
     try:
-        created = repository.create(SupplierCreate(
-            name=f"Delete Review {uuid4().hex}",
-            categories=["FOOD", "COFFEE"],
-            building_area="Review Area",
-            pickup_location_description="Review pickup",
-        ))
+        created = repository.create(
+            SupplierCreate(
+                name=f"Delete Review {uuid4().hex}",
+                categories=["FOOD", "COFFEE"],
+                building_area="Review Area",
+                pickup_location_description="Review pickup",
+            )
+        )
         supplier_id = created.id
         before, categories = _snapshot(url, supplier_id)
         result = repository.deactivate(supplier_id)
@@ -55,7 +59,11 @@ def test_delete_retains_row_and_categories_and_is_repeatable():
         assert after is not None and after["status"] == "INACTIVE"
         assert after["id"] == before["id"] and after["created_at"] == before["created_at"]
         assert after["updated_at"] > before["updated_at"]
-        assert all(after[column] == before[column] for column in before if column not in ("status", "updated_at"))
+        assert all(
+            after[column] == before[column]
+            for column in before
+            if column not in ("status", "updated_at")
+        )
         assert after_categories == categories == ["COFFEE", "FOOD"]
 
         repeated = repository.deactivate(supplier_id)
@@ -68,5 +76,7 @@ def test_delete_retains_row_and_categories_and_is_repeatable():
     finally:
         if supplier_id is not None:
             with psycopg.connect(url) as conn, conn.cursor() as cursor:
-                cursor.execute("DELETE FROM supplier_service.suppliers WHERE id = %s", (supplier_id,))
+                cursor.execute(
+                    "DELETE FROM supplier_service.suppliers WHERE id = %s", (supplier_id,)
+                )
             assert _snapshot(url, supplier_id) == (None, [])

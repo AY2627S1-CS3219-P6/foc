@@ -24,11 +24,20 @@ def test_admin_can_get_inactive_supplier_detail(read_auth, role):
         def get_admin_supplier(self, requested_id):
             self.called_with = requested_id
             return SupplierResponse(
-                id=requested_id, name="Closed Cafe", categories=["COFFEE", "FOOD"],
-                building_area="Central Library", pickup_location_description="Main entrance",
-                floor="1", latitude=1.3, longitude=103.8,
-                opening_time="09:00", closing_time="18:00", image_url="https://example.com/a.png",
-                status="INACTIVE", created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
+                id=requested_id,
+                name="Closed Cafe",
+                categories=["COFFEE", "FOOD"],
+                building_area="Central Library",
+                pickup_location_description="Main entrance",
+                floor="1",
+                latitude=1.3,
+                longitude=103.8,
+                opening_time="09:00",
+                closing_time="18:00",
+                image_url="https://example.com/a.png",
+                status="INACTIVE",
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
             )
 
     repository = FakeRepository()

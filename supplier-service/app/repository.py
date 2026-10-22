@@ -1,6 +1,6 @@
 """Supplier-owned PostgreSQL writes. Supabase migrations own the schema."""
 
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 import psycopg
@@ -22,7 +22,6 @@ from app.schemas import (
     SupplierResponse,
 )
 
-
 SUPPLIER_COLUMNS = (
     "name",
     "building_area",
@@ -37,7 +36,9 @@ SUPPLIER_COLUMNS = (
 )
 
 
-def _check_categories(cursor: psycopg.Cursor, categories: list[str], *, field: str = "categories") -> None:
+def _check_categories(
+    cursor: psycopg.Cursor, categories: list[str], *, field: str = "categories"
+) -> None:
     cursor.execute(
         "SELECT code FROM supplier_service.categories WHERE code = ANY(%s)",
         (categories,),
@@ -76,7 +77,10 @@ class SupplierRepository:
         if not self.database_url:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
         try:
-            with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn, conn.cursor() as cursor:
+            with (
+                psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn,
+                conn.cursor() as cursor,
+            ):
                 cursor.execute(
                     "SELECT code, display_name FROM supplier_service.categories "
                     "ORDER BY display_name, code"
@@ -84,7 +88,9 @@ class SupplierRepository:
                 rows = cursor.fetchall()
             return [CategoryResponse.model_validate(row) for row in rows]
         except psycopg.Error as error:
-            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
+            raise ApiError(
+                503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable"
+            ) from error
 
     def list_active_suppliers(self, filters: SupplierListFilters) -> SupplierListResponse:
         return self._list_suppliers(filters, status="ACTIVE")
@@ -100,7 +106,10 @@ class SupplierRepository:
         if not self.database_url:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
         try:
-            with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn, conn.cursor() as cursor:
+            with (
+                psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn,
+                conn.cursor() as cursor,
+            ):
                 clauses = []
                 parameters: list[object] = []
                 if status is not None:
@@ -108,22 +117,28 @@ class SupplierRepository:
                     parameters.append(status)
                 term = filters.q.strip() if filters.q else ""
                 if term:
-                    clauses.append(sql.SQL(
-                        "(strpos(lower(s.name), lower(%s)) > 0 OR "
-                        "strpos(lower(s.building_area), lower(%s)) > 0 OR "
-                        "strpos(lower(s.pickup_location_description), lower(%s)) > 0)"
-                    ))
+                    clauses.append(
+                        sql.SQL(
+                            "(strpos(lower(s.name), lower(%s)) > 0 OR "
+                            "strpos(lower(s.building_area), lower(%s)) > 0 OR "
+                            "strpos(lower(s.pickup_location_description), lower(%s)) > 0)"
+                        )
+                    )
                     parameters.extend((term, term, term))
                 if filters.categories:
                     _check_categories(cursor, filters.categories, field="category")
-                    clauses.append(sql.SQL(
-                        "EXISTS (SELECT 1 FROM supplier_service.supplier_categories sc "
-                        "WHERE sc.supplier_id = s.id AND sc.category_code = ANY(%s))"
-                    ))
+                    clauses.append(
+                        sql.SQL(
+                            "EXISTS (SELECT 1 FROM supplier_service.supplier_categories sc "
+                            "WHERE sc.supplier_id = s.id AND sc.category_code = ANY(%s))"
+                        )
+                    )
                     parameters.append(sorted(set(filters.categories)))
                 where_sql = sql.SQL(" AND ").join(clauses) if clauses else sql.SQL("TRUE")
                 cursor.execute(
-                    sql.SQL("SELECT count(*) AS total FROM supplier_service.suppliers s WHERE {}").format(where_sql),
+                    sql.SQL(
+                        "SELECT count(*) AS total FROM supplier_service.suppliers s WHERE {}"
+                    ).format(where_sql),
                     parameters,
                 )
                 total = cursor.fetchone()["total"]
@@ -132,7 +147,8 @@ class SupplierRepository:
                     sql.SQL(
                         "SELECT s.id, s.name, s.building_area, s.floor, s.status, "
                         "s.opening_time, s.closing_time, "
-                        "ARRAY(SELECT sc.category_code FROM supplier_service.supplier_categories sc "
+                        "ARRAY(SELECT sc.category_code "
+                        "FROM supplier_service.supplier_categories sc "
                         "WHERE sc.supplier_id = s.id ORDER BY sc.category_code) AS categories "
                         "FROM supplier_service.suppliers s WHERE {} "
                         "ORDER BY lower(s.name) {}, s.id ASC LIMIT %s OFFSET %s"
@@ -147,7 +163,9 @@ class SupplierRepository:
                 total=total,
             )
         except psycopg.Error as error:
-            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
+            raise ApiError(
+                503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable"
+            ) from error
 
     def get_active_supplier(self, supplier_id: UUID) -> SupplierResponse:
         return self._get_supplier(supplier_id, include_inactive=False)
@@ -159,10 +177,17 @@ class SupplierRepository:
         if not self.database_url:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
         try:
-            with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn, conn.cursor() as cursor:
-                active_predicate = sql.SQL("") if include_inactive else sql.SQL(" AND status = 'ACTIVE'")
+            with (
+                psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn,
+                conn.cursor() as cursor,
+            ):
+                active_predicate = (
+                    sql.SQL("") if include_inactive else sql.SQL(" AND status = 'ACTIVE'")
+                )
                 cursor.execute(
-                    sql.SQL("SELECT * FROM supplier_service.suppliers WHERE id = %s{}").format(active_predicate),
+                    sql.SQL("SELECT * FROM supplier_service.suppliers WHERE id = %s{}").format(
+                        active_predicate
+                    ),
                     (supplier_id,),
                 )
                 row = cursor.fetchone()
@@ -176,7 +201,9 @@ class SupplierRepository:
                 categories = [item["category_code"] for item in cursor.fetchall()]
             return _response(row, categories)
         except psycopg.Error as error:
-            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
+            raise ApiError(
+                503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable"
+            ) from error
 
     def create(self, supplier: SupplierCreate) -> SupplierResponse:
         if not self.database_url:
@@ -184,7 +211,9 @@ class SupplierRepository:
         try:
             # The connection context commits only after all inserts and the
             # deferred category trigger succeed; errors roll everything back.
-            with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn:
+            with psycopg.connect(
+                self.database_url, connect_timeout=5, row_factory=dict_row
+            ) as conn:
                 with conn.cursor() as cursor:
                     _check_categories(cursor, supplier.categories)
 
@@ -215,7 +244,9 @@ class SupplierRepository:
                     supplier_id = cursor.fetchone()["id"]
                     cursor.executemany(
                         """
-                        INSERT INTO supplier_service.supplier_categories (supplier_id, category_code)
+                        INSERT INTO supplier_service.supplier_categories (
+                            supplier_id, category_code
+                        )
                         VALUES (%s, %s)
                         """,
                         [(supplier_id, code) for code in supplier.categories],
@@ -230,17 +261,25 @@ class SupplierRepository:
             # committed successfully.
             return _response(row, supplier.categories)
         except psycopg.errors.UniqueViolation as error:
-            raise ApiError(409, "DUPLICATE_SUPPLIER", "A supplier with this name, area, and floor already exists") from error
+            raise ApiError(
+                409,
+                "DUPLICATE_SUPPLIER",
+                "A supplier with this name, area, and floor already exists",
+            ) from error
         except (psycopg.errors.CheckViolation, psycopg.errors.ForeignKeyViolation) as error:
             raise ApiError(422, "VALIDATION_ERROR", "Supplier data is invalid") from error
         except psycopg.Error as error:
-            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
+            raise ApiError(
+                503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable"
+            ) from error
 
     def update(self, supplier_id: UUID, patch: SupplierPatch) -> SupplierResponse:
         if not self.database_url:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
         try:
-            with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn:
+            with psycopg.connect(
+                self.database_url, connect_timeout=5, row_factory=dict_row
+            ) as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
                         "SELECT * FROM supplier_service.suppliers WHERE id = %s FOR UPDATE",
@@ -284,33 +323,45 @@ class SupplierRepository:
                         if column not in changes:
                             continue
                         cast = (
-                            "::time" if column in ("opening_time", "closing_time")
-                            else "::supplier_service.supplier_status" if column == "status"
+                            "::time"
+                            if column in ("opening_time", "closing_time")
+                            else "::supplier_service.supplier_status"
+                            if column == "status"
                             else ""
                         )
-                        assignments.append(sql.SQL("{} = %s{}").format(sql.Identifier(column), sql.SQL(cast)))
+                        assignments.append(
+                            sql.SQL("{} = %s{}").format(sql.Identifier(column), sql.SQL(cast))
+                        )
                         value = getattr(updated, column)
-                        parameters.append(str(value) if column == "image_url" and value is not None else value)
+                        parameters.append(
+                            str(value) if column == "image_url" and value is not None else value
+                        )
                     if assignments:
                         cursor.execute(
-                            sql.SQL("UPDATE supplier_service.suppliers SET {} WHERE id = %s").format(
-                                sql.SQL(", ").join(assignments)
-                            ),
+                            sql.SQL(
+                                "UPDATE supplier_service.suppliers SET {} WHERE id = %s"
+                            ).format(sql.SQL(", ").join(assignments)),
                             (*parameters, supplier_id),
                         )
 
-                    if "categories" in changes and set(updated.categories) != set(current_categories):
+                    if "categories" in changes and set(updated.categories) != set(
+                        current_categories
+                    ):
                         cursor.execute(
-                            "DELETE FROM supplier_service.supplier_categories WHERE supplier_id = %s",
+                            "DELETE FROM supplier_service.supplier_categories "
+                            "WHERE supplier_id = %s",
                             (supplier_id,),
                         )
                         cursor.executemany(
-                            "INSERT INTO supplier_service.supplier_categories (supplier_id, category_code) "
+                            "INSERT INTO supplier_service.supplier_categories "
+                            "(supplier_id, category_code) "
                             "VALUES (%s, %s)",
                             [(supplier_id, code) for code in updated.categories],
                         )
 
-                    cursor.execute("SELECT * FROM supplier_service.suppliers WHERE id = %s", (supplier_id,))
+                    cursor.execute(
+                        "SELECT * FROM supplier_service.suppliers WHERE id = %s", (supplier_id,)
+                    )
                     row = cursor.fetchone()
                     cursor.execute(
                         "SELECT category_code FROM supplier_service.supplier_categories "
@@ -321,18 +372,26 @@ class SupplierRepository:
 
             return _response(row, categories)
         except psycopg.errors.UniqueViolation as error:
-            raise ApiError(409, "DUPLICATE_SUPPLIER", "A supplier with this name, area, and floor already exists") from error
+            raise ApiError(
+                409,
+                "DUPLICATE_SUPPLIER",
+                "A supplier with this name, area, and floor already exists",
+            ) from error
         except (psycopg.errors.CheckViolation, psycopg.errors.ForeignKeyViolation) as error:
             raise ApiError(422, "VALIDATION_ERROR", "Supplier data is invalid") from error
         except psycopg.Error as error:
-            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
+            raise ApiError(
+                503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable"
+            ) from error
 
     def deactivate(self, supplier_id: UUID) -> SupplierRemovalResponse:
         """Retain the row until Errand Service can prove hard deletion is safe."""
         if not self.database_url:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
         try:
-            with psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn:
+            with psycopg.connect(
+                self.database_url, connect_timeout=5, row_factory=dict_row
+            ) as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
                         "SELECT status FROM supplier_service.suppliers WHERE id = %s FOR UPDATE",
@@ -343,14 +402,17 @@ class SupplierRepository:
                         raise ApiError(404, "SUPPLIER_NOT_FOUND", "Supplier not found")
                     if row["status"] != "INACTIVE":
                         cursor.execute(
-                            "UPDATE supplier_service.suppliers SET status = 'INACTIVE' WHERE id = %s",
+                            "UPDATE supplier_service.suppliers SET status = 'INACTIVE' "
+                            "WHERE id = %s",
                             (supplier_id,),
                         )
 
             return SupplierRemovalResponse(id=supplier_id, outcome="DEACTIVATED")
         except psycopg.Error as error:
-            raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable") from error
+            raise ApiError(
+                503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable"
+            ) from error
 
 
-def get_repository(settings: Settings = Depends(get_settings)) -> SupplierRepository:
+def get_repository(settings: Annotated[Settings, Depends(get_settings)]) -> SupplierRepository:
     return SupplierRepository(settings.database_url)

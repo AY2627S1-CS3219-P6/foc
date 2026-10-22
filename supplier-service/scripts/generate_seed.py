@@ -4,21 +4,33 @@ from __future__ import annotations
 
 import argparse
 import csv
+import re
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-import re
 from urllib.parse import urlsplit
-
 
 SERVICE_DIR = Path(__file__).resolve().parents[1]
 CSV_PATH = SERVICE_DIR.parent / "data/csv/supplier-seed-data.csv"
 SEED_PATH = SERVICE_DIR / "supabase/seed.sql"
 HEADERS = (
-    "Name", "Type", "Building", "Floor", "Location Description",
-    "Latitude", "Longitude", "StartingTime", "ClosingTime", "ImageURL",
+    "Name",
+    "Type",
+    "Building",
+    "Floor",
+    "Location Description",
+    "Latitude",
+    "Longitude",
+    "StartingTime",
+    "ClosingTime",
+    "ImageURL",
 )
 SUPPORTED_CATEGORIES = {
-    "FOOD", "COFFEE", "SHOPPING", "PRINTING", "LANDMARK", "OTHERS",
+    "FOOD",
+    "COFFEE",
+    "SHOPPING",
+    "PRINTING",
+    "LANDMARK",
+    "OTHERS",
 }
 TIME_PATTERN = re.compile(r"([01][0-9]|2[0-3])([0-5][0-9])hrs\Z")
 
@@ -79,8 +91,10 @@ def load_suppliers() -> list[dict[str, object]]:
             pickup_description = required(row, "Location Description", line)
             floor = row["Floor"].strip() or None
             categories = [part.strip().upper() for part in row["Type"].split("/")]
-            if not categories or len(categories) != len(set(categories)) or any(
-                category not in SUPPORTED_CATEGORIES for category in categories
+            if (
+                not categories
+                or len(categories) != len(set(categories))
+                or any(category not in SUPPORTED_CATEGORIES for category in categories)
             ):
                 raise ValueError(f"CSV line {line}: invalid supplier categories")
 
@@ -97,8 +111,10 @@ def load_suppliers() -> list[dict[str, object]]:
             image_url = row["ImageURL"].strip() or None
             if image_url is not None:
                 parsed = urlsplit(image_url)
-                if parsed.scheme not in {"http", "https"} or not parsed.hostname or any(
-                    char.isspace() for char in image_url
+                if (
+                    parsed.scheme not in {"http", "https"}
+                    or not parsed.hostname
+                    or any(char.isspace() for char in image_url)
                 ):
                     raise ValueError(f"CSV line {line}: invalid HTTP(S) image URL")
 
@@ -106,18 +122,20 @@ def load_suppliers() -> list[dict[str, object]]:
             if identity in identities:
                 raise ValueError(f"CSV line {line}: duplicate supplier identity")
             identities.add(identity)
-            suppliers.append({
-                "name": name,
-                "categories": categories,
-                "building_area": building_area,
-                "pickup_description": pickup_description,
-                "floor": floor,
-                "latitude": latitude,
-                "longitude": longitude,
-                "opening_time": opening_time,
-                "closing_time": closing_time,
-                "image_url": image_url,
-            })
+            suppliers.append(
+                {
+                    "name": name,
+                    "categories": categories,
+                    "building_area": building_area,
+                    "pickup_description": pickup_description,
+                    "floor": floor,
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "opening_time": opening_time,
+                    "closing_time": closing_time,
+                    "image_url": image_url,
+                }
+            )
     if not suppliers:
         raise ValueError("Supplier CSV is empty")
     return suppliers
@@ -153,18 +171,22 @@ def render_seed(suppliers: list[dict[str, object]]) -> str:
             sql_text(supplier["closing_time"]),
             sql_text(supplier["image_url"]),
         ]
-        lines.extend([
-            f"    -- {supplier['name']}",
-            f"    INSERT INTO supplier_service.suppliers ({columns})",
-            f"    VALUES ({', '.join(values)})",
-            "    RETURNING id INTO inserted_supplier_id;",
-            "    INSERT INTO supplier_service.supplier_categories (supplier_id, category_code)",
-            "    VALUES " + ", ".join(
-                f"(inserted_supplier_id, {sql_text(category)})"
-                for category in supplier["categories"]
-            ) + ";",
-            "",
-        ])
+        lines.extend(
+            [
+                f"    -- {supplier['name']}",
+                f"    INSERT INTO supplier_service.suppliers ({columns})",
+                f"    VALUES ({', '.join(values)})",
+                "    RETURNING id INTO inserted_supplier_id;",
+                "    INSERT INTO supplier_service.supplier_categories (supplier_id, category_code)",
+                "    VALUES "
+                + ", ".join(
+                    f"(inserted_supplier_id, {sql_text(category)})"
+                    for category in supplier["categories"]
+                )
+                + ";",
+                "",
+            ]
+        )
     lines.extend(["END;", "$supplier_seed$;", "", "COMMIT;", ""])
     return "\n".join(lines)
 

@@ -95,7 +95,9 @@ def authorize_supplier_management(
         raise ApiError(503, "AUTH_UNAVAILABLE", "Authorization is unavailable")
     subject_id, token = verify_access_token(credentials, settings)
 
-    decision_url = settings.user_service_base_url.rstrip("/") + "/v1/internal/authorization-decisions"
+    decision_url = (
+        settings.user_service_base_url.rstrip("/") + "/v1/internal/authorization-decisions"
+    )
     try:
         response = httpx.post(
             decision_url,

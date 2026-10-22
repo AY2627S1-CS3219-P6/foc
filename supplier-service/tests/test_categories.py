@@ -42,7 +42,9 @@ def setup(monkeypatch):
             return SimpleNamespace(key=key.public_key())
 
     def no_management_decision(*_args, **_kwargs):
-        raise AssertionError("Ordinary category reads must not call the management decision endpoint")
+        raise AssertionError(
+            "Ordinary category reads must not call the management decision endpoint"
+        )
 
     monkeypatch.setattr(auth, "jwks_client", lambda _url: FakeJwks())
     monkeypatch.setattr(auth.httpx, "post", no_management_decision)
@@ -82,7 +84,10 @@ def test_authenticated_user_can_read_categories(setup):
 def test_missing_or_invalid_token_cannot_read_categories(setup):
     client, _token, repository = setup
     assert client.get("/api/v1/categories").status_code == 401
-    assert client.get("/api/v1/categories", headers={"Authorization": "Bearer invalid"}).status_code == 401
+    assert (
+        client.get("/api/v1/categories", headers={"Authorization": "Bearer invalid"}).status_code
+        == 401
+    )
     assert repository.calls == 0
 
 
@@ -100,10 +105,18 @@ def test_local_categories_match_lookup_table():
         pytest.skip("Set SUPPLIER_TEST_DATABASE_URL to the local Supplier Supabase database")
     parsed = urlparse(url)
     if parsed.hostname not in ("localhost", "127.0.0.1") or parsed.port != 55322:
-        pytest.fail("Database read tests may run only against local Supplier Supabase on port 55322")
+        pytest.fail(
+            "Database read tests may run only against local Supplier Supabase on port 55322"
+        )
     categories = SupplierRepository(url).list_categories()
     assert {item.code: item.display_name for item in categories} == {
-        "FOOD": "Food", "COFFEE": "Coffee", "SHOPPING": "Shopping",
-        "PRINTING": "Printing", "LANDMARK": "Landmark", "OTHERS": "Others",
+        "FOOD": "Food",
+        "COFFEE": "Coffee",
+        "SHOPPING": "Shopping",
+        "PRINTING": "Printing",
+        "LANDMARK": "Landmark",
+        "OTHERS": "Others",
     }
-    assert [item.display_name for item in categories] == sorted(item.display_name for item in categories)
+    assert [item.display_name for item in categories] == sorted(
+        item.display_name for item in categories
+    )

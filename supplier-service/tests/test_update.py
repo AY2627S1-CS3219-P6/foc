@@ -1,6 +1,6 @@
 """HTTP checks for authenticated supplier updates."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -25,8 +25,8 @@ def setup(monkeypatch):
         {
             "iss": "foc-user-service",
             "aud": "foc-services",
-            "exp": datetime.now(timezone.utc) + timedelta(minutes=10),
-            "iat": datetime.now(timezone.utc),
+            "exp": datetime.now(UTC) + timedelta(minutes=10),
+            "iat": datetime.now(UTC),
             "sub": str(subject),
             "sid": str(uuid4()),
             "roleVersion": 1,
@@ -41,7 +41,12 @@ def setup(monkeypatch):
             return SimpleNamespace(key=key.public_key())
 
     monkeypatch.setattr(auth, "jwks_client", lambda _url: FakeJwks())
-    decision = {"subjectId": str(subject), "accountStatus": "ACTIVE", "systemRole": "ADMIN", "allowed": True}
+    decision = {
+        "subjectId": str(subject),
+        "accountStatus": "ACTIVE",
+        "systemRole": "ADMIN",
+        "allowed": True,
+    }
     actions = []
 
     def authorize(_url, *, headers, json, timeout):
@@ -78,8 +83,8 @@ def setup(monkeypatch):
                 closing_time=None,
                 image_url=None,
                 status="ACTIVE",
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
             )
 
     repository = FakeRepository()
@@ -122,9 +127,19 @@ def test_user_and_missing_auth_cannot_reach_repository(setup):
     client, token, decision, _actions, repository = setup
     path = f"/api/v1/admin/suppliers/{uuid4()}"
     assert client.patch(path, json={"name": "Updated Cafe"}).status_code == 401
-    assert client.patch(path, headers={"Authorization": "Bearer not-a-jwt"}, json={"name": "Updated Cafe"}).status_code == 401
+    assert (
+        client.patch(
+            path, headers={"Authorization": "Bearer not-a-jwt"}, json={"name": "Updated Cafe"}
+        ).status_code
+        == 401
+    )
     decision.update(systemRole="USER", allowed=False)
-    assert client.patch(path, headers={"Authorization": f"Bearer {token}"}, json={"name": "Updated Cafe"}).status_code == 403
+    assert (
+        client.patch(
+            path, headers={"Authorization": f"Bearer {token}"}, json={"name": "Updated Cafe"}
+        ).status_code
+        == 403
+    )
     assert repository.called_with is None
 
 

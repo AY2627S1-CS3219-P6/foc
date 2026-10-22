@@ -39,5 +39,7 @@ def validation_fields(errors: list[dict]) -> list[dict[str, str]]:
 def validation_error_handler(_request: Request, error: RequestValidationError) -> JSONResponse:
     return api_error_handler(
         _request,
-        ApiError(422, "VALIDATION_ERROR", "Supplier data is invalid", validation_fields(error.errors())),
+        ApiError(
+            422, "VALIDATION_ERROR", "Supplier data is invalid", validation_fields(error.errors())
+        ),
     )

@@ -39,12 +39,12 @@ This service keeps Supabase CLI `2.117.0` as a development dependency. Run
 database and hosted-project commands. Node.js is not needed in the FastAPI
 container.
 
-Use Python 3.11 or newer. The macOS system `python3` may be older; use a
-matching interpreter such as `python3.12`. From `supplier-service/`:
+Use Python 3.13 for local development, matching Docker and CI. The macOS system
+`python3` may be older; use `python3.13` explicitly. From `supplier-service/`:
 
 ```sh
-python3.12 -m venv .venv
-.venv/bin/python -m pip install -e '.[test]'
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -e '.[test,dev]'
 ```
 
 Copy [`.env.example`](.env.example) to an ignored `.env` if you do not already
@@ -112,41 +112,95 @@ Service tables or trust a role supplied in the request.
 
 ### Run the API in Docker
 
-Keep Docker Desktop, User Service, and this service's local Supabase stack
-running. User Service's Compose stack provides the
-`foc-user-service-internal` network. Stop the local `uvicorn` process if it is
-using port 8001, then run from `supplier-service/`:
+Use the [repository-root Compose setup](../README.md#local-setup-overview).
+Complete its first-time configuration and start the User and Supplier local
+Supabase databases. Stop any local Supplier API using port 8001, then run from
+the repository root:
 
 ```sh
-docker compose up --build -d
+docker compose --env-file user-service/.env up --build -d
 ```
 
 Open `http://127.0.0.1:8001/docs` and send the same administrator POST request
-shown above. Compose loads the ignored `.env` for the shared secret. Inside the
-container, it connects to Supplier PostgreSQL at `host.docker.internal:55322`
-and to User Service at `http://user-service:8000`. These replace the
-`127.0.0.1` addresses used when running Python directly on the Mac. For a
-different database or User Service address, set `SUPPLIER_DATABASE_URL_DOCKER`
-or `USER_SERVICE_BASE_URL_DOCKER` in `.env`. Never put secrets in the image.
+shown above, or open the website at `http://localhost:3000`. Root Compose creates
+the application networks and starts User, Supplier, the frontend, RabbitMQ,
+Mailpit, and User's outbox publisher. It loads `supplier-service/.env` for the
+shared secret and supplies `host.docker.internal:55322` for Supplier PostgreSQL
+and `http://user-service:8000` for User Service. To override the Docker database
+URL, export `SUPPLIER_DATABASE_URL_DOCKER` in the shell running Compose; setting
+it only in Supplier's `.env` does not supply root Compose interpolation. Never
+put secrets in the image.
+
+Once the stack is running, rebuild or stop only Supplier from the repository
+root:
 
 ```sh
-docker compose down
+docker compose --env-file user-service/.env up --build -d --no-deps supplier-service
+docker compose --env-file user-service/.env stop supplier-service
 ```
 
-This stops Supplier Service's API container. Its local Supabase database and
-User Service containers remain running. The CI workflow also builds the image
-after the Supplier Service HTTP tests.
+Stopping Supplier leaves the other services and its database running. Compose
+uses `restart: unless-stopped` to restart Supplier after a process crash; an
+explicit stop leaves it stopped. Supplier keeps its own Dockerfile and can still
+be built independently. The CI workflow also builds and smoke tests the image
+after the Supplier Service tests.
 
-Run the HTTP tests with `.venv/bin/python -m pytest -q`. The optional database
-update and deactivation tests run when `SUPPLIER_TEST_DATABASE_URL` points to
-the local Supplier database on port 55322; they remove their temporary suppliers.
+### Liveness and database readiness
+
+- `GET /health/live` returns `200 {"status":"live"}` without configuration,
+  database access, or User Service authentication.
+- `GET /health/ready` opens a fresh database connection and checks that the
+  Supplier tables exist and can be selected from, without reading supplier rows.
+  It returns `200 {"status":"ready"}` on success or a sanitized
+  `503 SERVICE_NOT_READY` for missing configuration, connection failures,
+  missing tables, insufficient permissions, or query timeouts. Connection setup
+  and SQL execution each have a two-second timeout; the entire probe has a
+  five-second limit.
+- Readiness checks Supplier PostgreSQL only. User Service authorization remains
+  checked by authenticated API operations. Apply migrations before starting the
+  application; the readiness probe does not create or migrate tables.
+- The Docker image and root Compose health checks call `/health/ready` every
+  ten seconds, with a six-second HTTP timeout, seven-second Docker timeout,
+  ten-second startup grace period, and six failure retries. The frontend waits
+  for Supplier readiness during Compose startup.
+- The API can start while its database is unavailable. Liveness stays healthy,
+  and later readiness requests recover when the database returns. Docker marks
+  failed health checks unhealthy; it does not automatically restart the service
+  or stop already-running dependents just because readiness fails.
+
+### Linting and tests
+
+From `supplier-service/`, run linting with `.venv/bin/ruff check app tests scripts`.
+Ruff checks application code, tests, and scripts using the same rule groups as
+the other Python services.
+Run the HTTP tests with `.venv/bin/python -m pytest -q`. The eight database
+tests cover readiness, categories, supplier reads, updates, and deactivation.
+They run when `SUPPLIER_TEST_DATABASE_URL` points to a migrated local Supplier database on port
+55322; tests that create temporary suppliers remove them afterward. Without the
+variable, database tests skip for local development. To include them using the
+default local Supabase database:
+
+```sh
+npx supabase start
+SUPPLIER_TEST_DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:55322/postgres' \
+  .venv/bin/python -m pytest -q
+```
+
 To check the live authenticated path, send POST, PATCH, and DELETE requests with an
 administrator token and confirm the changes in the Supplier Service database.
 Seed SQL verifies the migration and sample data, but it does not exercise the
 API.
-The repository CI runs these HTTP tests for Supplier Service changes on pull
-requests to `main` and pushes to `main`; it does not require Supabase
-credentials or Docker.
+The repository CI runs linting, starts an isolated PostgreSQL 17 container, applies
+the committed Supplier migrations and seed data, and runs both API and database
+tests before building the Docker image. It then starts that image against the
+same temporary database and requires successful `/health/ready` and
+`/health/live` responses. The test database uses loopback port 55322 and
+disposable test credentials; no hosted Supabase credentials or running
+User Service are needed. CI fails if any tests skip or the built container fails
+its smoke test, shows container logs on failure, and removes both the API and
+database containers and their volumes after the job, including on failure.
+These checks run for Supplier Service changes on pull requests to `main` and
+pushes to `main`.
 
 ## Database choice
 

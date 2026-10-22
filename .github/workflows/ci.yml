@@ -150,7 +150,7 @@ jobs:
         # actions/setup-python@v5.6.0
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: '3.12'
+          python-version: '3.13'
           cache: pip
           cache-dependency-path: supplier-service/pyproject.toml
 
@@ -159,12 +159,64 @@ jobs:
         working-directory: supplier-service
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ".[test]"
+          python -m pip install ".[test,dev]"
 
-      - name: Run supplier service API tests
+      - name: Lint supplier service
         if: matrix.service == 'supplier-service'
         working-directory: supplier-service
-        run: python -m pytest -q
+        run: ruff check app tests scripts
+
+      - name: Start isolated supplier test database
+        if: matrix.service == 'supplier-service'
+        run: |
+          # Public test-only credentials for this disposable runner-local database.
+          docker run --detach --name foc-supplier-test-postgres \
+            --publish 127.0.0.1:55322:5432 \
+            --env POSTGRES_USER=supplier_test \
+            --env POSTGRES_PASSWORD=local-supplier-test-only \
+            --env POSTGRES_DB=supplier_test \
+            --health-cmd 'pg_isready -h 127.0.0.1 -U supplier_test -d supplier_test' \
+            --health-interval 2s --health-timeout 3s --health-retries 30 \
+            postgres:17
+          for _ in {1..60}; do
+            if [ "$(docker inspect --format '{{.State.Health.Status}}' foc-supplier-test-postgres)" = healthy ]; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Supplier test database did not become healthy" >&2
+          exit 1
+
+      - name: Apply supplier migrations and seed data
+        if: matrix.service == 'supplier-service'
+        working-directory: supplier-service
+        run: |
+          for migration in supabase/migrations/*.sql; do
+            docker exec -i foc-supplier-test-postgres \
+              psql --no-psqlrc --set ON_ERROR_STOP=1 \
+              --username supplier_test --dbname supplier_test < "$migration"
+          done
+          docker exec -i foc-supplier-test-postgres \
+            psql --no-psqlrc --set ON_ERROR_STOP=1 \
+            --username supplier_test --dbname supplier_test < supabase/seed.sql
+
+      - name: Run supplier service API and database tests
+        if: matrix.service == 'supplier-service'
+        working-directory: supplier-service
+        env:
+          SUPPLIER_TEST_DATABASE_URL: postgresql://supplier_test:local-supplier-test-only@127.0.0.1:55322/supplier_test
+          SUPPLIER_TEST_REPORT: ${{ runner.temp }}/supplier-tests.xml
+        run: |
+          python -m pytest -q --junitxml="$SUPPLIER_TEST_REPORT"
+          python - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          suites = ET.parse(os.environ["SUPPLIER_TEST_REPORT"]).getroot().iter("testsuite")
+          skipped = sum(int(suite.get("skipped", "0")) for suite in suites)
+          if skipped:
+              raise SystemExit(f"Full Supplier CI suite unexpectedly skipped {skipped} tests")
+          PY
 
       - name: Set up Python for order service
         if: matrix.service == 'order-service'
@@ -229,8 +281,62 @@ jobs:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
           push: false
+          load: ${{ matrix.service == 'supplier-service' }}
+          tags: ${{ matrix.service == 'supplier-service' && 'foc-supplier-service:ci' || '' }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+      - name: Smoke test the built supplier container
+        if: matrix.service == 'supplier-service'
+        env:
+          SUPPLIER_DATABASE_URL: postgresql://supplier_test:local-supplier-test-only@127.0.0.1:55322/supplier_test
+        run: |
+          # Linux host networking reaches the existing loopback-only test database.
+          docker run --detach --name foc-supplier-ci-api --network host \
+            --env SUPPLIER_DATABASE_URL foc-supplier-service:ci
+          docker exec -i foc-supplier-ci-api python - <<'PY'
+          import json
+          import time
+          from urllib.error import URLError
+          from urllib.request import urlopen
+
+          deadline = time.monotonic() + 30
+          last_error = "No readiness response"
+          while time.monotonic() < deadline:
+              try:
+                  with urlopen("http://127.0.0.1:8001/health/ready", timeout=6) as response:
+                      if response.status != 200 or json.load(response) != {"status": "ready"}:
+                          raise SystemExit("Unexpected supplier readiness response")
+                  break
+              except (URLError, TimeoutError) as exc:
+                  last_error = str(exc)
+                  time.sleep(1)
+          else:
+              raise SystemExit(f"Supplier container did not become ready: {last_error}")
+
+          with urlopen("http://127.0.0.1:8001/health/live", timeout=6) as response:
+              if response.status != 200 or json.load(response) != {"status": "live"}:
+                  raise SystemExit("Unexpected supplier liveness response")
+          print("Built Supplier container is live and ready against the test database")
+          PY
+
+      - name: Show supplier container diagnostics on failure
+        if: ${{ failure() && matrix.service == 'supplier-service' }}
+        run: |
+          for container in foc-supplier-ci-api foc-supplier-test-postgres; do
+            if docker container inspect "$container" > /dev/null 2>&1; then
+              docker logs "$container"
+            fi
+          done
+
+      - name: Remove disposable supplier CI containers
+        if: ${{ always() && matrix.service == 'supplier-service' }}
+        run: |
+          for container in foc-supplier-ci-api foc-supplier-test-postgres; do
+            if docker container inspect "$container" > /dev/null 2>&1; then
+              docker rm --force --volumes "$container"
+            fi
+          done
 
   validate-chat:
     name: Validate chat-service

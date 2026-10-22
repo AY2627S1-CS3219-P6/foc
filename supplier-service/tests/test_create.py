@@ -1,6 +1,6 @@
 """HTTP checks for supplier creation, including current-role enforcement."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -25,8 +25,8 @@ def setup(monkeypatch):
         {
             "iss": "foc-user-service",
             "aud": "foc-services",
-            "exp": datetime.now(timezone.utc) + timedelta(minutes=10),
-            "iat": datetime.now(timezone.utc),
+            "exp": datetime.now(UTC) + timedelta(minutes=10),
+            "iat": datetime.now(UTC),
             "sub": str(subject),
             "sid": str(session),
             "roleVersion": 1,
@@ -82,8 +82,8 @@ def setup(monkeypatch):
                 closing_time=supplier.closing_time,
                 image_url=str(supplier.image_url) if supplier.image_url else None,
                 status=supplier.status,
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
             )
 
     repository = FakeRepository()
