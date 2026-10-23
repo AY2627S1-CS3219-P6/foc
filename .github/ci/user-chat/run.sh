@@ -6,7 +6,7 @@ export LC_ALL=C
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_dir=$(cd -- "$script_dir/../../.." && pwd)
-state_dir=${USER_CHAT_CI_STATE_DIR:-"$repo_dir/web-client/test-results/user-chat-ci-state"}
+state_dir=${USER_CHAT_CI_STATE_DIR:-"$script_dir/secrets"}
 artifact_dir=${USER_CHAT_CI_ARTIFACT_DIR:-"$repo_dir/web-client/test-results/user-chat-ci"}
 created_state=0
 

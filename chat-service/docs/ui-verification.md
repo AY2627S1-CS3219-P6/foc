@@ -196,8 +196,10 @@ The final command stops the stack and resets its local data by removing only tha
 generated project's volumes. Run it after an interrupted manual session before
 starting again. `USER_CHAT_WEB_PORT` and `USER_CHAT_MAIL_PORT` can override ports
 at startup. `USER_CHAT_CI_STATE_DIR` and `USER_CHAT_CI_ARTIFACT_DIR` override the
-ignored local defaults under `web-client/test-results/`; use the same values for
-each command. CI puts secret state in the runner temporary directory and uploads
+ignored local defaults: secret state under `.github/ci/user-chat/secrets/` and
+artifacts under `web-client/test-results/user-chat-ci/`. Secret state stays outside
+all service build contexts, and web Docker builds exclude browser artifacts.
+Use the same values for each command. CI puts secret state in the runner temporary directory and uploads
 only the artifact directory for seven days. Artifacts contain JUnit results,
 mobile/desktop screenshots, failure screenshots, container status and bounded
 API/publisher/proxy logs. Live authentication network traces are disabled to keep
