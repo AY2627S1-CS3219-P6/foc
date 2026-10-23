@@ -34,6 +34,11 @@
 .order-pagination { font-size: .8rem; justify-content: space-between; margin: 1rem 0; }
 .order-empty { padding: 2rem; text-align: center; }
 .order-detail-grid { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+.order-detail-heading { align-items: start; display: grid; gap: .5rem .75rem; grid-template-columns: minmax(0, 1fr) auto; margin-bottom: .8rem; }
+.order-detail-heading .order-description { margin: .5rem 0 0; min-width: 0; }
+.order-chat-button { align-items: center; background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--primary); display: inline-flex; height: 44px; justify-content: center; padding: 0; width: 44px; }
+.order-chat-button:hover:not(:disabled) { background: #e5eef8; border-color: #b9c8d8; }
+.order-detail-heading .order-chat-error { color: #843a28; font-size: .8rem; grid-column: 1 / -1; margin: 0; }
 .order-description { white-space: pre-wrap; }
 .order-facts { margin: 1rem 0; }
 .order-facts > div { display: grid; gap: .25rem; margin: .9rem 0; }

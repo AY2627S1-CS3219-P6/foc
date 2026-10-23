@@ -180,9 +180,35 @@ thread behavior; the component suite separately verifies hidden/unfocused gating
 7. Repeat keyboard-only and at 360px: search, open, send, retry and block controls
    remain reachable; mobile back navigation returns to conversations.
 
+## Errand conversation entry — 23 October 2026
+
+Assigned errand details show the shared message icon beside the item title.
+Requesters open Chat with the assigned courier's immutable user ID; couriers open
+Chat with the requester's ID. The existing authenticated conversation POST creates
+or reopens the pair's unique thread, then navigates to `/messages/:conversationId`.
+It does not send a message automatically. Unassigned errands, public assessments
+and nonparticipant views have no message action. Chat still enforces current
+sessions, blocking and recipient availability; a failed open leaves the errand
+visible with an announced error and an enabled retry action. Pending opens prevent
+duplicate clicks, and responses after leaving the page cannot redirect the user.
+
+Fourteen focused browser cases passed at 320, 511 and 1440px across both participant
+roles, with new/existing conversations, hidden actions, double clicks and
+dependency/blocked/deleted-recipient failures. Keyboard activation and screenshots
+verify the button sits at the top right of the details panel. This supports
+N1F1.1 private conversation creation/reopening and N1NFR3.1, N1NFR3.3 and N1NFR3.4
+for a direct, responsive, labeled entry point. It adds no errand status UI inside
+the Chat thread and does not change either service's backend contracts or data.
+
+Lint, TypeScript/production and Docker builds passed, with **121 unit/component
+tests** and the full Linux browser run at **116 passed, one opt-in live case
+skipped**. The actual signed-in requester opened the existing courier conversation
+from the annotated local errand using the rebuilt Nginx application; no message
+was sent. The page was then returned to errand details with the icon visible.
+
 ## Excluded scope
 
-Sprint 4 errand status/requester/courier context, 1,000-connection tests,
+Sprint 4 ongoing errand status/requester/courier context inside Chat, 1,000-connection tests,
 25-messages/second sustained load, formal latest-50 performance and p95 targets
 are not implemented or certified here. Production deployment and an automatically
 provisioned real User + Chat CI job remain separate integration work. The existing
