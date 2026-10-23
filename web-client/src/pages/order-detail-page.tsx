@@ -6,6 +6,7 @@ import { useAuth } from "../app/use-auth";
 import { OrderBadge, OrderFailure, OrderPagination, OrderShell, OrderSummary } from "../components/order-ui";
 import { orderError, orderTime } from "../app/order-presentation";
 import { OrderLifecycle } from "../components/order-lifecycle";
+import { OrderChatButton } from "../components/order-chat-button";
 
 export function OrderDetailPage() {
   const { orderId = "" } = useParams();
@@ -25,13 +26,18 @@ export function OrderDetailPage() {
     return () => { active = false; };
   }, [orderId, reload, withCurrentAccess]);
   const participant = order && "requesterId" in order && (order.requesterId === user?.userId || order.courierId === user?.userId);
+  const counterpartId = order && "requesterId" in order
+    ? order.requesterId === user?.userId ? order.courierId : order.courierId === user?.userId ? order.requesterId : null
+    : null;
   return <OrderShell>
     <Link className="order-back" to="/orders">← Open errands</Link>
     {loading ? <p className="order-panel" role="status">Loading errand…</p> : null}
     {error ? <OrderFailure message={error} retry={() => setReload((n) => n + 1)} /> : null}
     {order ? <>
       <div className="order-heading"><div><h1>Errand details</h1></div><OrderBadge state={order.state} /></div>
-      <div className="order-detail-grid"><section className="order-panel"><h2 className="order-description">{order.itemDescription}</h2><OrderSummary order={order} /><p className="order-muted">Posted {orderTime(order.createdAt)} SGT</p>{participant ? <p>You are the {"requesterId" in order && order.requesterId === user?.userId ? "requester" : "courier"}.</p> : null}</section>
+      <div className="order-detail-grid"><section className="order-panel"><div className="order-detail-heading"><h2 className="order-description">{order.itemDescription}</h2>
+        {counterpartId && counterpartId !== user?.userId ? <OrderChatButton key={`${orderId}:${counterpartId}`} recipientUserId={counterpartId} recipientRole={"requesterId" in order && order.requesterId === user?.userId ? "courier" : "requester"} /> : null}
+      </div><OrderSummary order={order} /><p className="order-muted">Posted {orderTime(order.createdAt)} SGT</p>{participant ? <p>You are the {"requesterId" in order && order.requesterId === user?.userId ? "requester" : "courier"}.</p> : null}</section>
         <aside><OrderLifecycle key={`${orderId}:${user?.userId}`} order={order} onChanged={(updated) => { setOrder(updated); setHistoryRevision((n) => n + 1); }} onRefresh={() => setReload((n) => n + 1)} />
           {participant ? <OrderHistory key={`${orderId}:${historyRevision}`} orderId={orderId} /> : null}</aside>
       </div>

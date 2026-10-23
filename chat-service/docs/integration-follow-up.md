@@ -2,7 +2,7 @@
 
 The backend was initially implemented within `chat-service/**`. The latest main merge
 includes User Service's Chat interfaces and the Chat CI job. Root Compose and the
-Vite/Nginx browser proxies now include Chat. Final Chat UI and deployment work remain.
+Vite/Nginx browser proxies now include Chat. Phase 6 adds the Chat UI; production deployment work remains.
 Actual User Service endpoints were exercised over HTTP independently of contract-fake tests.
 
 ## User Service
@@ -68,19 +68,22 @@ Never reset a shared User database or print/persist credentials in test reports.
 Do not run database tests in parallel against the same disposable state or restart resources
 used by other jobs. The test suite uses unique UUID fixtures rather than truncating tables.
 
-## Final UI and acceptance
+## Phase 6 UI and acceptance
 
-Implement protected `/messages` and `/messages/:conversationId` with shared WorkspaceShell,
-WorkspaceTopbar/styles and the Figma source of truth. Search opens/creates directly; no
-first-contact dialog. Render current display names with smaller `@username`; null usernames
-are omitted. Render message text as plain text. Distinguish pending/sent/failed/received,
-retain uncertain retry identity, and handle blocked/deleted/reconnect conditions explicitly.
+The protected `/messages` and `/messages/:conversationId` screens are implemented in
+`web-client`. They reuse WorkspaceShell, WorkspaceTopbar and the existing design tokens.
+Live username search opens/creates directly, conversation rows use current display names
+and smaller usernames, and tombstones retain history without a username or enabled composer.
 
-Follow the focus/visibility, monotonic read, optimistic deduplication and recovery obligations
-in `backend-contract.md`. A `sync.required` frame requires summary reload and history catch-up,
-including when the WebSocket itself never disconnected. Refresh metadata after profile/block
-changes; `conversation.updated` is reserved and is not currently emitted.
+The browser implements first-frame socket authentication, existing-session refresh,
+keepalive/reconnect, optimistic deduplication, explicit retries, read acknowledgements and
+paginated catch-up. Selected + visible + focused gates automatic reads; hidden/unfocused
+threads keep persisted unread state. `sync.required` reloads summaries and visited history
+without requiring the socket to close. `conversation.updated` remains reserved; metadata
+refreshes after message/read/block events, recovery, focus and explicit refresh.
 
-Run lint/build, components/end-to-end, two real signed-in browsers, keyboard checks and
-360/768/1024/1440px viewport checks. Three-action search-to-send, visual feedback, accessibility
-and responsive acceptance are pending. Sprint 4 formal scale/p95 criteria remain deferred.
+See [UI verification](ui-verification.md) for the complete FR/NFR mapping, browser fixtures,
+component focus/visibility checks, real User/Chat/PostgreSQL/RabbitMQ browser acceptance,
+responsive screenshots and a manual two-browser procedure. Exact Figma-frame comparison
+requires authenticated access; the implemented shell and tokens follow the existing FoC UI.
+Sprint 4 errand context and formal scale/p95 criteria remain outside this work.

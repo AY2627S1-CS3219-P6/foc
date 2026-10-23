@@ -29,8 +29,12 @@ authentication frame within five seconds of connecting. The root profile's
 allow-list includes both browser ports; native/service-local Chat uses
 `ALLOWED_ORIGINS` from its own settings. Nginx resolves Chat only on requests,
 so the base website starts when the optional Chat profile is disabled.
-Chat pages, token refresh/reconnection, read acknowledgements and history
-recovery UI remain follow-up work.
+Open `/messages` after signing in. Username search opens a private conversation directly;
+`/messages/:conversationId` shows paginated history, live sends, explicit retry and
+block controls. The browser handles session refresh/reconnection, duplicate-safe optimistic
+messages, sequence catch-up and focused/visible read acknowledgements. Mobile uses a
+single-pane flow with back navigation. See [Chat UI verification](../chat-service/docs/ui-verification.md)
+for FR/NFR mapping, focus/read rules and real-service browser test commands.
 
 | Route | Audience | Purpose |
 | --- | --- | --- |
@@ -70,9 +74,11 @@ are layout references, not a new visual system or feature specification.
   is unknown. Session storage is tab-local, not a cross-device recovery system;
   avoid entering sensitive information on a shared computer. Corrupted/unavailable
   storage blocks new submissions rather than silently forgetting a pending request.
-- No acceptance, cancellation, pickup, delivery, completion, failure, wallet or
-  chat controls are implemented in this UI slice. Admins may use the same normal
-  Order UI in User mode; there is no new admin dashboard.
+- Once a courier is assigned, the requester and courier can use the message icon
+  beside the errand title to create or reopen their private Chat conversation.
+  Unassigned errands and nonparticipant assessment views do not show the icon.
+  Chat must be running; failed opens stay on the errand with an error and allow
+  another explicit attempt. Admins use the same participant rules in User mode.
 
 ### Running with Vite
 
