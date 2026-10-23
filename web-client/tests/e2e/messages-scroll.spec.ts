@@ -119,3 +119,23 @@ test("expanded blocked users stay within the directory pane", async ({ page }) =
   await expect(page.getByRole("button", { name: "Unblock Blocked person 39", exact: true })).toBeInViewport({ ratio: 1 });
   await expectBoundedPage(page);
 });
+
+for (const role of ["USER", "ADMIN"] as const) {
+  test(`wider text metrics keep the ${role} workspace inside 320px`, async ({ page }, testInfo) => {
+    const fixture = new ChatFixture(); await fixture.install(page);
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.route("**/v1/users/me", (route) => route.fulfill({ json: { ...fixture.alice, email: "alice@u.nus.edu", systemRole: role } }));
+    await page.goto("/messages/ab");
+    await expect(page.getByLabel("Message", { exact: true })).toBeEnabled();
+    // Font metrics and user text-spacing preferences must not widen the grid track.
+    await page.addStyleTag({ content: "html { letter-spacing: .12em; }" });
+    await expectBoundedPage(page);
+    if (role === "ADMIN") await expect(page.getByRole("group", { name: "Workspace mode" })).toBeInViewport({ ratio: 1 });
+    const navigation = page.getByRole("navigation", { name: "Mobile navigation", exact: true });
+    for (const link of await navigation.getByRole("link").all()) {
+      await expect(link.locator("span")).toBeInViewport({ ratio: 1 });
+    }
+    await expect(page.getByLabel("Message", { exact: true })).toBeInViewport({ ratio: 1 });
+    await page.screenshot({ path: testInfo.outputPath(`wider-text-${role}-320.png`), fullPage: true });
+  });
+}

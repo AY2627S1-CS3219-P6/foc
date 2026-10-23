@@ -71,6 +71,29 @@ status, the conversation header and both shared navigation areas.
   acceptance evidence below remains historical; no database reset or backend
   restart was needed.
 
+## CI layout follow-up — 23 October 2026
+
+- The 21 October GitHub run passed Chat backend validation but failed three
+  320px frontend viewport checks: **97 browser cases passed, three failed and
+  the opt-in live case was skipped**. The header/mode switch was partly clipped
+  even though document overflow checks passed.
+- The bounded shell's implicit mobile grid column could retain the navigation's
+  minimum content width when text metrics grew. `overflow: hidden` then concealed
+  the extra width. Give that column an explicit `minmax(0, 1fr)` and allow mobile
+  navigation labels to wrap within each link. Shared desktop columns stay in
+  the shared stylesheet.
+- Two added regressions exercise User/Admin accounts at 320px with increased
+  text spacing, including the complete header, mode switch, every navigation
+  label and the composer. Both reproduced the clipping before the fix under
+  Linux; the complete **12-case scrolling suite passed** after the fix with
+  stricter spacing. Existing full-visibility assertions remain unchanged.
+- Local Linux container validation passed lint, TypeScript/production build,
+  **121 unit/component cases** and the full browser suite: **102 passed, one
+  opt-in live case skipped**. The existing Order expiry case passed in this run
+  without changing Order code or its tests. Both new wider-text cases also passed
+  separately on Windows. Coverage supports N1NFR3.3 responsive layouts and
+  N1NFR3.4 accessible text/navigation controls; no Sprint 4 feature was added.
+
 ## Automated checks
 
 From `web-client`:
