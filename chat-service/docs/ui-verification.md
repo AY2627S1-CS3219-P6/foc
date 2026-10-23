@@ -145,6 +145,83 @@ deletes existing accounts, purges mail or truncates another service's tables.
 Headless Playwright forces focus, so the real-service test checks active/unselected
 thread behavior; the component suite separately verifies hidden/unfocused gating.
 
+## Real User + Chat CI
+
+The `Integrate User + Chat` GitHub Actions job runs the live acceptance test when
+User, Chat, the web client, root Compose or its own CI configuration changes.
+The final `CI passed` gate requires this job to succeed when triggered. The
+existing isolated Chat backend checks continue to use their User contract fake.
+
+The CI stack builds the normal User, Chat and web Dockerfiles and uses the
+committed Nginx proxy routes. It starts two separate PostgreSQL 17 databases,
+applies each service's committed Supabase migrations before API startup, creates
+restricted runtime logins, and runs RabbitMQ, Mailpit and both independent outbox
+publishers. The bare PostgreSQL Chat fixture supplies only the three NOLOGIN
+Supabase role names referenced by its migration REVOKEs. No Supabase Auth or Data
+API is used. Database migrations remain solely in each service's
+`supabase/migrations/` directory.
+
+Each run generates a unique Compose project, RSA keys, database/broker passwords,
+OTP secret and matching User/Chat service secret. Only the User API mounts the
+private key; Chat obtains the public JWKS over HTTP. Databases and RabbitMQ have
+no published host ports. The web and Mailpit endpoints bind to loopback on ports
+18880 and 18825 by default, independently of the developer stack.
+
+From the repository root, using Bash with Docker Compose, OpenSSL, Python and
+Node.js 22+ installed:
+
+```sh
+(cd web-client && npm ci && npx playwright install --with-deps chromium)
+bash .github/ci/user-chat/run.sh
+```
+
+This builds, starts, migrates and checks readiness, runs the existing real browser
+test with three newly registered/verified accounts, requires exactly one passing
+test with no skips, then captures logs and tears down the disposable containers,
+network, database volumes and generated credentials. Test data is discarded with
+those volumes. Existing local databases, `.env` files and development keys are
+not read or reset. Git Bash on Windows is also supported when Docker Desktop and
+the same tools are available.
+
+To inspect an isolated stack between steps:
+
+```sh
+bash .github/ci/user-chat/run.sh up
+bash .github/ci/user-chat/run.sh test
+bash .github/ci/user-chat/run.sh logs
+bash .github/ci/user-chat/run.sh down
+```
+
+The final command stops the stack and resets its local data by removing only that
+generated project's volumes. Run it after an interrupted manual session before
+starting again. `USER_CHAT_WEB_PORT` and `USER_CHAT_MAIL_PORT` can override ports
+at startup. `USER_CHAT_CI_STATE_DIR` and `USER_CHAT_CI_ARTIFACT_DIR` override the
+ignored local defaults under `web-client/test-results/`; use the same values for
+each command. CI puts secret state in the runner temporary directory and uploads
+only the artifact directory for seven days. Artifacts contain JUnit results,
+mobile/desktop screenshots, failure screenshots, container status and bounded
+API/publisher/proxy logs. Live authentication network traces are disabled to keep
+passwords, OTPs and bearer/refresh tokens out of stored traces. Other browser tests
+retain traces on failure.
+
+This adds continuous integration evidence for N1F1.1 private conversation opening,
+N1F1.2 text exchange/history, N1F1.2.2 internal unread behavior and N1F1.3 bilateral blocks,
+participant-only access, and responsive/keyboard checks under N1NFR3.3–N1NFR3.4.
+It exercises real registration, OTP email, RS256/JWKS, current-session checks,
+shared service identity, PostgreSQL persistence and outbox/RabbitMQ/WebSocket
+delivery together. It does not certify sustained load or recovery from a killed
+container; those remain separate from the existing backend restart tests.
+
+Local validation on 23 October 2026 passed the complete one-command flow against
+fresh, isolated databases: **one real browser acceptance case passed, zero
+skipped**, followed by automatic teardown. A separate negative check stopped only
+the disposable Chat publisher; acceptance failed on missing live delivery with a
+nonzero exit. Manual teardown then removed that project's containers, volumes,
+network, image tags and secret files. A fresh complete run passed again. The
+360/1440px screenshots were inspected. Workflow actionlint, Bash syntax/ShellCheck,
+frontend lint, production container builds and all **121 unit/component tests**
+passed. Generated stack credentials were absent from captured test artifacts.
+
 ## Acceptance evidence — 21 October 2026
 
 - Frontend lint and production build passed, including TypeScript checking tests.
@@ -210,6 +287,6 @@ was sent. The page was then returned to errand details with the icon visible.
 
 Sprint 4 ongoing errand status/requester/courier context inside Chat, 1,000-connection tests,
 25-messages/second sustained load, formal latest-50 performance and p95 targets
-are not implemented or certified here. Production deployment and an automatically
-provisioned real User + Chat CI job remain separate integration work. The existing
-Chat CI job still uses a User identity contract fake for backend isolation.
+are not implemented or certified here. Production deployment remains separate
+integration work. The isolated Chat backend CI job uses a User identity contract
+fake; the additional User + Chat job above runs the actual services together.

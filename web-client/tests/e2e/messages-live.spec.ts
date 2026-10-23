@@ -1,15 +1,17 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 
-// Opt-in local acceptance against real User/Chat/PostgreSQL/RabbitMQ. No API or socket mocks.
+// Opt-in acceptance against a loopback User/Chat/PostgreSQL/RabbitMQ stack, locally or in CI.
 // Creates only uniquely named test accounts; never resets databases or reads unrelated mail.
 test("two real signed-in browsers exchange, recover and read private messages", async ({ browser, playwright, baseURL }, testInfo) => {
   test.skip(process.env.CHAT_LIVE_E2E !== "1", "Requires the configured local User/Chat/Mailpit/RabbitMQ stack.");
   test.setTimeout(120000);
   const origin = new URL(baseURL!);
   if (!["localhost", "127.0.0.1"].includes(origin.hostname)) throw new Error("Live Chat acceptance is local-only.");
+  const mailOrigin = new URL(process.env.CHAT_LIVE_MAILPIT_URL ?? "http://127.0.0.1:8025");
+  if (!["localhost", "127.0.0.1"].includes(mailOrigin.hostname)) throw new Error("Live Chat mail access is local-only.");
   const api = await playwright.request.newContext({ baseURL: origin.origin });
-  const mail = await playwright.request.newContext({ baseURL: "http://127.0.0.1:8025" });
+  const mail = await playwright.request.newContext({ baseURL: mailOrigin.origin });
   const contexts = await Promise.all([browser.newContext(), browser.newContext(), browser.newContext()]);
   for (const context of contexts) context.setDefaultTimeout(10000);
   const password = `Chat6!${randomBytes(18).toString("hex")}`;
