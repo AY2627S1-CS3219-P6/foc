@@ -69,7 +69,13 @@ class Database:
                     result = await connection.scalar(
                         text(
                             "SELECT has_schema_privilege(current_user, "
-                            "to_regnamespace('admin_service')::oid, 'USAGE')"
+                            "to_regnamespace('admin_service')::oid, 'USAGE') "
+                            "AND has_table_privilege(current_user, "
+                            "to_regclass('admin_service.disputes')::oid, 'SELECT') "
+                            "AND has_table_privilege(current_user, "
+                            "to_regclass('admin_service.dispute_events')::oid, 'SELECT') "
+                            "AND has_table_privilege(current_user, "
+                            "to_regclass('admin_service.audit_log')::oid, 'SELECT')"
                         )
                     )
                     return result is True

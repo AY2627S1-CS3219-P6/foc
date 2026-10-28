@@ -4,9 +4,8 @@ Version 1. Admin Service owns dispute cases about errands, their status history 
 log of dashboard actions (backlog N2F3, N2NFR3). It reads errand, credit and identity
 information only through other services' versioned HTTP APIs and never reads their databases.
 
-Status: the foundation (health checks, current-session administrator authorization and the
-schema) is implemented. The dispute and audit endpoints below are the agreed contract for the
-next slice.
+Status: health checks, current-session administrator authorization, the dispute workflow and
+the audit log are implemented.
 
 ## Conventions
 
@@ -72,8 +71,9 @@ Request: `{"toStatus": "UNDER_REVIEW" | "RESOLVED" | "REJECTED", "reason": strin
 | `OPEN` | `UNDER_REVIEW` | Optional |
 | `UNDER_REVIEW` | `RESOLVED` or `REJECTED` | Required and non-blank |
 
-- Any other move returns `409 INVALID_TRANSITION`; a missing reason returns `422`. The dispute
-  is unchanged (N2F3.3.1-3.3.3).
+- Any other move returns `409 INVALID_TRANSITION`; a missing reason returns
+  `422 REASON_REQUIRED`. The dispute is unchanged (N2F3.3.1-3.3.3). A missing or non-UUID
+  `Idempotency-Key` returns `422 IDEMPOTENCY_KEY_REQUIRED`.
 - A stale `expectedVersion` returns `409 VERSION_CONFLICT`; the dashboard tells the
   administrator to refresh and review the current dispute (N2NFR3.4, N2NFR4.5).
 - Each accepted change appends a history entry with the previous and new status, acting

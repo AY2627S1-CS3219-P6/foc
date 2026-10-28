@@ -12,8 +12,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.admin.api import router as admin_router
 from app.admin.errors import ApiError
 from app.admin.identity import UserDirectory
+from app.admin.orders import OrderDirectory
+from app.admin.repository import DisputeRepository
 from app.core.config import Settings, get_settings
 from app.db import Database, DatabaseUnavailableError
 
@@ -39,6 +42,8 @@ def create_app(
     database: Database | None = None,
     *,
     identity=None,
+    disputes=None,
+    orders=None,
 ) -> FastAPI:
     service_settings = settings if settings is not None else get_settings()
     database_url = service_settings.database_url
@@ -70,6 +75,10 @@ def create_app(
     app.state.identity = (
         identity if identity is not None else UserDirectory(service_settings, http)
     )
+    app.state.disputes = (
+        disputes if disputes is not None else DisputeRepository(service_database.session_context)
+    )
+    app.state.orders = orders if orders is not None else OrderDirectory(service_settings, http)
 
     @app.exception_handler(ApiError)
     async def domain_error(request: Request, error: ApiError):
@@ -105,6 +114,7 @@ def create_app(
         TimeoutError,
     ):
         app.add_exception_handler(error_type, database_error)
+    app.include_router(admin_router)
 
     @app.middleware("http")
     async def correlate_request(request: Request, call_next):

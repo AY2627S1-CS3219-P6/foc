@@ -6,8 +6,8 @@ PostgreSQL database and `admin_service` schema. Errand, credit and identity data
 Credit and User Service and are read only through their HTTP APIs. See [API.md](API.md) for the
 contracts.
 
-Current scope: the service foundation, which covers health checks, current-session administrator
-authorization and the schema. Dispute endpoints arrive in the next slice.
+Current scope: health checks, current-session administrator authorization, the dispute workflow
+(record, list, view and change status) and the append-only dashboard audit log.
 
 ## Local database
 
@@ -42,7 +42,7 @@ database. It deletes that database's data.
 | `.env.docker` (from `.env.docker.example`) | Root Compose. `DATABASE_URL` uses `host.docker.internal:17522`. |
 
 Set `DATABASE_URL` to the `foc_admin_local` login. An unset URL keeps liveness available while
-readiness returns `503`. Root Compose supplies `USER_SERVICE_BASE_URL`. Never commit either file.
+readiness returns `503`. Root Compose supplies `USER_SERVICE_BASE_URL` and `ORDER_SERVICE_BASE_URL`. Never commit either file.
 
 ## Run
 

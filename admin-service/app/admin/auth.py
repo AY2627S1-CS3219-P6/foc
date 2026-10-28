@@ -8,13 +8,18 @@ from app.admin.errors import ApiError
 from app.admin.schemas import Principal
 
 
-async def authenticate(
-    request: Request, authorization: Annotated[str | None, Header()] = None
-) -> Principal:
+async def bearer_token(authorization: Annotated[str | None, Header()] = None) -> str:
     scheme, _, token = (authorization or "").partition(" ")
     if scheme.lower() != "bearer" or not token.strip():
         raise ApiError(401, "UNAUTHENTICATED", "A bearer token is required.")
-    return await request.app.state.identity.identity(token.strip())
+    return token.strip()
+
+
+BearerToken = Annotated[str, Depends(bearer_token)]
+
+
+async def authenticate(request: Request, token: BearerToken) -> Principal:
+    return await request.app.state.identity.identity(token)
 
 
 async def require_admin(principal: Annotated[Principal, Depends(authenticate)]) -> Principal:

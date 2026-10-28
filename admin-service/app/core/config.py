@@ -20,9 +20,10 @@ class Settings(BaseSettings):
     environment: Literal["development", "test", "production"] = "development"
     database_url: SecretStr | None = None
     user_service_base_url: str | None = None
+    order_service_base_url: str | None = None
     dependency_timeout_seconds: float = Field(default=2, gt=0, le=10)
 
-    @field_validator("user_service_base_url")
+    @field_validator("user_service_base_url", "order_service_base_url")
     @classmethod
     def service_origin(cls, value):
         if not value or not value.strip():
