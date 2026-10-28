@@ -3,9 +3,10 @@
 from datetime import timedelta
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, func, or_, select, text, update
+from sqlalchemy import and_, func, or_, select, text, true, update
 from sqlalchemy.dialects.postgresql import insert
 
+from app.orders.analytics import period_bounds
 from app.orders.schemas import CreateOrder
 from app.orders.tables import history, operations, orders
 
@@ -211,7 +212,29 @@ class OrderRepository:
             filters.append(orders.c.courier_id == courier)
         if getattr(query, "supplier_id", None):
             filters.append(orders.c.supplier_id == query.supplier_id)
-        condition = and_(*filters)
+        # Administrator-only filters (N2F2.2); absent on participant and open-list queries.
+        if getattr(query, "order_id", None):
+            filters.append(orders.c.id == query.order_id)
+        if getattr(query, "participant_id", None):
+            filters.append(
+                or_(
+                    orders.c.requester_id == query.participant_id,
+                    orders.c.courier_id == query.participant_id,
+                )
+            )
+        if getattr(query, "state", None):
+            filters.append(orders.c.state.in_(query.state))
+        if getattr(query, "created_from", None):
+            start, _ = period_bounds(query.created_from, query.created_from)
+            filters.append(orders.c.created_at >= start)
+        if getattr(query, "created_to", None):
+            _, end = period_bounds(query.created_to, query.created_to)
+            filters.append(orders.c.created_at < end)
+        if getattr(query, "overdue", None) is not None:
+            filters.append(
+                orders.c.overdue_at.is_not(None) if query.overdue else orders.c.overdue_at.is_(None)
+            )
+        condition = and_(*filters) if filters else true()
         async with self.sessions() as session, session.begin():
             # Keep count and page consistent within one request, not across separate requests.
             await session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
@@ -243,3 +266,23 @@ class OrderRepository:
                 select(func.count()).select_from(history).where(history.c.order_id == order_id)
             )
             return rows, total
+
+    async def created_between(self, start, end, *, participant=None):
+        """Only the columns analytics needs, for errands created in [start, end) (N2F4)."""
+        statement = select(
+            orders.c.id,
+            orders.c.requester_id,
+            orders.c.courier_id,
+            orders.c.supplier_id,
+            orders.c.supplier_snapshot["name"].astext.label("supplier_name"),
+            orders.c.state,
+            orders.c.created_at,
+            orders.c.completed_at,
+        ).where(orders.c.created_at >= start, orders.c.created_at < end)
+        if participant is not None:
+            statement = statement.where(
+                or_(orders.c.requester_id == participant, orders.c.courier_id == participant)
+            )
+        async with self.sessions() as session:
+            result = await session.execute(statement.order_by(orders.c.created_at, orders.c.id))
+            return list(result.mappings())

@@ -4,6 +4,7 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from app.orders.analytics import period_bounds
 from app.orders.errors import ApiError, unavailable
 from app.orders.schemas import Principal, Reservation
 
@@ -196,6 +197,24 @@ class MemoryRepository:
                 not getattr(query, "supplier_id", None)
                 or str(row["supplier_id"]) == str(query.supplier_id)
             )
+            and (not getattr(query, "order_id", None) or row["id"] == query.order_id)
+            and (
+                not getattr(query, "participant_id", None)
+                or query.participant_id in (row["requester_id"], row["courier_id"])
+            )
+            and (not getattr(query, "state", None) or row["state"] in query.state)
+            and (
+                not getattr(query, "created_from", None)
+                or row["created_at"] >= period_bounds(query.created_from, query.created_from)[0]
+            )
+            and (
+                not getattr(query, "created_to", None)
+                or row["created_at"] < period_bounds(query.created_to, query.created_to)[1]
+            )
+            and (
+                getattr(query, "overdue", None) is None
+                or (row.get("overdue_at") is not None) == query.overdue
+            )
         ]
         rows.sort(key=lambda row: (row["created_at"], row["id"]), reverse=True)
         start = (query.page - 1) * query.page_size
@@ -205,3 +224,17 @@ class MemoryRepository:
         rows = self.histories.get(order_id, [])
         start = (query.page - 1) * query.page_size
         return rows[start : start + query.page_size], len(rows)
+
+    async def created_between(self, start, end, *, participant=None):
+        columns = ("id", "requester_id", "courier_id", "supplier_id", "state", "created_at")
+        rows = [
+            {
+                **{column: row[column] for column in columns},
+                "supplier_name": row["supplier_snapshot"]["name"],
+                "completed_at": row.get("completed_at"),
+            }
+            for row in self.rows.values()
+            if start <= row["created_at"] < end
+            and (participant is None or participant in (row["requester_id"], row["courier_id"]))
+        ]
+        return sorted(rows, key=lambda row: (row["created_at"], str(row["id"])))

@@ -39,8 +39,12 @@ publication. Real Credit consumes these events; publishing alone does not confir
 | `GET /v1/orders` | Available OPEN assessment list; excludes reached acceptance deadlines even before an expiry worker exists. Optional `supplierId`. |
 | `GET /v1/orders/mine?relationship=requester` | Current user's requested orders across states. `courier` selects their assigned orders. |
 | `GET /v1/orders/{orderId}` | Participant detail; other authenticated users get assessment data only while available, otherwise 404. |
-| `GET /v1/orders/{orderId}/history` | Participant-only chronological transitions; initially null to OPEN. No privileged admin history bypass. |
-| `GET /v1/admin/orders?requesterId={uuid}` | Current ADMIN/SUPER_ADMIN only; minimal D3 requester-order lookup. No admin mutations/disputes. |
+| `GET /v1/orders/{orderId}/history` | Participant-only chronological transitions; initially null to OPEN. Administrators use the separate read-only admin history route below. |
+| `GET /v1/admin/orders` | Current ADMIN/SUPER_ADMIN only. Every errand, newest first. Optional `requesterId`, `orderId`, `participantId` (requester or courier), repeated `state`, `supplierId`, `createdFrom`, `createdTo` and `overdue` filters apply together. No admin mutations/disputes. |
+| `GET /v1/admin/orders/{orderId}` | Current ADMIN/SUPER_ADMIN only; read-only participant view of any errand, 404 when unknown. |
+| `GET /v1/admin/orders/{orderId}/history` | Current ADMIN/SUPER_ADMIN only; read-only chronological transitions of any errand. |
+| `GET /v1/admin/orders/analytics?from&to` | Current ADMIN/SUPER_ADMIN only; analytics for errands created in an inclusive Asia/Singapore date range of at most 366 days. |
+| `GET /v1/admin/orders/analytics/users/{userId}?from&to` | Current ADMIN/SUPER_ADMIN only; one user's errand counts by state, separately as requester and as courier. |
 
 Lists/history use `page` (1–1,000,000) and `pageSize` (1–50, default 20).
 Response: `{items, page, pageSize, total}`. Lists sort created time descending,
@@ -93,6 +97,26 @@ retried with the same action and actor; it cannot reserve or release twice in Or
 Participant responses add nullable `acceptedAt`, `cancelledAt`, `expiredAt`.
 History represents expiry as `actorType: "SYSTEM", actorId: null`; user actions
 retain their authenticated UUID. History ordering remains per-order sequence.
+
+## Administrator oversight and analytics (Admin Dashboard N2)
+
+These read-only routes re-check the caller's current ADMIN/SUPER_ADMIN role with User on every
+request (403 otherwise) and never change errands. Administrators still cannot accept, fulfil,
+complete, cancel or fail errands, and the participant routes keep their rules for every caller.
+
+- Creation-date filters and analytics periods are Asia/Singapore (UTC+8) calendar days:
+  `createdFrom`/`from` starts at 00:00 SGT and `createdTo`/`to` includes that whole day. A
+  start later than the end, an unknown state or an unknown query field returns 422.
+- `overdue=true` selects errands with a recorded overdue marker; `overdue=false` the rest.
+- Analytics covers errands created in the period: counts by state, daily creations, and
+  completion, cancellation, expiry and failure rates. Each rate is the number of those errands
+  now in that state divided by all errands created in the period, or `null` (N/A) when none were
+  created. Requesters and couriers are counted separately; a user in both roles counts once in
+  `distinctParticipants`. Mean creation-to-completion minutes cover COMPLETED errands, overall
+  and per supplier, or `null` when there are none. Supplier names come from the latest stored
+  pickup snapshot.
+- Analytics is computed on request from Order's own records and states its period, time zone and
+  generation time.
 
 ## Fulfilment, completion and overdue
 

@@ -1,6 +1,6 @@
 """Versioned public schemas and typed dependency responses."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Literal
 from uuid import UUID
 
@@ -78,6 +78,11 @@ class CreateOrder(ApiModel):
         return self
 
 
+OrderState = Literal[
+    "OPEN", "ACCEPTED", "PICKED_UP", "DELIVERED", "COMPLETED", "CANCELLED", "EXPIRED", "FAILED"
+]
+
+
 class PageQuery(ApiModel):
     page: int = Field(default=1, ge=1, le=1_000_000)
     page_size: int = Field(default=20, ge=1, le=50)
@@ -92,7 +97,35 @@ class OwnQuery(PageQuery):
 
 
 class AdminQuery(PageQuery):
-    requester_id: UUID
+    # N2F2.2: every filter is optional and all supplied filters apply together.
+    requester_id: UUID | None = None
+    order_id: UUID | None = None
+    participant_id: UUID | None = None
+    state: list[OrderState] | None = None
+    supplier_id: UUID | None = None
+    created_from: date | None = None
+    created_to: date | None = None
+    overdue: bool | None = None
+
+    @model_validator(mode="after")
+    def creation_range(self):
+        if self.created_from and self.created_to and self.created_from > self.created_to:
+            raise ValueError("createdFrom must not be later than createdTo")
+        return self
+
+
+class AnalyticsQuery(ApiModel):
+    # Asia/Singapore calendar days; both ends are included.
+    start: date = Field(alias="from")
+    end: date = Field(alias="to")
+
+    @model_validator(mode="after")
+    def bounded_range(self):
+        if self.start > self.end:
+            raise ValueError("from must not be later than to")
+        if (self.end - self.start).days >= 366:
+            raise ValueError("Select at most 366 days")
+        return self
 
 
 class Principal(BaseModel):
@@ -139,11 +172,6 @@ class Reservation(ApiModel):
         if self.state != "CLOSED" and self.reservation_id is None:
             raise ValueError("Reservation identity required")
         return self
-
-
-OrderState = Literal[
-    "OPEN", "ACCEPTED", "PICKED_UP", "DELIVERED", "COMPLETED", "CANCELLED", "EXPIRED", "FAILED"
-]
 
 
 class Pickup(ApiModel):
@@ -213,3 +241,58 @@ class Page[T](ApiModel):
     page: int
     page_size: int
     total: int
+
+
+class ErrandRates(ApiModel):
+    # Share of errands created in the period now in each state; None (N/A) when none exist.
+    completed: float | None
+    cancelled: float | None
+    expired: float | None
+    failed: float | None
+
+
+class DailyCreated(ApiModel):
+    day: date
+    created: int
+
+
+class Participants(ApiModel):
+    requesters: int
+    couriers: int
+    distinct_participants: int
+
+
+class SupplierActivity(ApiModel):
+    supplier_id: UUID
+    supplier_name: str
+    created: int
+    completed: int
+    mean_completion_minutes: float | None
+
+
+class AnalyticsPeriod(ApiModel):
+    start: date = Field(alias="from")
+    end: date = Field(alias="to")
+    time_zone: Literal["Asia/Singapore"]
+    generated_at: AwareDatetime
+
+
+class OrderAnalytics(AnalyticsPeriod):
+    total_created: int
+    by_state: dict[OrderState, int]
+    rates: ErrandRates
+    daily: list[DailyCreated]
+    participants: Participants
+    mean_completion_minutes: float | None
+    suppliers: list[SupplierActivity]
+
+
+class RoleActivity(ApiModel):
+    total: int
+    by_state: dict[OrderState, int]
+
+
+class UserOrderAnalytics(AnalyticsPeriod):
+    user_id: UUID
+    as_requester: RoleActivity
+    as_courier: RoleActivity
