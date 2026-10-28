@@ -8,6 +8,7 @@ import "./styles/workspace.css";
 import "./styles/order.css";
 import "./styles/wallet.css";
 import "./styles/chat.css";
+import "./styles/admin.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -15,6 +15,11 @@ import { OrderCreatePage } from "../pages/order-create-page";
 import { OrderDetailPage } from "../pages/order-detail-page";
 import { WalletPage } from "../pages/wallet-page";
 import { MessagesPage } from "../pages/messages-page";
+import { AdminDashboardPage } from "../pages/admin-dashboard-page";
+import { AdminOrdersPage } from "../pages/admin-orders-page";
+import { AdminOrderDetailPage } from "../pages/admin-order-detail-page";
+import { AdminDisputesPage } from "../pages/admin-disputes-page";
+import { AdminDisputeDetailPage } from "../pages/admin-dispute-detail-page";
 
 function SessionLoading() {
   return <main className="session-loading"><span className="loading-dot" />Checking your session</main>;
@@ -89,6 +94,11 @@ export function AppRoutes() {
         <Route path="/admin/suppliers/new" element={<ProtectedRoute><AdminRoute denied={<SupplierAccessDenied />}><SupplierFormPage /></AdminRoute></ProtectedRoute>} />
         <Route path="/admin/suppliers/:supplierId/edit" element={<ProtectedRoute><AdminRoute denied={<SupplierAccessDenied />}><SupplierFormPage /></AdminRoute></ProtectedRoute>} />
         <Route path="/admin/suppliers/:supplierId" element={<ProtectedRoute><AdminRoute denied={<SupplierAccessDenied />}><SupplierDetailPage admin /></AdminRoute></ProtectedRoute>} />
+        <Route path="/admin/dashboard" element={<ProtectedRoute><AdminRoute><AdminDashboardPage /></AdminRoute></ProtectedRoute>} />
+        <Route path="/admin/orders" element={<ProtectedRoute><AdminRoute><AdminOrdersPage /></AdminRoute></ProtectedRoute>} />
+        <Route path="/admin/orders/:orderId" element={<ProtectedRoute><AdminRoute><AdminOrderDetailPage /></AdminRoute></ProtectedRoute>} />
+        <Route path="/admin/disputes" element={<ProtectedRoute><AdminRoute><AdminDisputesPage /></AdminRoute></ProtectedRoute>} />
+        <Route path="/admin/disputes/:disputeId" element={<ProtectedRoute><AdminRoute><AdminDisputeDetailPage /></AdminRoute></ProtectedRoute>} />
         <Route path="*" element={<FallbackRoute />} />
       </Routes>
     </BrowserRouter>
