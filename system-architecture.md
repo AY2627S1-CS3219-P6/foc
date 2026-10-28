@@ -68,6 +68,7 @@ The arrow from Supplier Service to User Service is deliberately narrow. Normal a
 | Supplier Service | supplier records and search indexes | User Service only for current administrative authorization | Does not access User data directly |
 | Order Service | errand records, lifecycle history, participant IDs, expiry | Supplier Service only when it must validate an active supplier | Publishes terminal errand lifecycle events |
 | Credit Service | wallets, reservations, immutable ledger | None on the critical consumer path | Consumes registration and lifecycle events idempotently |
+| Admin Service (N2 Admin Dashboard) | dispute cases, dispute status history, dashboard action audit log | User Service for the current session and role on every request; Order Service read-only to confirm an errand exists | Neither; dispute decisions never change errands or credits |
 
 These rules are non-negotiable:
 

@@ -18,6 +18,10 @@ export default defineConfig({
         target: "http://localhost:8003",
         changeOrigin: true,
       },
+      "^/v1/admin/(disputes|audit-log)([/?]|$)": {
+        target: "http://localhost:8005",
+        changeOrigin: true,
+      },
       "/v1": {
         target: "http://localhost:8000",
         changeOrigin: true,

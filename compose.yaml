@@ -242,6 +242,22 @@ services:
     networks:
       - support
 
+  # Optional Admin Dashboard (N2) service. Enable with --profile admin.
+  # Owns disputes and the dashboard audit log in its own database; no migrations run on startup.
+  admin-service:
+    profiles: [admin]
+    build: ./admin-service
+    env_file: ./admin-service/.env.docker
+    environment:
+      USER_SERVICE_BASE_URL: http://user-service:8000
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "127.0.0.1:8005:8005"
+    restart: unless-stopped
+    networks:
+      - edge
+
   outbox-publisher:
     build: ./user-service
     command: ["outbox-publisher"]

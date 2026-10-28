@@ -15,6 +15,7 @@ beforeAll(async () => {
     ["http://localhost:8002", "order"],
     ["http://localhost:8003", "credit"],
     ["http://127.0.0.1:8004", "chat"],
+    ["http://localhost:8005", "admin"],
   ] as const) {
     const backend = await createServer({
       configFile: false, logLevel: "silent",
@@ -70,6 +71,12 @@ it.each([
   ["/v1/admin/wallets/id", "credit"],
   ["/v1/wallets-other", "user"],
   ["/v1/internal/order-reservations/id", "user"],
+  ["/v1/admin/disputes", "admin"],
+  ["/v1/admin/disputes?status=OPEN&page=1", "admin"],
+  ["/v1/admin/disputes/id/transitions", "admin"],
+  ["/v1/admin/audit-log?page=1", "admin"],
+  ["/v1/admin/disputes-other", "user"],
+  ["/v1/admin/admins", "user"],
 ])("routes %s only to %s", async (path, service) => {
   const response = await fetch(new URL(path, baseUrl));
   expect(response.status).toBe(200);
