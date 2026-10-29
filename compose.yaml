@@ -250,6 +250,7 @@ services:
     env_file: ./admin-service/.env.docker
     environment:
       USER_SERVICE_BASE_URL: http://user-service:8000
+      ORDER_SERVICE_BASE_URL: http://order-service:8002
     extra_hosts:
       - host.docker.internal:host-gateway
     ports:

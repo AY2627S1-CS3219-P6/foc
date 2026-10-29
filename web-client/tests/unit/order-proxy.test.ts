@@ -79,6 +79,9 @@ it.each([
   ["/v1/admin/disputes/id/transitions", "admin"],
   ["/v1/admin/audit-log?page=1", "admin"],
   ["/v1/admin/disputes-other", "user"],
+  ["/v1/disputes", "admin"],
+  ["/v1/disputes?orderId=id", "admin"],
+  ["/v1/disputes-other", "user"],
   ["/v1/admin/admins", "user"],
 ])("routes %s only to %s", async (path, service) => {
   const response = await fetch(new URL(path, baseUrl));
