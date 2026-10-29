@@ -133,3 +133,53 @@ export const orderService = {
     return requestJson<OrderPage<OrderHistoryEntry>>(`/orders/${encodeURIComponent(orderId)}/history${params.size ? `?${params}` : ""}`, { method: "GET" }, token);
   },
 };
+
+export type AdminOrderQuery = OrderPageQuery & {
+  state?: OrderState[];
+  orderId?: string;
+  participantId?: string;
+  supplierId?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  overdue?: boolean;
+};
+export type CountsByState = Record<OrderState, number>;
+export type AnalyticsPeriod = { from: string; to: string; timeZone: "Asia/Singapore"; generatedAt: string };
+export type OrderAnalytics = AnalyticsPeriod & {
+  totalCreated: number;
+  byState: CountsByState;
+  rates: { completed: number | null; cancelled: number | null; expired: number | null; failed: number | null };
+  daily: { day: string; created: number }[];
+  participants: { requesters: number; couriers: number; distinctParticipants: number };
+  meanCompletionMinutes: number | null;
+  suppliers: { supplierId: string; supplierName: string; created: number; completed: number; meanCompletionMinutes: number | null }[];
+};
+export type UserOrderAnalytics = AnalyticsPeriod & {
+  userId: string;
+  asRequester: { total: number; byState: CountsByState };
+  asCourier: { total: number; byState: CountsByState };
+};
+
+// Read-only administrator views (N2F2, N2F4); Order re-checks the current role on every call.
+export const adminOrderService = {
+  list: (query: AdminOrderQuery, token: string) => {
+    const params = pageParams(query);
+    for (const state of query.state ?? []) params.append("state", state);
+    for (const key of ["orderId", "participantId", "supplierId", "createdFrom", "createdTo"] as const) {
+      const value = query[key];
+      if (value) params.set(key, value);
+    }
+    if (query.overdue !== undefined) params.set("overdue", String(query.overdue));
+    return requestJson<OrderPage<OrderParticipant>>(`/admin/orders${params.size ? `?${params}` : ""}`, { method: "GET" }, token);
+  },
+  detail: (orderId: string, token: string) =>
+    requestJson<OrderParticipant>(`/admin/orders/${encodeURIComponent(orderId)}`, { method: "GET" }, token),
+  history: (orderId: string, query: OrderPageQuery, token: string) => {
+    const params = pageParams(query);
+    return requestJson<OrderPage<OrderHistoryEntry>>(`/admin/orders/${encodeURIComponent(orderId)}/history${params.size ? `?${params}` : ""}`, { method: "GET" }, token);
+  },
+  analytics: (from: string, to: string, token: string) =>
+    requestJson<OrderAnalytics>(`/admin/orders/analytics?${new URLSearchParams({ from, to })}`, { method: "GET" }, token),
+  userAnalytics: (userId: string, from: string, to: string, token: string) =>
+    requestJson<UserOrderAnalytics>(`/admin/orders/analytics/users/${encodeURIComponent(userId)}?${new URLSearchParams({ from, to })}`, { method: "GET" }, token),
+};

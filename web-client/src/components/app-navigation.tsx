@@ -4,7 +4,7 @@ import type { CurrentUser } from "../api/user-service";
 import { APP_NAME } from "../app/branding";
 import type { WorkspaceMode } from "../app/use-workspace-mode";
 import { AppBrand } from "./app-brand";
-import { MessagesIcon, OrderIcon, ProfileIcon, SupplierNavigationIcon, UsersIcon, WalletIcon } from "./navigation-icons";
+import { DashboardIcon, DisputeIcon, MessagesIcon, OrderIcon, ProfileIcon, SupplierNavigationIcon, UsersIcon, WalletIcon } from "./navigation-icons";
 
 type NavigationProps = { user: CurrentUser; mode?: WorkspaceMode };
 type NavigationItem = { label: string; to: string; Icon: ComponentType };
@@ -16,6 +16,9 @@ function navigationGroups(user: CurrentUser, mode: WorkspaceMode): NavigationGro
   const isAdminMode = mode === "admin" && (user.systemRole === "ADMIN" || user.systemRole === "SUPER_ADMIN");
 
   if (isAdminMode) {
+    administration.push({ label: "Dashboard", to: "/admin/dashboard", Icon: DashboardIcon });
+    administration.push({ label: "Errands", to: "/admin/orders", Icon: OrderIcon });
+    administration.push({ label: "Disputes", to: "/admin/disputes", Icon: DisputeIcon });
     administration.push({ label: "Manage suppliers", to: "/admin/suppliers", Icon: SupplierNavigationIcon });
     if (user.systemRole === "SUPER_ADMIN") {
       administration.push({ label: "Manage admins", to: "/admin/users", Icon: UsersIcon });
