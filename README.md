@@ -26,7 +26,7 @@ withdrawn, or exchanged for money, and only circulate within the platform.
 
 This repository follows a **one-service-per-folder** structure: each
 microservice (`user-service/`, `supplier-service/`, `order-service/`,
-`credit-service/`, `chat-service/`) lives in its own top-level folder.
+`credit-service/`, `chat-service/`, `admin-service/`) lives in its own top-level folder.
 
 ```text
 .
@@ -36,6 +36,7 @@ microservice (`user-service/`, `supplier-service/`, `order-service/`,
 ├── order-service/
 ├── credit-service/
 ├── chat-service/
+├── admin-service/
 ├── <n2h-service>/
 └── README.md
 ```
@@ -87,6 +88,7 @@ this Docker workflow, do not also start `npm run dev` or local Python APIs.
 | `order-service` | `16422` | `http://localhost:16423` | `order_service` |
 | `credit-service` | `16522` | `http://localhost:16523` | `credit_service` |
 | `chat-service` | `17422` | Disabled | `chat_service` |
+| `admin-service` (optional) | `17522` | `http://localhost:17523` | `admin_service` |
 
 These are the ports in the committed `supabase/config.toml` files. PostgreSQL
 ports are not webpages. Open Studio, select **Table Editor** and choose the
@@ -394,6 +396,7 @@ Compose command explicitly uses `user-service/.env`, not the root `.env.example`
 | `order-service/.env.docker` | Set its own `DATABASE_URL` and `CREDIT_SERVICE_SECRET`. Root Compose supplies User/Supplier/Credit origins and the outbox worker's RabbitMQ URL. |
 | `credit-service/.env.docker` | Set its own `DATABASE_URL`, `ORDER_SERVICE_SECRET` and `INITIAL_CREDIT_ALLOCATION=20`. Root Compose supplies User's origin and the consumer's RabbitMQ URL. |
 | `chat-service/.env` | Keep its own database URLs on `17422`; configure `RABBITMQ_URL`, `RABBITMQ_URL_DOCKER` and a dedicated `CHAT_SERVICE_SHARED_SECRET` matching User's `.env`. |
+| `admin-service/.env.docker` | Optional Admin Dashboard profile only. Set its own `DATABASE_URL` on `17522`; root Compose supplies User's origin. See [Admin Service](#optional-admin-service). |
 
 The Supplier and Order-to-Credit secrets must be **different**. Generate one
 random Order-to-Credit secret and copy that same value into Order's
@@ -486,6 +489,33 @@ the API and publisher containers. Keep User's `.env` as the single global
 `--env-file` so the services' overlapping database variable names cannot mix.
 Production uses a restricted Chat login inheriting `chat_runtime`; the local
 `postgres/postgres` defaults are development conveniences.
+
+### Optional Admin Service
+
+The Admin Dashboard nice-to-have adds `admin-service`, which owns disputes and the
+dashboard audit log in its own database. It runs only with the Compose `admin`
+profile, so the rest of the application starts without it. Start its database,
+then provision a login inheriting the NOLOGIN `admin_service_app` role in Admin
+Studio (`http://localhost:17523`), as for Order and Credit:
+
+```sh
+cd admin-service
+npm ci
+npx supabase start
+npx supabase migration up --local
+cp .env.docker.example .env.docker   # Windows: Copy-Item .env.docker.example .env.docker
+cd ..
+```
+
+```sql
+CREATE ROLE foc_admin_local LOGIN INHERIT PASSWORD 'replace-with-admin-only-password';
+GRANT admin_service_app TO foc_admin_local;
+```
+
+Set `DATABASE_URL` in `admin-service/.env.docker` to
+`postgresql://foc_admin_local:<password>@host.docker.internal:17522/postgres`, then
+add `--profile admin` to the Compose commands above. See the
+[Admin Service README](admin-service/README.md) for native runs and tests.
 
 ### First Super Admin fields
 
