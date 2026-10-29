@@ -113,24 +113,48 @@ async def test_reports_need_a_key_and_a_session():
     assert signed_out.status_code == 401
 
 
-async def test_users_see_only_their_own_reports_and_their_outcome():
+async def test_both_participants_follow_reports_but_only_the_author_reads_the_text():
     disputes, identity = FakeDisputes(), FakeIdentity("USER")
+    orders = FakeOrders(participation=("COURIER", "DELIVERED"))
     order_id = uuid4()
-    resolved = dispute_row(
+    theirs = dispute_row(
         order_id=order_id,
         status="RESOLVED",
         resolution_reason="Courier confirmed the mix-up.",
         reporter_role="REQUESTER",
-        created_by=identity.user_id,
     )
-    disputes.page = ([resolved], 1)
-    async with client_for(disputes, identity=identity) as client:
+    mine = dispute_row(order_id=order_id, reporter_role="COURIER", created_by=identity.user_id)
+    disputes.page = ([mine, theirs], 2)
+    async with client_for(disputes, orders, identity) as client:
         response = await client.get(f"/v1/disputes?orderId={order_id}", headers=AUTH)
-    item = response.json()["items"][0]
-    assert (item["status"], item["resolutionReason"]) == (
+    own, other = response.json()["items"]
+    assert (own["ownReport"], own["description"]) == (True, mine["description"])
+    assert (other["ownReport"], other["description"], other["reporterRole"]) == (
+        False,
+        None,
+        "REQUESTER",
+    )
+    assert (other["status"], other["resolutionReason"]) == (
         "RESOLVED",
         "Courier confirmed the mix-up.",
     )
-    assert disputes.calls == [
-        ("reports_for", identity.user_id, {"order_id": order_id, "page": 1, "page_size": 20})
-    ]
+    assert all("createdBy" not in item for item in (own, other))
+    assert orders.calls == [(order_id, "user-token", identity.user_id)]
+    assert disputes.calls == [("reports_about", order_id, {"page": 1, "page_size": 20})]
+
+
+async def test_non_participants_cannot_list_reports_about_an_errand():
+    disputes = FakeDisputes()
+    async with client_for(disputes, FakeOrders(participation=None)) as client:
+        response = await client.get(f"/v1/disputes?orderId={uuid4()}", headers=AUTH)
+    assert (response.status_code, response.json()["error"]["code"]) == (422, "ORDER_NOT_FOUND")
+    assert disputes.calls == []
+
+
+async def test_without_an_errand_users_list_only_their_own_reports():
+    disputes, orders, identity = FakeDisputes(), FakeOrders(), FakeIdentity("USER")
+    async with client_for(disputes, orders, identity) as client:
+        response = await client.get("/v1/disputes", headers=AUTH)
+    assert response.status_code == 200
+    assert orders.calls == []
+    assert disputes.calls == [("reports_for", identity.user_id, {"page": 1, "page_size": 20})]

@@ -95,10 +95,12 @@ class ReportQuery(PageQuery):
 
 
 class ReportView(ApiModel):
-    # What a reporting participant may see: no administrator identities or history.
+    # What an errand participant may see: no administrator identities or history. The other
+    # participant's description is withheld; only its author and administrators read it.
     dispute_id: UUID
     order_id: UUID
-    description: str
+    own_report: bool
+    description: str | None
     status: DisputeStatus
     resolution_reason: str | None
     reporter_role: ReporterRole

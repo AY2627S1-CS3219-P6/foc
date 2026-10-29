@@ -131,6 +131,10 @@ class FakeDisputes:
         self.calls.append(("reports_for", reporter, filters))
         return self.page
 
+    async def reports_about(self, order_id, **filters):
+        self.calls.append(("reports_about", order_id, filters))
+        return self.page
+
     async def record_rejection(self, **values):
         if self.audit_error is not None:
             raise self.audit_error

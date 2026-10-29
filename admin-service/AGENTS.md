@@ -10,7 +10,8 @@
   when User is unavailable; never trust role claims from the token.
 - `/v1/disputes` serves ordinary users. Confirm participation through Order's participant view
   with the caller's own token, answer non-participants exactly as for a missing errand, and
-  never return administrator identities, dispute history or audit records from these routes.
+  never return administrator identities, dispute history, audit records or another
+  participant's report text from these routes.
 - Resolving or rejecting a dispute records a decision only. Never call Order or Credit write
   endpoints, change an errand's state or move credits from this service.
 - Dispute history and audit tables are append-only: the runtime role has SELECT and INSERT

@@ -221,10 +221,16 @@ class DisputeRepository:
             disputes, filters, (disputes.c.created_at.desc(), disputes.c.id.desc()), page, page_size
         )
 
-    async def reports_for(self, reporter, *, order_id, page, page_size):
+    async def reports_for(self, reporter, *, page, page_size):
+        """Participant reports this user made, about any errand."""
         filters = [disputes.c.created_by == reporter, disputes.c.reporter_role.is_not(None)]
-        if order_id is not None:
-            filters.append(disputes.c.order_id == order_id)
+        return await self._page(
+            disputes, filters, (disputes.c.created_at.desc(), disputes.c.id.desc()), page, page_size
+        )
+
+    async def reports_about(self, order_id, *, page, page_size):
+        """Participant reports about one errand, from either participant; never admin records."""
+        filters = [disputes.c.order_id == order_id, disputes.c.reporter_role.is_not(None)]
         return await self._page(
             disputes, filters, (disputes.c.created_at.desc(), disputes.c.id.desc()), page, page_size
         )

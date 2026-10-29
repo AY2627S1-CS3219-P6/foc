@@ -151,14 +151,14 @@ async def test_recorded_history_and_audit_cannot_be_rewritten(database, reposito
 
 
 async def test_one_open_report_per_participant_until_it_is_decided(repository):
-    reporter, order_id = uuid4(), uuid4()
+    reporter, courier, order_id = uuid4(), uuid4(), uuid4()
 
-    async def report(description):
+    async def report(description, who=reporter, role="REQUESTER"):
         return await repository.report(
             order_id=order_id,
             description=description,
-            reporter=reporter,
-            role="REQUESTER",
+            reporter=who,
+            role=role,
             key=uuid4(),
             fingerprint=request_fingerprint(order_id, description, []),
             correlation_id="integration",
@@ -172,8 +172,22 @@ async def test_one_open_report_per_participant_until_it_is_decided(repository):
     await change(repository, dispute_id, "REJECTED", 2, "Courier showed delivery photo.")
     second, created = await report("It happened again.")
     assert created is True and second != dispute_id
-    rows, total = await repository.reports_for(reporter, order_id=order_id, page=1, page_size=10)
+    rows, total = await repository.reports_for(reporter, page=1, page_size=10)
     assert total == 2 and {row["reporter_role"] for row in rows} == {"REQUESTER"}
+
+    # The other participant may report too; administrator records stay out of participant views.
+    await report("Requester gave the wrong building.", who=courier, role="COURIER")
+    admin_record = dict(description="Raised by phone.", evidence_refs=[], actor=uuid4())
+    await repository.create(
+        order_id=order_id,
+        key=uuid4(),
+        fingerprint=request_fingerprint(order_id, "Raised by phone.", []),
+        correlation_id="integration",
+        **admin_record,
+    )
+    rows, total = await repository.reports_about(order_id, page=1, page_size=10)
+    assert total == 3
+    assert sorted(row["reporter_role"] for row in rows) == ["COURIER", "REQUESTER", "REQUESTER"]
 
 
 async def test_runtime_role_has_only_the_needed_privileges(database):

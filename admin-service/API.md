@@ -91,7 +91,7 @@ Request: `{"toStatus": "UNDER_REVIEW" | "RESOLVED" | "REJECTED", "reason": strin
 | Method and path | Behaviour | Success |
 | --- | --- | --- |
 | `POST /v1/disputes` | Report a problem with an errand you take part in. Requires an `Idempotency-Key` UUID header. | `201` + report |
-| `GET /v1/disputes` | Your own reports, newest first; optional `orderId` filter. | `200` + page |
+| `GET /v1/disputes` | Without `orderId`: your own reports. With `orderId`: every participant report about that errand, if you are its requester or courier. Newest first. | `200` + page |
 
 Request: `{"orderId": uuid, "description": string}`. The description must be non-blank after
 trimming (at most 2,000 characters). There is no evidence field; any detail goes in the
@@ -108,9 +108,15 @@ description.
 - A report becomes an `OPEN` dispute that administrators review through the workflow above.
   Idempotency works as for administrator-recorded disputes (N2NFR3.3).
 
-Report: `{"disputeId", "orderId", "description", "status", "resolutionReason", "reporterRole",
-"createdAt", "updatedAt"}`. Participants see the status and the decision reason, never the
-administrators involved, the status history or the audit log (N2F3.2.5).
+- Listing by `orderId` checks participation the same way, so non-participants get
+  `422 ORDER_NOT_FOUND`. Disputes recorded by administrators are never listed here.
+
+Report: `{"disputeId", "orderId", "ownReport", "description", "status", "resolutionReason",
+"reporterRole", "createdAt", "updatedAt"}`. Both participants see every report about their errand
+with its status and decision reason, so administrators should write reasons for both to read.
+`description` is `null` unless `ownReport` is true: only the author and administrators read
+it. Participants never see the administrators involved, the status history or the audit log
+(N2F3.2.5).
 
 ### Audit log
 
