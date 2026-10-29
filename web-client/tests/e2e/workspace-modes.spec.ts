@@ -147,7 +147,7 @@ for (const role of ["ADMIN", "SUPER_ADMIN"] as const) {
         await expectMode(page, "Admin");
         await expect(manageAdmins).toHaveAttribute("aria-current", "page");
         await expect(page.getByRole("link", { name: /^(Profile|Suppliers)$/ })).toHaveCount(0);
-        expect((await navigationLayout(page, width)).map((item) => item.label)).toEqual(["Manage suppliers", "Manage admins"]);
+        expect((await navigationLayout(page, width)).map((item) => item.label)).toEqual(["Dashboard", "Errands", "Disputes", "Manage suppliers", "Manage admins"]);
         await expectNoOverflow(page);
         await page.getByRole("button", { name: "User mode", exact: true }).click();
       }

@@ -81,7 +81,8 @@ export function ErrandReportPanel({ orderId, state }: { orderId: string; state: 
 
   return <section aria-labelledby="errand-report-heading" className="order-panel">
     <h2 id="errand-report-heading">Report a problem</h2>
-    {loadError ? <p role="alert">{loadError} <button className="order-text-button" onClick={() => setReload((n) => n + 1)} type="button">Retry reports</button></p>
+    {/* Not an alert: this side panel failing must not interrupt the errand's own messages. */}
+    {loadError ? <p>{loadError} <button className="order-text-button" onClick={() => setReload((n) => n + 1)} type="button">Retry reports</button></p>
       : reports === null ? <p role="status">Loading reports…</p> : <>
         {reports.length ? <ol className="order-history">{reports.map((report) => <li key={report.disputeId}>
           <DisputeBadge status={report.status} />

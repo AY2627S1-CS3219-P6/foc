@@ -12,7 +12,7 @@ export function useWorkspaceMode(user: CurrentUser | null) {
 
   function switchMode(nextMode: WorkspaceMode) {
     if (nextMode === mode || (nextMode === "admin" && !canUseAdminMode)) return;
-    navigate(nextMode === "admin" ? "/admin/dashboard" : "/suppliers");
+    navigate(nextMode === "admin" ? "/admin/suppliers" : "/suppliers");
   }
 
   return { mode, canUseAdminMode, switchMode };
