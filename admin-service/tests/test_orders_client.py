@@ -51,6 +51,34 @@ async def test_unusable_responses_fail_closed(response):
     assert (error.value.status, error.value.code) == (503, "ORDER_UNAVAILABLE")
 
 
+@pytest.mark.parametrize(
+    "body,expected",
+    [
+        (
+            {"state": "DELIVERED", "requesterId": "me", "courierId": "them"},
+            ("REQUESTER", "DELIVERED"),
+        ),
+        ({"state": "FAILED", "requesterId": "them", "courierId": "me"}, ("COURIER", "FAILED")),
+        ({"state": "ACCEPTED", "requesterId": "them", "courierId": "other"}, None),
+        ({"state": "OPEN", "orderId": "assessment view without participants"}, None),
+    ],
+)
+async def test_participation_comes_from_orders_participant_view(body, expected):
+    seen = {}
+
+    def handler(request):
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json=body)
+
+    assert await directory(handler).participation(ORDER_ID, "abc", "me") == expected
+    assert seen["url"] == f"http://order-service:8002/v1/orders/{ORDER_ID}"
+
+
+async def test_unknown_errand_has_no_participation():
+    result = await directory(lambda request: httpx.Response(404)).participation(ORDER_ID, "a", "me")
+    assert result is None
+
+
 @pytest.mark.parametrize("base", ["http://order-service:8002", None])
 async def test_unreachable_or_unconfigured_order_service_fails_closed(base):
     def refuse(request):

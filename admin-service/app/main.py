@@ -16,6 +16,7 @@ from app.admin.api import router as admin_router
 from app.admin.errors import ApiError
 from app.admin.identity import UserDirectory
 from app.admin.orders import OrderDirectory
+from app.admin.reports import router as reports_router
 from app.admin.repository import DisputeRepository
 from app.core.config import Settings, get_settings
 from app.db import Database, DatabaseUnavailableError
@@ -115,6 +116,7 @@ def create_app(
     ):
         app.add_exception_handler(error_type, database_error)
     app.include_router(admin_router)
+    app.include_router(reports_router)
 
     @app.middleware("http")
     async def correlate_request(request: Request, call_next):

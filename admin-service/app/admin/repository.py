@@ -4,11 +4,13 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import and_, func, insert, select, text, true, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import IntegrityError
 
 from app.admin.disputes import (
     FINAL_STATUSES,
     DisputeNotFound,
     IdempotencyKeyReused,
+    ReportAlreadyOpen,
     VersionConflict,
     check_transition,
 )
@@ -35,6 +37,52 @@ class DisputeRepository:
     async def create(
         self, *, order_id, description, evidence_refs, actor, key, fingerprint, correlation_id
     ) -> tuple[UUID, bool]:
+        """An administrator records a dispute about an errand."""
+        return await self._record(
+            order_id=order_id,
+            description=description,
+            evidence_refs=evidence_refs,
+            actor=actor,
+            role=None,
+            action="DISPUTE_CREATE",
+            key=key,
+            fingerprint=fingerprint,
+            correlation_id=correlation_id,
+        )
+
+    async def report(
+        self, *, order_id, description, reporter, role, key, fingerprint, correlation_id
+    ) -> tuple[UUID, bool]:
+        """A participant reports a problem; one open report per participant per errand."""
+        try:
+            return await self._record(
+                order_id=order_id,
+                description=description,
+                evidence_refs=[],
+                actor=reporter,
+                role=role,
+                action="DISPUTE_REPORT",
+                key=key,
+                fingerprint=fingerprint,
+                correlation_id=correlation_id,
+            )
+        except IntegrityError:
+            # disputes_one_open_report: another report by this participant is still open.
+            raise ReportAlreadyOpen() from None
+
+    async def _record(
+        self,
+        *,
+        order_id,
+        description,
+        evidence_refs,
+        actor,
+        role,
+        action,
+        key,
+        fingerprint,
+        correlation_id,
+    ) -> tuple[UUID, bool]:
         """Record a dispute, its first history entry and its audit entry atomically.
 
         A replay of the same key and body returns the original dispute (created=False).
@@ -48,6 +96,7 @@ class DisputeRepository:
                     description=description,
                     evidence_refs=evidence_refs,
                     status="OPEN",
+                    reporter_role=role,
                     created_by=actor,
                     idempotency_key=key,
                     request_hash=fingerprint,
@@ -76,7 +125,7 @@ class DisputeRepository:
                 insert(audit_log).values(
                     **audit_entry(
                         actor=actor,
-                        action="DISPUTE_CREATE",
+                        action=action,
                         target_type="DISPUTE",
                         target_id=dispute_id,
                         correlation_id=correlation_id,
@@ -166,6 +215,14 @@ class DisputeRepository:
         filters = []
         if status is not None:
             filters.append(disputes.c.status == status)
+        if order_id is not None:
+            filters.append(disputes.c.order_id == order_id)
+        return await self._page(
+            disputes, filters, (disputes.c.created_at.desc(), disputes.c.id.desc()), page, page_size
+        )
+
+    async def reports_for(self, reporter, *, order_id, page, page_size):
+        filters = [disputes.c.created_by == reporter, disputes.c.reporter_role.is_not(None)]
         if order_id is not None:
             filters.append(disputes.c.order_id == order_id)
         return await self._page(

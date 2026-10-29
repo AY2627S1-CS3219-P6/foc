@@ -36,9 +36,10 @@ class FakeIdentity:
 class FakeOrders:
     """Stands in for Order's GET /v1/admin/orders/{id}."""
 
-    def __init__(self, known=True, error=None):
+    def __init__(self, known=True, error=None, participation=("REQUESTER", "DELIVERED")):
         self.known = known
         self.error = error
+        self.participant = participation
         self.calls = []
 
     async def exists(self, order_id, token):
@@ -46,6 +47,12 @@ class FakeOrders:
         if self.error is not None:
             raise self.error
         return self.known
+
+    async def participation(self, order_id, token, user_id):
+        self.calls.append((order_id, token, user_id))
+        if self.error is not None:
+            raise self.error
+        return self.participant
 
 
 def dispute_row(**overrides):
@@ -57,6 +64,7 @@ def dispute_row(**overrides):
         "evidence_refs": [],
         "status": "OPEN",
         "resolution_reason": None,
+        "reporter_role": None,
         "created_by": uuid4(),
         "created_at": now,
         "updated_at": now,
@@ -106,6 +114,22 @@ class FakeDisputes:
         if self.error is not None:
             raise self.error
         self.row = {**self.row, "status": values["to_status"], "version": self.row["version"] + 1}
+
+    async def report(self, **values):
+        self.calls.append(("report", values))
+        if self.error is not None:
+            raise self.error
+        self.row = dispute_row(
+            order_id=values["order_id"],
+            description=values["description"],
+            reporter_role=values["role"],
+            created_by=values["reporter"],
+        )
+        return self.row["id"], self.created
+
+    async def reports_for(self, reporter, **filters):
+        self.calls.append(("reports_for", reporter, filters))
+        return self.page
 
     async def record_rejection(self, **values):
         if self.audit_error is not None:

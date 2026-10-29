@@ -76,12 +76,44 @@ class HistoryEntry(ApiModel):
     occurred_at: datetime
 
 
+ReporterRole = Literal["REQUESTER", "COURIER"]
+
+
+class ReportProblem(ApiModel):
+    # N2F3.2: a participant describes the problem; evidence can go in the description.
+    order_id: UUID
+    description: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def trim_description(cls, value):
+        return trimmed(value)
+
+
+class ReportQuery(PageQuery):
+    order_id: UUID | None = None
+
+
+class ReportView(ApiModel):
+    # What a reporting participant may see: no administrator identities or history.
+    dispute_id: UUID
+    order_id: UUID
+    description: str
+    status: DisputeStatus
+    resolution_reason: str | None
+    reporter_role: ReporterRole
+    created_at: datetime
+    updated_at: datetime
+
+
 class DisputeSummary(ApiModel):
     dispute_id: UUID
     order_id: UUID
     description: str
     status: DisputeStatus
     resolution_reason: str | None
+    # None when an administrator recorded the dispute; created_by is then that administrator.
+    reporter_role: ReporterRole | None
     created_by: UUID
     created_at: datetime
     updated_at: datetime
@@ -96,7 +128,7 @@ class DisputeView(DisputeSummary):
 class AuditEntry(ApiModel):
     audit_id: UUID
     actor_id: UUID
-    action: Literal["DISPUTE_CREATE", "DISPUTE_TRANSITION"]
+    action: Literal["DISPUTE_CREATE", "DISPUTE_REPORT", "DISPUTE_TRANSITION"]
     target_type: Literal["DISPUTE", "ORDER"]
     target_id: UUID
     outcome: Literal["SUCCESS", "REJECTED"]

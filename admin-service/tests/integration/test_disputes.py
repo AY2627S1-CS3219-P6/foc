@@ -15,6 +15,7 @@ from app.admin.disputes import (
     IdempotencyKeyReused,
     InvalidTransition,
     ReasonRequired,
+    ReportAlreadyOpen,
     VersionConflict,
     request_fingerprint,
 )
@@ -147,6 +148,32 @@ async def test_recorded_history_and_audit_cannot_be_rewritten(database, reposito
     with pytest.raises(DBAPIError):
         async with database.session_context() as session, session.begin():
             await session.execute(text(statement), {"id": dispute_id})
+
+
+async def test_one_open_report_per_participant_until_it_is_decided(repository):
+    reporter, order_id = uuid4(), uuid4()
+
+    async def report(description):
+        return await repository.report(
+            order_id=order_id,
+            description=description,
+            reporter=reporter,
+            role="REQUESTER",
+            key=uuid4(),
+            fingerprint=request_fingerprint(order_id, description, []),
+            correlation_id="integration",
+        )
+
+    dispute_id, created = await report("Nothing arrived.")
+    assert created is True
+    with pytest.raises(ReportAlreadyOpen):
+        await report("Still nothing.")
+    await change(repository, dispute_id, "UNDER_REVIEW", 1)
+    await change(repository, dispute_id, "REJECTED", 2, "Courier showed delivery photo.")
+    second, created = await report("It happened again.")
+    assert created is True and second != dispute_id
+    rows, total = await repository.reports_for(reporter, order_id=order_id, page=1, page_size=10)
+    assert total == 2 and {row["reporter_role"] for row in rows} == {"REQUESTER"}
 
 
 async def test_runtime_role_has_only_the_needed_privileges(database):

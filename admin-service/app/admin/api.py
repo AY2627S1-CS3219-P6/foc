@@ -61,6 +61,7 @@ def summary_fields(row) -> dict:
         "description": row["description"],
         "status": row["status"],
         "resolution_reason": row["resolution_reason"],
+        "reporter_role": row.get("reporter_role"),
         "created_by": row["created_by"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],

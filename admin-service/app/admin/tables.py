@@ -14,6 +14,7 @@ disputes = Table(
     Column("evidence_refs", ARRAY(Text), nullable=False),
     Column("status", Text, nullable=False),
     Column("resolution_reason", Text),
+    Column("reporter_role", Text),
     Column("created_by", UUID(as_uuid=True), nullable=False),
     Column("idempotency_key", UUID(as_uuid=True), nullable=False),
     Column("request_hash", Text, nullable=False),

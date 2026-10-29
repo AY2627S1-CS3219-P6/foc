@@ -7,6 +7,22 @@ from app.admin.errors import ApiError
 
 TRANSITIONS = {"OPEN": ("UNDER_REVIEW",), "UNDER_REVIEW": ("RESOLVED", "REJECTED")}
 FINAL_STATUSES = ("RESOLVED", "REJECTED")
+# Participants can report once a courier is involved: from acceptance onwards.
+REPORTABLE_STATES = ("ACCEPTED", "PICKED_UP", "DELIVERED", "COMPLETED", "FAILED")
+
+
+class ReportNotAllowed(ApiError):
+    def __init__(self):
+        super().__init__(
+            409, "REPORT_NOT_ALLOWED", "Problems can be reported once a courier accepts the errand."
+        )
+
+
+class ReportAlreadyOpen(ApiError):
+    def __init__(self):
+        super().__init__(
+            409, "REPORT_ALREADY_OPEN", "You already have an open report about this errand."
+        )
 
 
 class DisputeNotFound(ApiError):
