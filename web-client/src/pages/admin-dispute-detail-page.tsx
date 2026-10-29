@@ -55,6 +55,7 @@ function StatusForm({ dispute, onChanged }: { dispute: Dispute; onChanged: () =>
   return <section aria-labelledby="admin-update-status" className="order-panel admin-wide">
     <h2 id="admin-update-status">Update status</h2>
     <p className="order-muted">Resolving or rejecting records your decision only. It does not change the errand or move credits.</p>
+    {dispute.reporterRole ? <p className="order-muted">The requester and courier will both see the reason you give when you resolve or reject this report.</p> : null}
     {error ? <div className="admin-panel-error" role="alert">
       <p>{error.message}</p>
       {error.conflict ? <button className="order-button order-secondary" onClick={onChanged} type="button">Refresh dispute</button> : null}

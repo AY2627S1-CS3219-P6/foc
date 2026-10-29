@@ -23,8 +23,12 @@ function reportError(failure: unknown): string {
 }
 
 const awaitingDecision = (report: DisputeReport) => report.status === "OPEN" || report.status === "UNDER_REVIEW";
+const reporterNames = { REQUESTER: "requester", COURIER: "courier" } as const;
 
-/** N2F3.2: the requester or courier reports a problem; an administrator reviews it and decides. */
+/**
+ * N2F3.2: the requester or courier reports a problem; an administrator reviews it and decides.
+ * Both participants follow every report and its outcome; only the author sees its description.
+ */
 export function ErrandReportPanel({ orderId, state }: { orderId: string; state: OrderState }) {
   const { withCurrentAccess } = useAuth();
   const draftKey = `errand-report-draft:${orderId}`;
@@ -40,7 +44,7 @@ export function ErrandReportPanel({ orderId, state }: { orderId: string; state: 
   useEffect(() => {
     let active = true;
     setLoadError(null);
-    withCurrentAccess((token) => disputeReports.mine({ orderId, pageSize: 50 }, token))
+    withCurrentAccess((token) => disputeReports.list({ orderId, pageSize: 50 }, token))
       .then((page) => { if (active) setReports(page.items); })
       .catch((failure) => { if (active) setLoadError(reportError(failure)); });
     return () => { active = false; };
@@ -71,20 +75,24 @@ export function ErrandReportPanel({ orderId, state }: { orderId: string; state: 
     }
   }
 
+  const ownOpen = reports?.some((report) => report.ownReport && awaitingDecision(report)) ?? false;
+  const otherOpen = reports?.some((report) => !report.ownReport && awaitingDecision(report)) ?? false;
+  const canReport = !ownOpen && REPORTABLE_STATES.includes(state);
+
   return <section aria-labelledby="errand-report-heading" className="order-panel">
     <h2 id="errand-report-heading">Report a problem</h2>
     {loadError ? <p role="alert">{loadError} <button className="order-text-button" onClick={() => setReload((n) => n + 1)} type="button">Retry reports</button></p>
       : reports === null ? <p role="status">Loading reports…</p> : <>
         {reports.length ? <ol className="order-history">{reports.map((report) => <li key={report.disputeId}>
           <DisputeBadge status={report.status} />
-          <time dateTime={report.createdAt}>Reported {orderTime(report.createdAt)} SGT</time>
-          <p>{report.description}</p>
+          <time dateTime={report.createdAt}>{report.ownReport ? "You reported" : `The ${reporterNames[report.reporterRole]} reported a problem`} {orderTime(report.createdAt)} SGT</time>
+          {report.ownReport ? <p>{report.description}</p> : null}
           {report.resolutionReason ? <p><strong>Decision:</strong> {report.resolutionReason}</p> : null}
         </li>)}</ol> : null}
-        {reports.some(awaitingDecision)
-          ? <p className="order-muted">An administrator is reviewing your report. You can report again after a decision.</p>
-          : REPORTABLE_STATES.includes(state) ? <>
-            <p className="order-muted">Describe what went wrong. An administrator reviews it and records a decision; reporting does not change the errand or move credits.</p>
+        {ownOpen ? <p className="order-muted">An administrator is reviewing your report. You can report again after a decision.</p>
+          : canReport ? <>
+            {otherOpen ? <p className="order-muted">If you see this problem differently, report it from your side too.</p> : null}
+            <p className="order-muted">Describe what went wrong. Only you and administrators read your description; the other participant sees that you reported and the decision. Reporting does not change the errand or move credits.</p>
             {error ? <p className="admin-form-error" role="alert">{error}</p> : null}
             <form onSubmit={submit}>
               <label className="order-label">What went wrong<textarea maxLength={2000} onChange={(event) => update(event.target.value)} required rows={4} value={description} /></label>

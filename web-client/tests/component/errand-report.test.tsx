@@ -9,8 +9,12 @@ vi.mock("../../src/app/use-auth", () => ({ useAuth: () => auth }));
 
 const ORDER_ID = "e2e2e2e2-0000-4000-8000-000000000002";
 const report = (status: string, resolutionReason: string | null = null) => ({
-  disputeId: `d-${status}`, orderId: ORDER_ID, description: "Courier marked it delivered; nothing arrived.",
+  disputeId: `d-${status}`, orderId: ORDER_ID, ownReport: true, description: "Courier marked it delivered; nothing arrived.",
   status, resolutionReason, reporterRole: "REQUESTER", createdAt: "2026-10-20T04:00:00Z", updatedAt: "2026-10-20T05:00:00Z",
+});
+// The other participant's report arrives without its description.
+const counterpart = (status: string, resolutionReason: string | null = null) => ({
+  ...report(status, resolutionReason), disputeId: `c-${status}`, ownReport: false, description: null, reporterRole: "COURIER",
 });
 const page = (items: unknown[]) => ({ items, page: 1, pageSize: 50, total: items.length });
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -67,6 +71,15 @@ describe("Errand problem reports", () => {
     await renderPanel("COMPLETED");
     expect(screen.getByText("Rejected")).toBeVisible();
     expect(screen.getByText("Courier showed a delivery photo.")).toBeVisible();
+    expect(screen.getByLabelText("What went wrong")).toBeVisible();
+  });
+
+  it("shows the other participant's report and outcome without its text, and still lets this user report", async () => {
+    routeFetch([counterpart("UNDER_REVIEW"), counterpart("RESOLVED", "Requester confirmed it arrived late.")]);
+    await renderPanel();
+    expect(screen.getAllByText(/The courier reported a problem/)).toHaveLength(2);
+    expect(screen.getByText("Requester confirmed it arrived late.")).toBeVisible();
+    expect(screen.getByText(/report it from your side too/)).toBeVisible();
     expect(screen.getByLabelText("What went wrong")).toBeVisible();
   });
 

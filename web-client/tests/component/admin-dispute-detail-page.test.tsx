@@ -89,6 +89,7 @@ describe("Admin dispute detail", () => {
     expect(screen.getByText("Reported by")).toBeVisible();
     expect(screen.getByText("Courier C1C1C1C1")).toBeVisible();
     expect(screen.queryByText("Evidence")).toBeNull();
+    expect(screen.getByText(/requester and courier will both see the reason/)).toBeVisible();
   });
 
     it("requires a reason before resolving and sends nothing without one", async () => {

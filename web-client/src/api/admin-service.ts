@@ -41,10 +41,11 @@ export type AuditEntry = {
   occurredAt: string;
 };
 
-// What a participant sees about their own report: never the administrators or the history.
+// What an errand participant sees: never the administrators or the history, and the
+// description only for their own reports.
 export type DisputeReport = Pick<
-  DisputeSummary, "disputeId" | "orderId" | "description" | "status" | "resolutionReason" | "createdAt" | "updatedAt"
-> & { reporterRole: ReporterRole };
+  DisputeSummary, "disputeId" | "orderId" | "status" | "resolutionReason" | "createdAt" | "updatedAt"
+> & { reporterRole: ReporterRole; ownReport: boolean; description: string | null };
 
 export type AdminPage<T> = { items: T[]; page: number; pageSize: number; total: number };
 export type NewDispute = { orderId: string; description: string; evidenceRefs: string[] };
@@ -96,6 +97,7 @@ export const disputeReports = {
       headers: { "Idempotency-Key": idempotencyKey },
       body: JSON.stringify(input),
     }, token),
-  mine: (filters: { orderId?: string; page?: number; pageSize?: number }, token: string) =>
+  // With orderId: every participant report about that errand, for its requester or courier.
+  list: (filters: { orderId?: string; page?: number; pageSize?: number }, token: string) =>
     requestJson<AdminPage<DisputeReport>>(`/disputes${query(filters)}`, { method: "GET" }, token),
 };
