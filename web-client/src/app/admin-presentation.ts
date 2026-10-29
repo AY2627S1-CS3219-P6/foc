@@ -1,5 +1,5 @@
 import { isApiRequestError } from "../api/client";
-import type { DisputeStatus } from "../api/admin-service";
+import type { AuditEntry, DisputeStatus, DisputeSummary, ReporterRole } from "../api/admin-service";
 import type { OrderState } from "../api/order-service";
 import { orderError } from "./order-presentation";
 
@@ -13,6 +13,21 @@ export const disputeStatusLabels: Record<DisputeStatus, string> = {
   RESOLVED: "Resolved",
   REJECTED: "Rejected",
 };
+
+export const auditActionLabels: Record<AuditEntry["action"], string> = {
+  DISPUTE_CREATE: "Record dispute",
+  DISPUTE_REPORT: "Report problem",
+  DISPUTE_TRANSITION: "Change dispute status",
+};
+
+const reporterLabels: Record<ReporterRole, string> = { REQUESTER: "Requester", COURIER: "Courier" };
+
+/** Who raised a dispute: an errand participant's report or an administrator's record. */
+export function disputeOrigin(dispute: Pick<DisputeSummary, "reporterRole">) {
+  return dispute.reporterRole
+    ? { verb: "Reported by", who: reporterLabels[dispute.reporterRole] }
+    : { verb: "Recorded by", who: "Admin" };
+}
 
 export const stateLabel = (state: OrderState) => state.replaceAll("_", " ");
 

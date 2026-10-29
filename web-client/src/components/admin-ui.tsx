@@ -2,7 +2,7 @@ import type { PropsWithChildren, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { DisputeStatus, DisputeSummary } from "../api/admin-service";
 import type { Settlement } from "../api/credit-service";
-import { adminError, disputeStatusLabels, shortId, updatedAt } from "../app/admin-presentation";
+import { adminError, disputeOrigin, disputeStatusLabels, shortId, updatedAt } from "../app/admin-presentation";
 import { orderTime } from "../app/order-presentation";
 
 type PanelResource = { loading: boolean; error: unknown; retrievedAt: Date | null; reload: () => void };
@@ -70,7 +70,8 @@ export function DisputeList({ items }: { items: DisputeSummary[] }) {
         <span className="admin-row-meta">
           <span>Dispute #{shortId(dispute.disputeId)}</span>
           <span>Errand #{shortId(dispute.orderId)}</span>
-          <span>Recorded {orderTime(dispute.createdAt)} SGT</span>
+          <span>{disputeOrigin(dispute).verb} {disputeOrigin(dispute).who.toLowerCase()}</span>
+          <span>{orderTime(dispute.createdAt)} SGT</span>
         </span>
       </Link>
     </li>)}

@@ -7,6 +7,7 @@ import { OrderBadge, OrderFailure, OrderPagination, OrderShell, OrderSummary } f
 import { orderError, orderTime } from "../app/order-presentation";
 import { OrderLifecycle } from "../components/order-lifecycle";
 import { OrderChatButton } from "../components/order-chat-button";
+import { ErrandReportPanel } from "../components/errand-report";
 
 export function OrderDetailPage() {
   const { orderId = "" } = useParams();
@@ -39,7 +40,8 @@ export function OrderDetailPage() {
         {counterpartId && counterpartId !== user?.userId ? <OrderChatButton key={`${orderId}:${counterpartId}`} recipientUserId={counterpartId} recipientRole={"requesterId" in order && order.requesterId === user?.userId ? "courier" : "requester"} /> : null}
       </div><OrderSummary order={order} /><p className="order-muted">Posted {orderTime(order.createdAt)} SGT</p>{participant ? <p>You are the {"requesterId" in order && order.requesterId === user?.userId ? "requester" : "courier"}.</p> : null}</section>
         <aside><OrderLifecycle key={`${orderId}:${user?.userId}`} order={order} onChanged={(updated) => { setOrder(updated); setHistoryRevision((n) => n + 1); }} onRefresh={() => setReload((n) => n + 1)} />
-          {participant ? <OrderHistory key={`${orderId}:${historyRevision}`} orderId={orderId} /> : null}</aside>
+          {participant ? <OrderHistory key={`${orderId}:${historyRevision}`} orderId={orderId} /> : null}
+          {participant && "courierId" in order && order.courierId ? <ErrandReportPanel key={`${orderId}:${user?.userId}`} orderId={orderId} state={order.state} /> : null}</aside>
       </div>
     </> : null}
   </OrderShell>;

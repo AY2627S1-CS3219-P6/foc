@@ -2,6 +2,7 @@ import { requestJson } from "./client";
 
 export type DisputeStatus = "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "REJECTED";
 export type DisputeTarget = Exclude<DisputeStatus, "OPEN">;
+export type ReporterRole = "REQUESTER" | "COURIER";
 
 export type DisputeHistoryEntry = {
   sequence: number;
@@ -18,6 +19,8 @@ export type DisputeSummary = {
   description: string;
   status: DisputeStatus;
   resolutionReason: string | null;
+  // Null when an administrator recorded the dispute rather than an errand participant.
+  reporterRole: ReporterRole | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -29,7 +32,7 @@ export type Dispute = DisputeSummary & { evidenceRefs: string[]; history: Disput
 export type AuditEntry = {
   auditId: string;
   actorId: string;
-  action: "DISPUTE_CREATE" | "DISPUTE_TRANSITION";
+  action: "DISPUTE_CREATE" | "DISPUTE_REPORT" | "DISPUTE_TRANSITION";
   targetType: "DISPUTE" | "ORDER";
   targetId: string;
   outcome: "SUCCESS" | "REJECTED";
@@ -38,8 +41,14 @@ export type AuditEntry = {
   occurredAt: string;
 };
 
+// What a participant sees about their own report: never the administrators or the history.
+export type DisputeReport = Pick<
+  DisputeSummary, "disputeId" | "orderId" | "description" | "status" | "resolutionReason" | "createdAt" | "updatedAt"
+> & { reporterRole: ReporterRole };
+
 export type AdminPage<T> = { items: T[]; page: number; pageSize: number; total: number };
 export type NewDispute = { orderId: string; description: string; evidenceRefs: string[] };
+export type NewReport = { orderId: string; description: string };
 export type DisputeTransition = { toStatus: DisputeTarget; reason: string | null; expectedVersion: number };
 
 // N2F3.3.1: OPEN -> UNDER_REVIEW -> RESOLVED | REJECTED. Admin Service enforces this too.
@@ -77,4 +86,16 @@ export const adminService = {
     }, token),
   auditLog: (filters: { page?: number; pageSize?: number }, token: string) =>
     requestJson<AdminPage<AuditEntry>>(`/admin/audit-log${query(filters)}`, { method: "GET" }, token),
+};
+
+// N2F3.2: requesters and couriers report problems with their own errands; administrators decide.
+export const disputeReports = {
+  report: (input: NewReport, idempotencyKey: string, token: string) =>
+    requestJson<DisputeReport>("/disputes", {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(input),
+    }, token),
+  mine: (filters: { orderId?: string; page?: number; pageSize?: number }, token: string) =>
+    requestJson<AdminPage<DisputeReport>>(`/disputes${query(filters)}`, { method: "GET" }, token),
 };

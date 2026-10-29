@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { adminService, NEXT_STATUSES, type Dispute, type DisputeTarget } from "../api/admin-service";
 import { adminCreditService } from "../api/credit-service";
 import { adminOrderService, failureReasons } from "../api/order-service";
-import { adminError, clearDraft, disputeStatusLabels, isVersionConflict, noReservation, readDraft, shortId, writeDraft } from "../app/admin-presentation";
+import { adminError, clearDraft, disputeOrigin, disputeStatusLabels, isVersionConflict, noReservation, readDraft, shortId, writeDraft } from "../app/admin-presentation";
 import { orderTime } from "../app/order-presentation";
 import { useAdminResource } from "../app/use-admin-resource";
 import { useAuth } from "../app/use-auth";
@@ -102,11 +102,12 @@ export function AdminDisputeDetailPage() {
         {data ? <>
           <p className="order-description">{data.description}</p>
           <dl className="order-facts">
-            <AdminFact label="Evidence">{data.evidenceRefs.length
+            {/* Participant reports carry everything in the description; only admin records add evidence. */}
+            {data.reporterRole ? null : <AdminFact label="Evidence">{data.evidenceRefs.length
               ? <ul className="admin-evidence">{data.evidenceRefs.map((reference) => <li key={reference}>{reference}</li>)}</ul>
-              : "None recorded"}</AdminFact>
-            <AdminFact label="Recorded by">Admin {shortId(data.createdBy)}</AdminFact>
-            <AdminFact label="Recorded at">{orderTime(data.createdAt)} SGT</AdminFact>
+              : "None recorded"}</AdminFact>}
+            <AdminFact label={disputeOrigin(data).verb}>{disputeOrigin(data).who} {shortId(data.createdBy)}</AdminFact>
+            <AdminFact label="Raised at">{orderTime(data.createdAt)} SGT</AdminFact>
             {data.resolutionReason ? <AdminFact label="Decision reason">{data.resolutionReason}</AdminFact> : null}
           </dl>
         </> : null}

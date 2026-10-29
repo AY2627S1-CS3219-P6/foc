@@ -31,11 +31,11 @@ const settlement = { orderId: ORDER_ID, state: "TRANSFERRED", amount: 3, updated
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-function routeFetch(transition: () => Response) {
+function routeFetch(transition: () => Response, current: object = dispute) {
   const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async (input) => {
     const url = String(input);
     if (url.endsWith("/transitions")) return transition();
-    if (url.includes("/admin/disputes/")) return json(dispute);
+    if (url.includes("/admin/disputes/")) return json(current);
     if (url.includes("/admin/orders/")) return json(errand);
     if (url.includes("/admin/credit/reservations/")) return json(settlement);
     return json({ error: { code: "NOT_FOUND", message: "Not found", correlationId: "c", fieldErrors: [] } }, 404);
@@ -79,7 +79,19 @@ describe("Admin dispute detail", () => {
     expect(screen.getByText("chat:42")).toBeVisible();
   });
 
-  it("requires a reason before resolving and sends nothing without one", async () => {
+  it("shows who raised the dispute", async () => {
+    routeFetch(() => json(dispute));
+    await renderDispute();
+    expect(screen.getByText("Recorded by")).toBeVisible();
+    cleanup();
+    routeFetch(() => json(dispute), { ...dispute, reporterRole: "COURIER", createdBy: "c1c1c1c1-0000", evidenceRefs: [] });
+    await renderDispute();
+    expect(screen.getByText("Reported by")).toBeVisible();
+    expect(screen.getByText("Courier C1C1C1C1")).toBeVisible();
+    expect(screen.queryByText("Evidence")).toBeNull();
+  });
+
+    it("requires a reason before resolving and sends nothing without one", async () => {
     const fetchMock = routeFetch(() => json(dispute));
     await renderDispute();
     fireEvent.click(screen.getByRole("radio", { name: "Resolved" }));

@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { adminService, type AuditEntry, type DisputeStatus } from "../api/admin-service";
-import { disputeStatusLabels, shortId } from "../app/admin-presentation";
+import { auditActionLabels, disputeStatusLabels, shortId } from "../app/admin-presentation";
 import { orderTime } from "../app/order-presentation";
 import { useAdminResource } from "../app/use-admin-resource";
 import { AdminPanel, DisputeList } from "../components/admin-ui";
@@ -13,7 +13,7 @@ const PAGE_SIZE = 20;
 const STATUSES = Object.keys(disputeStatusLabels) as DisputeStatus[];
 
 function auditSummary(entry: AuditEntry): string {
-  const action = entry.action === "DISPUTE_CREATE" ? "Record dispute" : "Change dispute status";
+  const action = auditActionLabels[entry.action];
   const outcome = entry.outcome === "SUCCESS" ? "succeeded" : `rejected (${entry.errorCode})`;
   return `${action} ${outcome}`;
 }
