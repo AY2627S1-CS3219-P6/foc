@@ -1,7 +1,7 @@
 """Versioned HTTP schemas and consumed event payloads (camelCase on the wire)."""
 
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
@@ -59,6 +59,48 @@ class TransactionView(ApiModel):
     counterparty_user_id: UUID | None
     order_id: UUID | None
     created_at: datetime
+
+
+class SettlementView(ApiModel):
+    # Credit-side outcome only; the dashboard shows it separately from the errand's state.
+    order_id: UUID
+    state: ReservationState
+    amount: int
+    updated_at: datetime
+
+
+class AnalyticsQuery(ApiModel):
+    # Inclusive Asia/Singapore calendar days, matching Order's analytics periods.
+    start: date = Field(alias="from")
+    end: date = Field(alias="to")
+
+    @model_validator(mode="after")
+    def bounded_range(self):
+        if self.start > self.end:
+            raise ValueError("from must not be later than to")
+        if (self.end - self.start).days >= 366:
+            raise ValueError("Select at most 366 days")
+        return self
+
+
+class Circulation(ApiModel):
+    available: int
+    reserved: int
+    total: int
+
+
+class TransferTotals(ApiModel):
+    count: int
+    amount: int
+
+
+class CreditAnalytics(ApiModel):
+    start: date = Field(alias="from")
+    end: date = Field(alias="to")
+    time_zone: Literal["Asia/Singapore"]
+    generated_at: datetime
+    circulation: Circulation  # current balances, not limited to the period
+    transfers: TransferTotals  # committed during the period
 
 
 class PageQuery(ApiModel):

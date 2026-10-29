@@ -68,6 +68,9 @@ it.each([
   ["/v1/wallets/me", "credit"],
   ["/v1/wallets/me/transactions?page=1&pageSize=20", "credit"],
   ["/v1/admin/wallets/id", "credit"],
+  ["/v1/admin/credit/reservations/id", "credit"],
+  ["/v1/admin/credit/analytics?from=2026-10-20&to=2026-10-21", "credit"],
+  ["/v1/admin/credit-other", "user"],
   ["/v1/wallets-other", "user"],
   ["/v1/internal/order-reservations/id", "user"],
 ])("routes %s only to %s", async (path, service) => {

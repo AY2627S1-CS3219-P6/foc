@@ -15,6 +15,7 @@ class FakeLedger:
         self.reservation: dict | None = None
         self.wallet_row: dict | None = None
         self.history_rows: tuple[list[dict], int] = ([], 0)
+        self.totals = {"available": 0, "reserved": 0, "transfer_count": 0, "transfer_amount": 0}
         self.outcome = "APPLIED"
         self.failures: list[dict] = []
 
@@ -56,6 +57,10 @@ class FakeLedger:
     async def history(self, user_id, page, page_size):
         self.calls.append(("history", user_id, page, page_size))
         return self.history_rows
+
+    async def credit_totals(self, start, end):
+        self.calls.append(("credit_totals", start, end))
+        return self.totals
 
     async def allocate_initial(self, event, attempt):
         self.calls.append(("allocate", event.event_id, attempt))

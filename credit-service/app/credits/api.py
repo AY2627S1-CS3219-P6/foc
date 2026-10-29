@@ -1,14 +1,28 @@
 """Authenticated wallet, transaction-history and administrator lookups."""
 
+from datetime import UTC, datetime, time, timedelta, timezone
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request
 
 from app.credits.errors import ApiError
-from app.credits.schemas import Page, PageQuery, Principal, TransactionView, WalletView
+from app.credits.schemas import (
+    AnalyticsQuery,
+    Circulation,
+    CreditAnalytics,
+    Page,
+    PageQuery,
+    Principal,
+    SettlementView,
+    TransactionView,
+    TransferTotals,
+    WalletView,
+)
 
 router = APIRouter(prefix="/v1", tags=["Credits"])
+# Singapore has used UTC+8 without daylight saving since 1982; matches Order's analytics days.
+SINGAPORE = timezone(timedelta(hours=8), "Asia/Singapore")
 
 
 async def authenticate(
@@ -85,3 +99,45 @@ async def admin_wallet(user_id: UUID, request: Request, principal: Auth):
 async def admin_transactions(user_id: UUID, request: Request, principal: Auth, query: Paging):
     require_admin(principal)
     return await history_page(request, user_id, query)
+
+
+@router.get("/admin/credit/reservations/{order_id}", response_model=SettlementView)
+async def admin_settlement(order_id: UUID, request: Request, principal: Auth):
+    # N2F3.4.2: read-only; disputes never change reservations or balances.
+    require_admin(principal)
+    row = await request.app.state.ledger.status(order_id)
+    if row is None:
+        raise ApiError(
+            404, "RESERVATION_NOT_FOUND", "No credit reservation exists for this errand."
+        )
+    return SettlementView(
+        order_id=row["order_id"],
+        state=row["state"],
+        amount=row["amount"],
+        updated_at=row["updated_at"],
+    )
+
+
+@router.get("/admin/credit/analytics", response_model=CreditAnalytics)
+async def admin_credit_analytics(
+    request: Request, principal: Auth, query: Annotated[AnalyticsQuery, Query()]
+):
+    require_admin(principal)
+    totals = await request.app.state.ledger.credit_totals(
+        datetime.combine(query.start, time.min, SINGAPORE),
+        datetime.combine(query.end + timedelta(days=1), time.min, SINGAPORE),
+    )
+    return CreditAnalytics(
+        start=query.start,
+        end=query.end,
+        time_zone="Asia/Singapore",
+        generated_at=datetime.now(UTC),
+        circulation=Circulation(
+            available=totals["available"],
+            reserved=totals["reserved"],
+            total=totals["available"] + totals["reserved"],
+        ),
+        transfers=TransferTotals(
+            count=totals["transfer_count"], amount=totals["transfer_amount"]
+        ),
+    )

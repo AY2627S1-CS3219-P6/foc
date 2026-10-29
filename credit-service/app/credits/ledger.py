@@ -176,6 +176,36 @@ class CreditLedger:
             )
             return [dict(row) for row in result.mappings()], total
 
+    async def credit_totals(self, start, end) -> dict:
+        """Read-only dashboard figures (N2F4.5): current balances and transfers in [start, end).
+
+        TRANSFER rows are unique per reservation, so reprocessed events cannot inflate them.
+        """
+        async with self.sessions() as session, session.begin():
+            available, reserved = (
+                await session.execute(
+                    select(
+                        func.coalesce(func.sum(wallets.c.available), 0),
+                        func.coalesce(func.sum(wallets.c.reserved), 0),
+                    )
+                )
+            ).one()
+            count, amount = (
+                await session.execute(
+                    select(func.count(), func.coalesce(func.sum(transactions.c.amount), 0)).where(
+                        transactions.c.type == "TRANSFER",
+                        transactions.c.created_at >= start,
+                        transactions.c.created_at < end,
+                    )
+                )
+            ).one()
+        return {
+            "available": int(available),
+            "reserved": int(reserved),
+            "transfer_count": int(count),
+            "transfer_amount": int(amount),
+        }
+
     # ---- Internals (always inside the caller's transaction) ---------------------------------
 
     async def _ensure_wallet(self, session, user_id: UUID, *, event_id: UUID | None = None):

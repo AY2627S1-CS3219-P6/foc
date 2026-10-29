@@ -26,6 +26,8 @@ proposed in `order-service/API.md`, accepted unchanged.
 | `GET /v1/wallets/me/transactions?page&pageSize` | Any active user | Own ledger page, newest first, including incoming transfers. `pageSize` 1–50 (default 20). |
 | `GET /v1/admin/wallets/{userId}` | ADMIN, SUPER_ADMIN | Read-only; 404 `WALLET_NOT_READY` if none. Never creates a wallet. |
 | `GET /v1/admin/wallets/{userId}/transactions` | ADMIN, SUPER_ADMIN | Read-only ledger page for that user. |
+| `GET /v1/admin/credit/reservations/{orderId}` | ADMIN, SUPER_ADMIN | Read-only settlement outcome for one errand: `{orderId, state, amount, updatedAt}`; 404 `RESERVATION_NOT_FOUND` if none. Shown separately from the errand's state (N2F3.4.2-3.4.3). |
+| `GET /v1/admin/credit/analytics?from&to` | ADMIN, SUPER_ADMIN | Read-only: current available/reserved totals across all wallets, plus the count and amount of transfers committed in an inclusive Asia/Singapore date range of at most 366 days (N2F4.5). One ledger row per reservation means reprocessed events never inflate the figures. |
 | `PUT /v1/internal/order-reservations/{orderId}` | Order | Body `{operationId, requesterId, amount}`. 201 reserved, 200 replay (same identity). 409 `INSUFFICIENT_CREDIT`, `WALLET_NOT_READY` (only if no allocation is configured) or `IDENTITY_CONFLICT`. A missing requester wallet is get-or-created first. |
 | `GET /v1/internal/order-reservations/{orderId}` | Order | 200 current reservation or 404 absent at that instant. |
 | `PUT /v1/internal/order-reservations/{orderId}/creation-abort` | Order | Same body. 201 new CLOSED fence (no reservation existed), 200 otherwise. Releases a RESERVED hold; 409 `SETTLEMENT_CONFLICT` after a transfer. |
