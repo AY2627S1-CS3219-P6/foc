@@ -22,6 +22,10 @@ export default defineConfig({
         target: "http://localhost:8005",
         changeOrigin: true,
       },
+      "^/v1/voice-assist([/?]|$)": {
+        target: "http://localhost:8006",
+        changeOrigin: true,
+      },
       "/v1": {
         target: "http://localhost:8000",
         changeOrigin: true,

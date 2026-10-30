@@ -1,13 +1,19 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
 import { emptyOrderForm, formFromInput, readAttempt, saveAttempt, validateOrderForm, type CreationAttempt, type OrderForm } from "../api/order-draft";
 import { orderService, type OrderCreation, type OrderParticipant } from "../api/order-service";
+import type { DraftSupplierOption, ErrandDraftFields } from "../api/voice-assist-service";
 import { useAuth } from "../app/use-auth";
 import { FormField } from "../components/form-field";
 import { OrderSupplierPicker } from "../components/order-supplier-picker";
 import { OrderBadge, OrderShell, OrderSummary } from "../components/order-ui";
+import { VoiceDraftPanel } from "../components/voice-draft-panel";
 import { orderError } from "../app/order-presentation";
+import { applyDraft, formHasValues, type DraftNotes } from "../voice/apply-draft";
+
+type VoiceDraftState = { issues: DraftNotes; hints: DraftNotes; candidates: DraftSupplierOption[]; suggestion: string | null };
+const noVoiceDraft: VoiceDraftState = { issues: {}, hints: {}, candidates: [], suggestion: null };
 
 export function OrderCreatePage() {
   const { user } = useAuth();
@@ -28,8 +34,25 @@ function OrderCreateForm({ userId }: { userId: string }) {
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const [success, setSuccess] = useState<OrderParticipant | null>(null);
+  const [voiceDraft, setVoiceDraft] = useState<VoiceDraftState>(noVoiceDraft);
   const errorRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const locked = Boolean(attempt) || busy || Boolean(storageError);
+  // A draft highlight stays until the requester edits that field or posts.
+  const fieldError = (field: keyof OrderForm) => fields[field] ?? voiceDraft.issues[field];
+
+  // N3F3.1.2: a successful draft overwrites every field. It never creates an order (N3F3.1.3).
+  const applyVoiceDraft = useCallback((draft: ErrandDraftFields) => {
+    const applied = applyDraft(draft);
+    setForm(applied.form);
+    setFields({});
+    setError(null);
+    setVoiceDraft({ issues: applied.issues, hints: applied.hints, candidates: applied.supplierCandidates, suggestion: applied.supplierSuggestion });
+  }, []);
+
+  const focusForm = useCallback(() => {
+    formRef.current?.querySelector<HTMLElement>("input:not([disabled]), textarea:not([disabled])")?.focus();
+  }, []);
 
   function persist(next: CreationAttempt | null) {
     try { saveAttempt(userId, next); setAttempt(next); return true; }
@@ -72,6 +95,7 @@ function OrderCreateForm({ userId }: { userId: string }) {
       setFields(validated.errors);
       if (!validated.input) { setError("Check the highlighted fields before posting."); window.setTimeout(() => errorRef.current?.focus(), 0); return; }
       current = { key: crypto.randomUUID(), input: validated.input };
+      setVoiceDraft(noVoiceDraft);
       if (!persist(current)) return;
     }
     inFlight.current = true; setBusy(true); setError(null);
@@ -108,8 +132,18 @@ function OrderCreateForm({ userId }: { userId: string }) {
     finally { inFlight.current = false; setBusy(false); }
   }
 
-  function update(field: keyof OrderForm, value: string) { setForm((current) => ({ ...current, [field]: value })); }
-  function reset() { if (persist(null)) { setForm({ ...emptyOrderForm }); setSuccess(null); setError(null); setFields({}); } }
+  function update(field: keyof OrderForm, value: string) {
+    setForm((current) => ({ ...current, [field]: value }));
+    setVoiceDraft((current) => {
+      if (!current.issues[field] && !current.hints[field] && (field !== "supplierId" || (!current.candidates.length && !current.suggestion))) return current;
+      const issues = { ...current.issues };
+      const hints = { ...current.hints };
+      delete issues[field];
+      delete hints[field];
+      return field === "supplierId" ? { issues, hints, candidates: [], suggestion: null } : { ...current, issues, hints };
+    });
+  }
+  function reset() { if (persist(null)) { setForm({ ...emptyOrderForm }); setSuccess(null); setError(null); setFields({}); setVoiceDraft(noVoiceDraft); } }
   return <OrderShell>
     <Link className="order-back" to="/orders">← Open errands</Link>
     {success ? <>
@@ -125,19 +159,26 @@ function OrderCreateForm({ userId }: { userId: string }) {
           {operationId && !attempt.closed ? <button className="order-button order-secondary" disabled={busy} type="button" onClick={() => void checkProgress()}>Check status</button> : null}
         </div>
       </section> : null}
+      {!attempt && !storageError ? <VoiceDraftPanel formHasValues={formHasValues(form)} onDraft={applyVoiceDraft} onManual={focusForm} /> : null}
       {error ? <div className="order-error order-panel" role="alert" tabIndex={-1} ref={errorRef}>{error}</div> : null}
-      <form className="order-create-grid" noValidate onSubmit={(event) => void submit(event)}>
+      <form className="order-create-grid" noValidate onSubmit={(event) => void submit(event)} ref={formRef}>
         <fieldset disabled={locked} className="order-form-fields"><legend className="sr-only">Errand details</legend>
           <OrderSupplierPicker required value={form.supplierId} onChange={(value) => update("supplierId", value)} disabled={locked} />
-          {fields.supplierId ? <p className="field-error" role="alert">{fields.supplierId}</p> : null}
-          <FormField label="Delivery location" value={form.deliveryLocation} onChange={(event) => update("deliveryLocation", event.target.value)} maxLength={300} required error={fields.deliveryLocation} placeholder="e.g. COM3 level 1 collection point" />
-          <FormField label="Latest acceptance time (SGT)" type="datetime-local" value={form.acceptanceDeadline} onChange={(event) => update("acceptanceDeadline", event.target.value)} required error={fields.acceptanceDeadline} />
-          <FormField label="Latest delivery time (SGT)" type="datetime-local" value={form.deliveryDeadline} onChange={(event) => update("deliveryDeadline", event.target.value)} required error={fields.deliveryDeadline} hint="Dates and times are shown in Singapore time." />
+          {fieldError("supplierId") ? <p className="field-error" role="alert">{fieldError("supplierId")}</p> : null}
+          {voiceDraft.suggestion ? <p className="field-hint">{voiceDraft.hints.supplierId} {voiceDraft.suggestion}</p> : null}
+          {voiceDraft.candidates.length ? <div className="order-voice-candidates" role="group" aria-label="Possible pickup suppliers">
+            {voiceDraft.candidates.map((candidate) => <button key={candidate.id} type="button" className="order-button order-secondary" onClick={() => update("supplierId", candidate.id)}>
+              {candidate.name} · {candidate.buildingArea}{candidate.floor ? `, level ${candidate.floor}` : ""}
+            </button>)}
+          </div> : null}
+          <FormField label="Delivery location" value={form.deliveryLocation} onChange={(event) => update("deliveryLocation", event.target.value)} maxLength={300} required error={fieldError("deliveryLocation")} hint={voiceDraft.hints.deliveryLocation} placeholder="e.g. COM3 level 1 collection point" />
+          <FormField label="Latest acceptance time (SGT)" type="datetime-local" value={form.acceptanceDeadline} onChange={(event) => update("acceptanceDeadline", event.target.value)} required error={fieldError("acceptanceDeadline")} hint={voiceDraft.hints.acceptanceDeadline} />
+          <FormField label="Latest delivery time (SGT)" type="datetime-local" value={form.deliveryDeadline} onChange={(event) => update("deliveryDeadline", event.target.value)} required error={fieldError("deliveryDeadline")} hint={voiceDraft.hints.deliveryDeadline ?? "Dates and times are shown in Singapore time."} />
         </fieldset>
         <div><fieldset disabled={locked} className="order-form-fields"><legend className="sr-only">Instructions and reward</legend>
-          <label className="order-label">Instructions<textarea aria-label="Instructions" required maxLength={1000} rows={4} value={form.itemDescription} onChange={(event) => update("itemDescription", event.target.value)} aria-invalid={Boolean(fields.itemDescription)} aria-describedby={fields.itemDescription ? "order-description-error" : "order-description-hint"} placeholder="e.g. One vegetarian sandwich, no chilli" /></label>
-          {fields.itemDescription ? <p className="field-error" role="alert" id="order-description-error">{fields.itemDescription}</p> : <p className="field-hint" id="order-description-hint">Visible to people browsing this errand. Do not include private contact details.</p>}
-          <FormField label="Credit reward" type="number" min={1} max={2147483647} step={1} value={form.reward} onChange={(event) => update("reward", event.target.value)} error={fields.reward} required hint="Whole-number credits only." />
+          <label className="order-label">Instructions<textarea aria-label="Instructions" required maxLength={1000} rows={4} value={form.itemDescription} onChange={(event) => update("itemDescription", event.target.value)} aria-invalid={Boolean(fieldError("itemDescription"))} aria-describedby={fieldError("itemDescription") ? "order-description-error" : "order-description-hint"} placeholder="e.g. One vegetarian sandwich, no chilli" /></label>
+          {fieldError("itemDescription") ? <p className="field-error" role="alert" id="order-description-error">{fieldError("itemDescription")}</p> : <p className="field-hint" id="order-description-hint">Visible to people browsing this errand. Do not include private contact details.</p>}
+          <FormField label="Credit reward" type="number" min={1} max={2147483647} step={1} value={form.reward} onChange={(event) => update("reward", event.target.value)} error={fieldError("reward")} required hint={voiceDraft.hints.reward ?? "Whole-number credits only."} />
         </fieldset>
           <section className="order-panel order-reservation"><h2>Your reward</h2><p>The reward is set aside when your errand is posted.</p><p>Your courier can receive it after you confirm receipt of the item.</p></section>
           {!attempt ? <button className="order-button order-submit" disabled={locked} type="submit">{busy ? "Posting…" : "Post errand"}</button> : null}

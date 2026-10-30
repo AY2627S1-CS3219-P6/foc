@@ -27,7 +27,9 @@ flowchart LR
     Supplier[Supplier Service]
     Order[Order Service]
     Credit[Credit Service]
-    Future[Optional N2H services\nChat / AI assistance]
+    Future[Optional N2H services\nChat / Admin]
+    Voice[Voice Assist Service\nN3, stateless]
+    OpenAI[(OpenAI API\nspeech-to-text, drafting)]
 
     UserDB[(User Supabase Cloud\nPostgreSQL)]
     SupplierDB[(Supplier Supabase Cloud\nPostgreSQL)]
@@ -42,6 +44,10 @@ flowchart LR
     Edge --> Order
     Edge --> Credit
     Edge --> Future
+    Edge --> Voice
+    Voice -.->|current session| User
+    Voice -.->|active suppliers| Supplier
+    Voice -->|audio and transcript only| OpenAI
 
     User -->|owns only| UserDB
     Supplier -->|owns only| SupplierDB
@@ -69,6 +75,7 @@ The arrow from Supplier Service to User Service is deliberately narrow. Normal a
 | Order Service | errand records, lifecycle history, participant IDs, expiry | Supplier Service only when it must validate an active supplier | Publishes terminal errand lifecycle events |
 | Credit Service | wallets, reservations, immutable ledger | None on the critical consumer path | Consumes registration and lifecycle events idempotently |
 | Admin Service (N2 Admin Dashboard) | dispute cases, dispute status history, dashboard action audit log | User Service for the current session and role on every request; Order Service read-only to confirm an errand exists | Neither; dispute decisions never change errands or credits |
+| Voice Assist Service (N3 voice-assisted errand creation) | nothing: recordings, transcripts and drafts are held in memory for one request and returned only to the caller | User Service for the current session on every request; Supplier Service read-only for active suppliers; OpenAI for speech-to-text and structured drafting | Neither; it never calls Order or Credit, so a draft cannot create an errand or move credits |
 
 These rules are non-negotiable:
 
