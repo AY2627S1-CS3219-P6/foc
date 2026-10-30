@@ -26,7 +26,8 @@ withdrawn, or exchanged for money, and only circulate within the platform.
 
 This repository follows a **one-service-per-folder** structure: each
 microservice (`user-service/`, `supplier-service/`, `order-service/`,
-`credit-service/`, `chat-service/`, `admin-service/`) lives in its own top-level folder.
+`credit-service/`, `chat-service/`, `admin-service/`, `voice-assist-service/`) lives in its own
+top-level folder.
 
 ```text
 .
@@ -37,6 +38,7 @@ microservice (`user-service/`, `supplier-service/`, `order-service/`,
 ├── credit-service/
 ├── chat-service/
 ├── admin-service/
+├── voice-assist-service/
 ├── <n2h-service>/
 └── README.md
 ```
@@ -397,6 +399,7 @@ Compose command explicitly uses `user-service/.env`, not the root `.env.example`
 | `credit-service/.env.docker` | Set its own `DATABASE_URL`, `ORDER_SERVICE_SECRET` and `INITIAL_CREDIT_ALLOCATION=20`. Root Compose supplies User's origin and the consumer's RabbitMQ URL. |
 | `chat-service/.env` | Keep its own database URLs on `17422`; configure `RABBITMQ_URL`, `RABBITMQ_URL_DOCKER` and a dedicated `CHAT_SERVICE_SHARED_SECRET` matching User's `.env`. |
 | `admin-service/.env.docker` | Optional Admin Dashboard profile only. Set its own `DATABASE_URL` on `17522`; root Compose supplies User's origin. See [Admin Service](#optional-admin-service). |
+| `voice-assist-service/.env.docker` | Optional voice drafting profile only. Set `OPENAI_API_KEY`, or `VOICE_ASSIST_PROVIDER=fake` for a canned demo draft. No database. See [Voice Assist Service](#optional-voice-assist-service). |
 
 The Supplier and Order-to-Credit secrets must be **different**. Generate one
 random Order-to-Credit secret and copy that same value into Order's
@@ -516,6 +519,23 @@ Set `DATABASE_URL` in `admin-service/.env.docker` to
 `postgresql://foc_admin_local:<password>@host.docker.internal:17522/postgres`, then
 add `--profile admin` to the Compose commands above. See the
 [Admin Service README](admin-service/README.md) for native runs and tests.
+
+### Optional Voice Assist Service
+
+The voice-assisted errand creation nice-to-have (N3) adds `voice-assist-service`. It turns a
+requester's recording into a draft of the ordinary errand form; the requester reviews it and
+posts it through Order as usual. It stores nothing and has no database. It runs only with the
+Compose `voice-assist` profile, and the errand form works without it.
+
+```sh
+cp voice-assist-service/.env.docker.example voice-assist-service/.env.docker
+# Windows: Copy-Item voice-assist-service/.env.docker.example voice-assist-service/.env.docker
+```
+
+Set `OPENAI_API_KEY` in that file, or set `VOICE_ASSIST_PROVIDER=fake` to try the flow with a
+canned draft and no OpenAI calls. Then add `--profile voice-assist` to the Compose commands
+above. Browsers allow the microphone only on `localhost` or HTTPS. See the
+[Voice Assist README](voice-assist-service/README.md) for native runs, tests and the evaluation.
 
 ### First Super Admin fields
 
