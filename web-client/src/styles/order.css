@@ -87,3 +87,15 @@
   .order-detail-grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
   .order-facts > div { grid-template-columns: minmax(80px, .6fr) minmax(0, 1.4fr); gap: .8rem; }
 }
+.order-voice { border-color: #d2dfef; }
+.order-voice .order-actions { margin-bottom: 0; }
+.order-voice-notice { background: #eff3f8; border-radius: var(--radius-control); color: var(--ink); padding: .65rem .8rem; }
+.order-voice-status p { color: var(--ink); font-weight: 650; margin: .4rem 0; }
+.order-voice-dot { background: var(--danger); border-radius: 50%; display: inline-block; height: .6rem; margin-right: .45rem; width: .6rem; }
+.order-voice-problem { background: var(--danger-surface); border-radius: var(--radius-control); color: #843a28; padding: .65rem .8rem; }
+.order-voice-transcript summary { cursor: pointer; font-size: .85rem; font-weight: 700; min-height: 40px; padding: .5rem 0; }
+.order-voice-transcript p { color: var(--muted); margin: 0; white-space: pre-wrap; }
+.order-voice-candidates { display: flex; flex-wrap: wrap; gap: .5rem; margin: -.4rem 0 1rem; }
+.order-voice-candidates .order-button { font-weight: 650; max-width: 100%; text-align: left; }
+@media (prefers-reduced-motion: no-preference) { .order-voice-dot { animation: order-voice-pulse 1.2s ease-in-out infinite; } }
+@keyframes order-voice-pulse { 50% { opacity: .35; } }

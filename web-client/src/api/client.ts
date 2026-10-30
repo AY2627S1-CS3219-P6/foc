@@ -73,7 +73,8 @@ export async function requestJson<T>(
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
   headers.set("X-Correlation-ID", correlationId);
-  if (options.body) headers.set("Content-Type", "application/json");
+  // JSON unless the caller sends another body type, such as recorded audio.
+  if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
 
   let response: Response;
