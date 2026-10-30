@@ -259,6 +259,24 @@ services:
     networks:
       - edge
 
+  # Optional voice-assisted errand drafting (N3). Enable with --profile voice-assist.
+  # Stateless: no database. Without an OpenAI key it reports voice drafting as unavailable
+  # and the ordinary errand form keeps working.
+  voice-assist-service:
+    profiles: [voice-assist]
+    build: ./voice-assist-service
+    env_file:
+      - path: ./voice-assist-service/.env.docker
+        required: false
+    environment:
+      USER_SERVICE_BASE_URL: http://user-service:8000
+      SUPPLIER_SERVICE_BASE_URL: http://supplier-service:8001
+    ports:
+      - "127.0.0.1:8006:8006"
+    restart: unless-stopped
+    networks:
+      - edge
+
   outbox-publisher:
     build: ./user-service
     command: ["outbox-publisher"]

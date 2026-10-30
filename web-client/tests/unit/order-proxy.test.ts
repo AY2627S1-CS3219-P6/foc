@@ -16,6 +16,7 @@ beforeAll(async () => {
     ["http://localhost:8003", "credit"],
     ["http://127.0.0.1:8004", "chat"],
     ["http://localhost:8005", "admin"],
+    ["http://localhost:8006", "voice-assist"],
   ] as const) {
     const backend = await createServer({
       configFile: false, logLevel: "silent",
@@ -78,6 +79,9 @@ it.each([
   ["/v1/admin/disputes?status=OPEN&page=1", "admin"],
   ["/v1/admin/disputes/id/transitions", "admin"],
   ["/v1/admin/audit-log?page=1", "admin"],
+  ["/v1/voice-assist/status", "voice-assist"],
+  ["/v1/voice-assist/errand-drafts", "voice-assist"],
+  ["/v1/voice-assist-other", "user"],
   ["/v1/admin/disputes-other", "user"],
   ["/v1/disputes", "admin"],
   ["/v1/disputes?orderId=id", "admin"],
