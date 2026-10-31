@@ -243,6 +243,8 @@ async def test_status_reports_disclosure_and_limits():
     assert body["maxRecordingSeconds"] == 60
     assert body["processingTimeoutSeconds"] == 30
     assert "FoC does not store your recording" in body["retentionNotice"]
+    # N3NFR3.5: the automatic stop at the limit also sends the audio.
+    assert "automatically at 60 seconds" in body["retentionNotice"]
 
 
 async def test_rate_limit_rejects_before_any_provider_call():
