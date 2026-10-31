@@ -95,14 +95,8 @@ async def create_draft(
     statuses: dict[str, str] = {}
     try:
         async with asyncio.timeout(settings.voice_assist_total_timeout_seconds):
-            try:
-                suppliers = await state.suppliers.active(token)
-            except SupplierLookupError:
-                suppliers = None
             async with asyncio.timeout(settings.voice_assist_transcribe_timeout_seconds):
-                transcript = await state.transcriber.transcribe(
-                    audio, media_type, [s.name for s in suppliers or []]
-                )
+                transcript = await state.transcriber.transcribe(audio, media_type)
             del audio
             transcript = " ".join(transcript.split())
             if normalize(transcript) in _SILENCE:
@@ -124,6 +118,10 @@ async def create_draft(
                     transcript=transcript,
                 )
             fields = build_fields(extracted, transcript, request_time)
+            try:
+                suppliers = await state.suppliers.active(token)
+            except SupplierLookupError:
+                suppliers = None
             supplier = await _supplier(state, extracted, transcript, suppliers, token)
             outcome = "DRAFT"
             draft = DraftFields(supplier=supplier, **fields)

@@ -1,6 +1,6 @@
 """Speech-to-text and extraction providers (N3F1.2, N3F2.1, N3NFR3.2, N3NFR3.3).
 
-Only the audio, supplier-name hints and the transcript leave FoC. The extractor has no tools
+Only the audio and the transcript leave FoC. The extractor has no tools
 and its output is a fixed schema, so text inside a recording can only ever fill draft fields."""
 
 from typing import Protocol
@@ -19,7 +19,6 @@ AUDIO_EXTENSIONS = {
     "audio/wav": "wav",
     "audio/x-wav": "wav",
 }
-MAX_HINT_CHARACTERS = 800
 
 EXTRACTION_INSTRUCTIONS = """\
 You fill in a campus errand form from a speech transcript.
@@ -53,35 +52,25 @@ errand; different pickup places or unrelated tasks are separate errands.
 
 
 class Transcriber(Protocol):
-    async def transcribe(self, audio: bytes, content_type: str, hints: list[str]) -> str: ...
+    async def transcribe(self, audio: bytes, content_type: str) -> str: ...
 
 
 class Drafter(Protocol):
     async def draft(self, transcript: str) -> ExtractedDraft: ...
 
 
-def hint_prompt(hints: list[str]) -> str:
-    prompt = "A spoken campus errand request at NUS. Shop names: "
-    names = []
-    for name in hints:
-        if len(prompt) + sum(len(n) + 2 for n in names) + len(name) > MAX_HINT_CHARACTERS:
-            break
-        names.append(name)
-    return prompt + ", ".join(names) + "."
-
-
 class OpenAITranscriber:
     def __init__(self, client: openai.AsyncOpenAI, model: str, timeout: float):
         self.client, self.model, self.timeout = client, model, timeout
 
-    async def transcribe(self, audio: bytes, content_type: str, hints: list[str]) -> str:
+    async def transcribe(self, audio: bytes, content_type: str) -> str:
         extension = AUDIO_EXTENSIONS[content_type]
         try:
             result = await self.client.audio.transcriptions.create(
                 model=self.model,
                 file=(f"recording.{extension}", audio, content_type),
+                # No prompt: with silent audio the model can echo it back as the transcript.
                 language="en",
-                prompt=hint_prompt(hints),
                 timeout=self.timeout,
             )
         except openai.APITimeoutError:
@@ -127,7 +116,7 @@ FAKE_TRANSCRIPT = (
 class FakeTranscriber:
     """No provider call: lets the UI be built and demonstrated without spending credit."""
 
-    async def transcribe(self, audio: bytes, content_type: str, hints: list[str]) -> str:
+    async def transcribe(self, audio: bytes, content_type: str) -> str:
         return FAKE_TRANSCRIPT
 
 

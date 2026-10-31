@@ -91,10 +91,8 @@ async def test_recording_becomes_a_reviewable_draft():
     assert fields["deliveryDeadline"]["display"] == "Today, 3:00 PM SGT"
     assert fields["supplier"]["value"] == str(named("TOMORO COFFEE").id)
     assert fields["supplier"]["suggestion"]["pickupLocationDescription"] == "Main counter"
-    # The audio went to the transcriber as received, with supplier names as hints (N3F1.2).
-    audio, media_type, hints = transcriber.calls[0]
-    assert (audio, media_type) == (AUDIO, "audio/webm")
-    assert "TOMORO COFFEE" in hints
+    # The audio went to the transcriber as received (N3F1.2).
+    assert transcriber.calls == [(AUDIO, "audio/webm")]
 
 
 async def test_draft_contains_no_requester_or_order_fields():
@@ -118,11 +116,15 @@ async def test_draft_contains_no_requester_or_order_fields():
 
 @pytest.mark.parametrize("silence", ["", "   ", "Thank you.", "you"])
 async def test_no_speech_does_not_generate_a_draft(silence):
-    drafter = ScriptedDrafter(extraction())
-    async with client(transcriber=ScriptedTranscriber(silence), drafter=drafter) as http:
+    drafter, suppliers = ScriptedDrafter(extraction()), FakeSuppliers(SEED)
+    async with client(
+        transcriber=ScriptedTranscriber(silence), drafter=drafter, suppliers=suppliers
+    ) as http:
         body = (await post(http)).json()
     assert (body["outcome"], body["fields"], body["transcript"]) == ("NO_SPEECH", None, "")
     assert drafter.calls == []
+    # Suppliers are only needed for matching, so a silent recording never looks them up.
+    assert suppliers.listed == 0
 
 
 async def test_multiple_errands_ask_for_a_new_recording():

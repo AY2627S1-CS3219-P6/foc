@@ -13,7 +13,6 @@ from app.voice_assist.providers import (
     FakeDrafter,
     OpenAIDrafter,
     OpenAITranscriber,
-    hint_prompt,
 )
 
 DRAFT = {
@@ -56,7 +55,7 @@ def completion(content=None, refusal=None):
     )
 
 
-async def test_transcription_sends_english_audio_with_supplier_hints():
+async def test_transcription_sends_english_audio_without_a_prompt():
     seen = {}
 
     def handler(request: httpx.Request):
@@ -65,7 +64,7 @@ async def test_transcription_sends_english_audio_with_supplier_hints():
         return httpx.Response(200, json={"text": "Get me a latte"})
 
     transcriber = OpenAITranscriber(sdk(handler), "gpt-4o-mini-transcribe", 5)
-    text = await transcriber.transcribe(b"AUDIO", "audio/webm", ["TOMORO COFFEE", "Smooy"])
+    text = await transcriber.transcribe(b"AUDIO", "audio/webm")
     assert text == "Get me a latte"
     assert seen["url"].endswith("/audio/transcriptions")
     body = seen["body"]
@@ -73,17 +72,18 @@ async def test_transcription_sends_english_audio_with_supplier_hints():
         b"gpt-4o-mini-transcribe",
         b'name="language"',
         b"en",
-        b"TOMORO COFFEE",
         b'filename="recording.webm"',
         b"AUDIO",
     ):
         assert part in body
+    # A prompt can be echoed back as the transcript of a silent recording.
+    assert b'name="prompt"' not in body
 
 
 async def test_transcription_errors_become_provider_errors():
     transcriber = OpenAITranscriber(sdk(lambda r: httpx.Response(500, json={})), "m", 5)
     with pytest.raises(ProviderError) as error:
-        await transcriber.transcribe(b"AUDIO", "audio/ogg", [])
+        await transcriber.transcribe(b"AUDIO", "audio/ogg")
     assert error.value.stage == "TRANSCRIPTION"
 
 
@@ -92,7 +92,7 @@ async def test_transcription_timeouts_become_timeouts():
         raise httpx.ReadTimeout("slow", request=request)
 
     with pytest.raises(TimeoutError):
-        await OpenAITranscriber(sdk(handler), "m", 5).transcribe(b"A", "audio/mp4", [])
+        await OpenAITranscriber(sdk(handler), "m", 5).transcribe(b"A", "audio/mp4")
 
 
 async def test_drafter_requests_strict_structured_output():
@@ -132,12 +132,6 @@ async def test_unusable_drafts_become_provider_errors(response):
     with pytest.raises(ProviderError) as error:
         await drafter.draft("Get me a latte")
     assert error.value.stage == "DRAFT"
-
-
-def test_hint_prompt_is_bounded():
-    prompt = hint_prompt([f"Supplier number {i}" for i in range(500)])
-    assert len(prompt) <= 820
-    assert prompt.startswith("A spoken campus errand request")
 
 
 async def test_fake_drafter_only_answers_its_canned_transcript():
