@@ -102,6 +102,7 @@ describe("VoiceDraftPanel", () => {
 
   it.each([
     ["NO_SPEECH", "No speech was recognised."],
+    ["NO_ERRAND", "We did not hear an errand."],
     ["MULTIPLE_ERRANDS", "more than one errand"],
   ])("explains a %s recording without drafting", async (outcome, message) => {
     routeFetch(draftReply(outcome));

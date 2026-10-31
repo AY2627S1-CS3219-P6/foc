@@ -109,8 +109,10 @@ async def create_draft(
                 )
             async with asyncio.timeout(settings.voice_assist_draft_timeout_seconds):
                 extracted = await state.drafter.draft(transcript)
-            if extracted.errand_count >= 2:
-                outcome = "MULTIPLE_ERRANDS"
+            if extracted.errand_count != 1:
+                # N3F1.2.1: speech that describes no errand (noise, or text a model produced from
+                # silence) gets no draft, just like a recording with no speech.
+                outcome = "MULTIPLE_ERRANDS" if extracted.errand_count >= 2 else "NO_ERRAND"
                 return DraftResponse(
                     request_id=request_id,
                     generated_at=request_time,
@@ -123,9 +125,17 @@ async def create_draft(
             except SupplierLookupError:
                 suppliers = None
             supplier = await _supplier(state, extracted, transcript, suppliers, token)
-            outcome = "DRAFT"
             draft = DraftFields(supplier=supplier, **fields)
             statuses = {name: field.status for name, field in draft}
+            if all(status == "MISSING" for status in statuses.values()):
+                outcome = "NO_ERRAND"
+                return DraftResponse(
+                    request_id=request_id,
+                    generated_at=request_time,
+                    outcome=outcome,
+                    transcript=transcript,
+                )
+            outcome = "DRAFT"
             return DraftResponse(
                 request_id=request_id,
                 generated_at=request_time,

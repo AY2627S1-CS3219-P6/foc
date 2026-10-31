@@ -84,6 +84,8 @@ export function VoiceDraftPanel({ formHasValues, onDraft, onManual }: {
       if (current !== sequence.current || draft.requestId !== requestId) return;
       if (draft.outcome === "NO_SPEECH") {
         setPhase({ kind: "problem", message: "No speech was recognised. Record again or fill in the form below.", canRecord: true });
+      } else if (draft.outcome === "NO_ERRAND") {
+        setPhase({ kind: "problem", message: "We did not hear an errand. Say what you need, the pickup supplier and where to deliver it, or fill in the form below.", transcript: draft.transcript, canRecord: true });
       } else if (draft.outcome === "MULTIPLE_ERRANDS" || !draft.fields) {
         setPhase({ kind: "problem", message: "It sounds like more than one errand. Record one errand at a time, or fill in the form below.", transcript: draft.transcript, canRecord: true });
       } else {

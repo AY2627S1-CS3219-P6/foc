@@ -135,7 +135,7 @@ class DraftResponse(ApiModel):
     request_id: str
     generated_at: datetime
     time_zone: Literal["Asia/Singapore"] = "Asia/Singapore"
-    outcome: Literal["DRAFT", "NO_SPEECH", "MULTIPLE_ERRANDS"]
+    outcome: Literal["DRAFT", "NO_SPEECH", "NO_ERRAND", "MULTIPLE_ERRANDS"]
     transcript: str
     fields: DraftFields | None = None
 

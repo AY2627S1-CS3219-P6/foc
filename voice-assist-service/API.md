@@ -60,6 +60,7 @@ never creates an errand or reserves credits.
 | --- | --- | --- |
 | `DRAFT` | One errand was described. | present |
 | `NO_SPEECH` | No recognisable speech (N3F1.2.1). `transcript` is empty. | `null` |
+| `NO_ERRAND` | Speech, but no errand: the model found none, or nothing it reported is in the transcript (N3F1.2.1). | `null` |
 | `MULTIPLE_ERRANDS` | More than one independent errand (N3F2.1.5). | `null` |
 
 Field `status`:

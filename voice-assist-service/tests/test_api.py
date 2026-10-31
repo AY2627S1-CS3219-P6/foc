@@ -127,6 +127,32 @@ async def test_no_speech_does_not_generate_a_draft(silence):
     assert suppliers.listed == 0
 
 
+@pytest.mark.parametrize(
+    "extracted",
+    [
+        extraction(errand_count=0),
+        # The model counted an errand, but nothing it reported survived the "was it said" checks.
+        extraction(
+            item_description="testing",
+            delivery_location=None,
+            pickup_supplier_name=None,
+            reward=None,
+            acceptance_time=None,
+            delivery_time=None,
+        ),
+    ],
+)
+async def test_speech_without_an_errand_does_not_generate_a_draft(extracted):
+    async with client(
+        transcriber=ScriptedTranscriber("Hello hello, is this on?"),
+        drafter=ScriptedDrafter(extracted),
+    ) as http:
+        body = (await post(http)).json()
+    assert (body["outcome"], body["fields"]) == ("NO_ERRAND", None)
+    # The requester can see what was heard (N3F3.1.4).
+    assert body["transcript"] == "Hello hello, is this on?"
+
+
 async def test_multiple_errands_ask_for_a_new_recording():
     async with client(drafter=ScriptedDrafter(extraction(errand_count=2))) as http:
         body = (await post(http)).json()

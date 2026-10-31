@@ -108,7 +108,7 @@ async def run() -> int:
     print(f"Model: {settings.voice_assist_draft_model}\n")
     for case in data["cases"]:
         extracted = await drafter.draft(case["transcript"])
-        outcome = "MULTIPLE_ERRANDS" if extracted.errand_count >= 2 else "DRAFT"
+        outcome = {0: "NO_ERRAND", 1: "DRAFT"}.get(extracted.errand_count, "MULTIPLE_ERRANDS")
         values = draft_values(extracted, case["transcript"], now, suppliers)
         result = score_case(case["expected"], outcome, values if outcome == "DRAFT" else None)
         totals["stated"] += result["stated"]
