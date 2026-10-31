@@ -44,7 +44,7 @@ fills the ordinary errand form. The requester checks and edits it, then posts it
 ```mermaid
 flowchart LR
     subgraph Browser["Browser: Create an errand page"]
-        Panel["Voice panel\n(record, stop, cancel)"]
+        Panel["Voice panel\n(record, stop, cancel, discard)"]
         Form["Ordinary errand form"]
     end
 
@@ -131,8 +131,9 @@ Files: [`web-client/src/voice/recorder.ts`](../web-client/src/voice/recorder.ts)
 - When the page opens, the panel calls `GET /v1/voice-assist/status`. If voice is unavailable
   (no key, daily limit reached, service down), it shows *"Voice drafting is unavailable right
   now. Fill in the form below."* and no record button.
-- Before the first recording it shows the provider disclosure from the status response, for
-  example *"When you stop recording, your audio is sent to OpenAI…"*.
+- On its start screen, before recording, it shows the provider disclosure from the status
+  response (N3NFR3.5): *"When recording stops, either when you stop it or automatically at 60
+  seconds, your audio is sent to OpenAI…"*, including OpenAI's retention.
 - The microphone is requested **only** when **Start recording** is pressed.
 - The browser's `MediaRecorder` records WebM/Opus (Chrome, Firefox) or MP4/AAC (Safari).
 - A timer shows *"Recording: 0:12 of 1:00"*. At 60 seconds it stops by itself and says so.
@@ -147,9 +148,12 @@ Panel states:
 stateDiagram-v2
     [*] --> idle
     idle --> confirm: Start (form has values)
-    confirm --> idle: Keep my details
     idle --> requesting: Start (form empty)
     confirm --> requesting: Replace and record
+    confirm --> idle: Keep my details (came from idle)
+    confirm --> ready: Keep my details (came from ready)
+    confirm --> problem: Keep my details (came from problem)
+    requesting --> idle: Cancel
     requesting --> recording: microphone granted
     requesting --> problem: denied / unsupported / failed
     recording --> idle: Cancel recording
@@ -158,12 +162,25 @@ stateDiagram-v2
     processing --> ready: DRAFT received
     processing --> problem: NO_SPEECH / NO_ERRAND / MULTIPLE_ERRANDS / error / 30 s timeout
     ready --> confirm: Record again (form has values)
+    ready --> requesting: Record again (form empty)
+    problem --> confirm: Record again (form has values)
     problem --> requesting: Record again (form empty)
+    ready --> idle: Discard draft
+    problem --> idle: Discard draft (an earlier draft is still in the form)
+    idle --> idle: Discard draft (an earlier draft is still in the form)
 ```
 
 **Record again** follows the same rule as **Start recording**: it asks first if the form has
 values. It isn't offered after errors that a new recording can't fix: signed out, voice
-drafting unavailable, or the daily limit reached.
+drafting unavailable, or the daily limit reached. **Keep my details** returns the panel to
+where it was, so after a draft the transcript and **Discard draft** come back. **Fill in the
+form myself**, shown with every problem, moves focus to the form and leaves the panel as it is.
+
+**Discard draft** (N3F3.1.2) empties every form field, including edits made to the draft, and
+clears the draft's highlights and hints. It stays available while a voice draft is in the form,
+even after a later recording fails, and disappears once the draft is discarded or every field
+is cleared by hand. It isn't shown for details typed without voice, or while recording or
+processing. Discarding creates nothing and calls no service (N3F3.1.3).
 
 The request carries:
 
@@ -188,9 +205,10 @@ The audio goes to OpenAI's transcription endpoint:
 | `file` | the raw recording, named `recording.webm` / `.ogg` / `.mp4` / `.mp3` / `.wav` |
 | `language` | `en` (the feature is English-only) |
 
-**No `prompt` is sent.** An earlier version sent the supplier names as a spelling hint. With a
-silent recording the model echoed that hint back as the transcript, so silence produced a
-draft. Shop names are now handled only by supplier matching (section 8), which tolerates
+**No `prompt` and no transcription hints are sent**, so supplier names and locations never
+reach the speech-to-text model (N3F1.2 allows hints but doesn't require them). A hint can be
+echoed back as the transcript when a recording is silent, which would turn silence into a
+draft. Shop names are handled only by supplier matching (section 8), which tolerates
 misspellings such as "tomorrow coffee" for TOMORO COFFEE. A name that is transcribed too far
 from its spelling is left `MISSING`, and the requester picks the supplier in the form.
 
@@ -377,7 +395,7 @@ with a **status**:
 | `FILLED` | Said and usable | yes |
 | `MISSING` | Not said, or not supported by the transcript | no |
 | `AMBIGUOUS` | Said but unclear (vague time, half credits, several matching suppliers) | no |
-| `CONFLICT` | Contradictory or invalid (time already passed, delivery before acceptance, text too long) | only conflicting text |
+| `CONFLICT` | Contradictory or invalid (time already passed, delivery not after acceptance, text too long, or flagged by the model) | the value, when there is one |
 
 ### 7.1 Guard: "was it actually said?"
 
@@ -420,8 +438,11 @@ Extra rules:
   is not used for it."*
 - If both times are filled and delivery isn't later than acceptance, **both** become
   `CONFLICT`: *"Delivery must be later than acceptance."*
+- A relative time said together with a day or clock time, or more than 7 days ahead, is
+  `AMBIGUOUS`.
 - Values are sent as UTC ISO strings (`2026-10-30T05:40:00Z`) with a readable `display`
-  (`Today, 1:40 PM SGT`).
+  (`Today, 1:40 PM SGT`). The web client shows the value in its Singapore-time inputs instead of
+  `display`.
 
 ### 7.3 Reward
 
@@ -443,7 +464,13 @@ shorten them.
 ### 7.5 Conflicts from the model
 
 If the model lists a field in `conflicts` (for example "said both 5 and 6 credits"), that
-field becomes `CONFLICT` with the model's short reason, capped at 200 characters.
+field becomes `CONFLICT` with the model's short reason, capped at 200 characters. Any value the
+model picked for it is kept, so the requester sees it highlighted and can correct it. A
+supplier conflict leaves the supplier unselected (section 8).
+
+Whether a contradiction is flagged at all is up to the model. A self-correction such as
+"COM3 level 1, or actually maybe the Central Library" may instead be copied whole into the
+field with no conflict. The requester still sees it in the form before posting.
 
 ## 8. Step 5: supplier matching
 
@@ -455,7 +482,10 @@ matching (`rapidfuzz`). The rule is **name first, then building or campus area**
 
 ```mermaid
 flowchart TD
-    A["Spoken pickup name?"] -->|no| M1["MISSING\n'A building alone is not enough…' (area said)\n'No pickup supplier was mentioned…' (nothing said)"]
+    Y{"Model flagged a\nsupplier conflict?"} -->|yes| CF["CONFLICT\nmodel's reason, no supplier selected\n(candidates still listed)"]
+    Y -->|no| Z["Pickup name and area kept only if\nsaid (section 7.1, score 80 or above)"]
+    Z --> A["Spoken pickup name?"]
+    A -->|no| M1["MISSING\n'A building alone is not enough…' (area said)\n'No pickup supplier was mentioned…' (nothing said)"]
     A -->|yes| B["Score the name against every\nactive supplier's NAME only"]
     B -->|best score below 80| M2["MISSING\n'We could not find that supplier.'"]
     B -->|one supplier| C{"Pickup area said and\nclearly different? (score below 60)"}
@@ -543,8 +573,9 @@ Files: [`web-client/src/voice/apply-draft.ts`](../web-client/src/voice/apply-dra
 1. The browser checks the `requestId` matches the request it sent most recently. A late
    response from a cancelled or replaced recording is ignored.
 2. **Every** form field is replaced. `FILLED` values are entered. A `CONFLICT` value is also
-   entered when there is one (overlong text, or a delivery time not after acceptance), so the
-   requester can see and fix it. Everything else is left empty.
+   entered when there is one (overlong text, both times when delivery isn't after acceptance,
+   or a value the model flagged as contradictory), so the requester can see and fix it.
+   Everything else is left empty.
 3. Fields that aren't `FILLED` show their `note` as a highlighted error, such as *"Enter the
    latest acceptance time…"*. The highlight disappears as soon as the requester edits that
    field.
@@ -554,7 +585,8 @@ Files: [`web-client/src/voice/apply-draft.ts`](../web-client/src/voice/apply-dra
    the match was ambiguous, the candidates appear as buttons the requester can click.
 6. Times are shown in the form's Singapore-time inputs, e.g. `2026-10-30T15:00`.
 7. **"What we heard"** expands to show the transcript.
-8. Nothing is sent to Order until the requester presses **Post errand**. That uses the
+8. **Discard draft** in the voice panel empties the form (see section 4).
+9. Nothing is sent to Order until the requester presses **Post errand**. That uses the
    unchanged creation flow: the same validation, the same `Idempotency-Key`, and the same credit
    reservation. The requester ID comes from the login session, never from the draft.
 
@@ -581,6 +613,8 @@ Example of the filled form for the partial recording:
 | Transcription or extraction fails | Server message, e.g. "We could not transcribe your recording…" + **Record again** | unchanged |
 | Takes longer than 30 s | "Drafting took too long…" | unchanged |
 | 10 drafts in 10 minutes | "You have made several voice drafts recently…" | unchanged |
+| Platform daily limit reached | "Voice drafting is paused for today…", no **Record again** | unchanged |
+| Session expired | "Please sign in again to use voice drafting.", no **Record again** | unchanged |
 | Service down or no API key | Voice panel shows "unavailable"; no record button | works normally |
 
 Timeouts are layered so the server always gives up before the browser does:
@@ -609,7 +643,7 @@ Cost limits (all checked **before** any OpenAI call):
 | What leaves FoC | Only the audio and the transcript. No supplier list, user ID, name, email or other records. |
 | Storage | Audio stays in memory for one request (the raw body is read with a size cap, never spooled to disk). Nothing is written to a database. Transcripts and drafts go back only to the requester who sent them. |
 | Logs | One line per request: request ID, user ID, outcome, per-field status, duration. Never audio, transcript, field values or tokens. |
-| Disclosure | The panel shows the provider and its data-retention notice before recording. |
+| Disclosure | Before recording, the panel says that stopping, including the automatic stop at 60 seconds, sends the audio to OpenAI, and gives OpenAI's retention. |
 | Secrets | `OPENAI_API_KEY` lives only in the gitignored `.env` / `.env.docker`, and is never echoed in errors or settings output. |
 
 ## 13. Testing and evaluation
@@ -624,7 +658,7 @@ Cost limits (all checked **before** any OpenAI call):
 | `tests/test_clients.py` | User and Supplier clients, paging, caching, inactive suppliers | no |
 | `tests/test_limits_config.py` | Sliding-window and daily limits (Singapore-midnight reset), settings validation, API key never shown | no |
 | `tests/test_eval_script.py` | The evaluation's fixture set and scoring (not the model itself) | no |
-| `web-client/tests/...` | Recorder, draft application, panel states, page integration, stale responses, 30 s timeout | no |
+| `web-client/tests/...` | Recorder, draft application, panel states, discard, page integration, stale responses, 30 s timeout | no |
 | `web-client/tests/e2e/voice-draft.spec.ts` | Real Chromium with a fake microphone at 375 px and 1440 px, posting the errand | no |
 | `scripts/eval_drafts.py` | The real model on 21 scripted transcripts (N3NFR4.2) | yes, a few cents |
 
@@ -694,14 +728,14 @@ web-client/src/
 | N3F2.1.5 multiple errands | `errand_count`, `MULTIPLE_ERRANDS` |
 | N3F2.1.6 any spoken unit taken as credits | `postprocess.py` (`_reward`) |
 | N3F2.2–2.2.3 supplier suggestion and fallback | `matching.py`, `supplier_field`, Supplier re-check |
-| N3F3.1.1–3.1.4 review, edit, overwrite with confirmation, transcript | `apply-draft.ts`, `order-create-page.tsx`, panel |
+| N3F3.1.1–3.1.4 review, edit, discard, overwrite with confirmation, transcript | `apply-draft.ts`, `order-create-page.tsx`, panel (**Discard draft**) |
 | N3F3.2.1–3.2.4 validated, explicit submission | unchanged Order creation flow |
 | N3F4.1–4.1.3 recovery, form preserved, stale responses ignored | panel (`requestId`, `AbortController`, sequence guard) |
 | N3NFR1.1–1.4 text states, responsive, keyboard, labels | panel markup, e2e at 375/1440 px |
 | N3NFR2.1 30-second timeout | layered timeouts (section 11) |
 | N3NFR2.2 form works without Voice Assist | `/status` gate, panel "unavailable" state |
 | N3NFR2.3 no duplicate errands | existing `Idempotency-Key` flow |
-| N3NFR2.4 10-second processing target | 12 s per-call budgets; measure with real recordings |
-| N3NFR3.1–3.5 security and privacy | section 12 |
+| N3NFR2.4 10-second processing target | 12 s per-call budgets; measured manually at about 5 s per draft (2026-10-31) |
+| N3NFR3.1–3.5 security and privacy (the notice covers the automatic stop at 60 s) | section 12, `DEFAULT_RETENTION_NOTICE` in `config.py` |
 | N3NFR4.1 rate and daily limits | `limits.py` |
 | N3NFR4.2 accuracy and no invention | `scripts/eval_drafts.py` |

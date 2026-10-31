@@ -13,12 +13,12 @@ when User cannot answer. Errors use the shared envelope
   "provider": "OpenAI",
   "maxRecordingSeconds": 60,
   "processingTimeoutSeconds": 30,
-  "retentionNotice": "When you stop recording, your audio is sent to OpenAI…"
+  "retentionNotice": "When recording stops, either when you stop it or automatically at 60 seconds, your audio is sent to OpenAI…"
 }
 ```
 
 `available` is `false` when no provider key is configured or the daily limit is reached. The web
-client shows `retentionNotice` before the first recording (N3NFR3.5).
+client shows `retentionNotice` on the panel's start screen, before recording (N3NFR3.5).
 
 ## `POST /v1/voice-assist/errand-drafts`
 
@@ -70,12 +70,13 @@ Field `status`:
 | `FILLED` | Stated and usable. `note` may add information, such as a reward taken as credits. | set |
 | `MISSING` | Not said, or not supported by the transcript. | `null` |
 | `AMBIGUOUS` | Said, but unclear: a vague time, a non-whole reward, several matching suppliers. | `null` (supplier `candidates` may list options) |
-| `CONFLICT` | Contradictory or invalid: delivery not after acceptance, a time already passed, text too long. | the conflicting text when there is one |
+| `CONFLICT` | Contradictory or invalid: delivery not after acceptance, a time already passed, text too long, or a contradiction the model flagged. | the value when there is one; a supplier conflict leaves `value` `null` (`candidates` may list options) |
 
 Supplier suggestion rules (N3F2.2): the spoken supplier name decides; a stated pickup building
 or campus area only chooses between branches or vetoes a contradicting match; a building alone
 never selects a supplier; the delivery location is never used. A match is suggested only after
-Supplier Service confirms it is still `ACTIVE`.
+Supplier Service confirms it is still `ACTIVE`. No supplier names or other hints are sent to the
+speech-to-text model; only the audio is.
 
 ### Errors
 
