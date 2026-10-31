@@ -50,6 +50,13 @@ function OrderCreateForm({ userId }: { userId: string }) {
     setVoiceDraft({ issues: applied.issues, hints: applied.hints, candidates: applied.supplierCandidates, suggestion: applied.supplierSuggestion });
   }, []);
 
+  const discardVoiceDraft = useCallback(() => {
+    setForm({ ...emptyOrderForm });
+    setFields({});
+    setError(null);
+    setVoiceDraft(noVoiceDraft);
+  }, []);
+
   const focusForm = useCallback(() => {
     formRef.current?.querySelector<HTMLElement>("input:not([disabled]), textarea:not([disabled])")?.focus();
   }, []);
@@ -159,7 +166,7 @@ function OrderCreateForm({ userId }: { userId: string }) {
           {operationId && !attempt.closed ? <button className="order-button order-secondary" disabled={busy} type="button" onClick={() => void checkProgress()}>Check status</button> : null}
         </div>
       </section> : null}
-      {!attempt && !storageError ? <VoiceDraftPanel formHasValues={formHasValues(form)} onDraft={applyVoiceDraft} onManual={focusForm} /> : null}
+      {!attempt && !storageError ? <VoiceDraftPanel formHasValues={formHasValues(form)} onDraft={applyVoiceDraft} onDiscard={discardVoiceDraft} onManual={focusForm} /> : null}
       {error ? <div className="order-error order-panel" role="alert" tabIndex={-1} ref={errorRef}>{error}</div> : null}
       <form className="order-create-grid" noValidate onSubmit={(event) => void submit(event)} ref={formRef}>
         <fieldset disabled={locked} className="order-form-fields"><legend className="sr-only">Errand details</legend>
@@ -181,8 +188,7 @@ function OrderCreateForm({ userId }: { userId: string }) {
           <FormField label="Credit reward" type="number" min={1} max={2147483647} step={1} value={form.reward} onChange={(event) => update("reward", event.target.value)} error={fieldError("reward")} required hint={voiceDraft.hints.reward ?? "Whole-number credits only."} />
         </fieldset>
           <section className="order-panel order-reservation"><h2>Your reward</h2><p>The reward is set aside when your errand is posted.</p><p>Your courier can receive it after you confirm receipt of the item.</p></section>
-          {!attempt ? <button className="order-button order-submit" disabled={locked} type="submit">{busy ? "Posting…" : "Post errand"}</button> : null}
-        </div>
+          {!attempt ? <button className="order-button order-submit" disabled={locked} type="submit">{busy ? "Posting…" : "Post errand"}</button> : null}        </div>
       </form>
     </>}
     {storageError ? <p className="order-panel order-error" role="alert">{storageError}</p> : null}

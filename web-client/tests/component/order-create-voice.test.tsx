@@ -87,6 +87,28 @@ describe("Voice drafting on the errand form", () => {
     expect(screen.queryByRole("group", { name: "Possible pickup suppliers" })).not.toBeInTheDocument();
   });
 
+  it("discards the draft, including edits, and creates nothing (N3F3.1.2, N3F3.1.3)", async () => {
+    const fetchMock = routeFetch();
+    await renderPage();
+    await click("Start recording");
+    await click("Stop and generate draft");
+    await act(async () => { fireEvent.change(screen.getByLabelText("Delivery location"), { target: { value: "UTown" } }); });
+    await click("Discard draft");
+
+    expect(screen.getByLabelText("Instructions")).toHaveValue("");
+    expect(screen.getByLabelText("Delivery location")).toHaveValue("");
+    expect(screen.getByLabelText("Credit reward")).toHaveValue(null);
+    expect(screen.getByLabelText("Latest delivery time (SGT)")).toHaveValue("");
+    expect(screen.queryByText("Taken as 5 credits.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Enter the latest acceptance time. A delivery time is not used for it.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Latte from Tomoro")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Discard draft" })).not.toBeInTheDocument();
+    // An empty form records straight away, without the replace confirmation.
+    await click("Start recording");
+    expect(screen.queryByText("Recording again replaces every detail in the form below.")).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/orders"))).toBe(false);
+  });
+
   it("asks before a new recording replaces typed details", async () => {
     routeFetch();
     await renderPage();

@@ -9,7 +9,7 @@ export const PROCESSING_TIMEOUT_MS = 30_000;
 
 type Phase =
   | { kind: "idle" }
-  | { kind: "confirm" }
+  | { kind: "confirm"; previous: Phase }
   | { kind: "requesting" }
   | { kind: "recording"; elapsed: number }
   | { kind: "processing"; limitReached: boolean }
@@ -41,14 +41,17 @@ function clock(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-export function VoiceDraftPanel({ formHasValues, onDraft, onManual }: {
+export function VoiceDraftPanel({ formHasValues, onDraft, onDiscard, onManual }: {
   formHasValues: boolean;
   onDraft: (fields: ErrandDraftFields) => void;
+  onDiscard: () => void;
   onManual: () => void;
 }) {
   const { withCurrentAccess } = useAuth();
   const [status, setStatus] = useState<VoiceAssistStatus | null | "loading">("loading");
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  // A draft stays discardable until it is discarded, even after a later recording fails.
+  const [drafted, setDrafted] = useState(false);
   const recorder = useRef<VoiceRecorder | null>(null);
   const sequence = useRef(0);
   const controller = useRef<AbortController | null>(null);
@@ -90,6 +93,7 @@ export function VoiceDraftPanel({ formHasValues, onDraft, onManual }: {
         setPhase({ kind: "problem", message: "It sounds like more than one errand. Record one errand at a time, or fill in the form below.", transcript: draft.transcript, canRecord: true });
       } else {
         onDraft(draft.fields);
+        setDrafted(true);
         setPhase({ kind: "ready", transcript: draft.transcript });
       }
     } catch (failure) {
@@ -121,7 +125,7 @@ export function VoiceDraftPanel({ formHasValues, onDraft, onManual }: {
 
   function record() {
     // N3F3.1.2: a new draft replaces everything, so confirm before discarding entered details.
-    if (formHasValues) setPhase({ kind: "confirm" });
+    if (formHasValues) setPhase((current) => ({ kind: "confirm", previous: current }));
     else startRecording();
   }
 
@@ -133,7 +137,15 @@ export function VoiceDraftPanel({ formHasValues, onDraft, onManual }: {
     setPhase({ kind: "idle" });
   }
 
+  // N3F3.1.2: discarding empties the form, including any edits made to the draft.
+  function discard() {
+    onDiscard();
+    setDrafted(false);
+    setPhase({ kind: "idle" });
+  }
+
   if (status === "loading") return null;
+  const canDiscard = drafted && formHasValues && ["idle", "ready", "problem"].includes(phase.kind);
   if (!status || !status.available || !VoiceRecorder.supported()) {
     return <section className="order-panel order-voice" aria-labelledby="voice-draft-heading">
       <h2 id="voice-draft-heading">Describe it by voice</h2>
@@ -163,7 +175,7 @@ export function VoiceDraftPanel({ formHasValues, onDraft, onManual }: {
       {phase.kind === "idle" ? <button className="order-button" type="button" onClick={record}>Start recording</button> : null}
       {phase.kind === "confirm" ? <>
         <button className="order-button" type="button" onClick={startRecording}>Replace and record</button>
-        <button className="order-button order-secondary" type="button" onClick={() => setPhase({ kind: "idle" })}>Keep my details</button>
+        <button className="order-button order-secondary" type="button" onClick={() => setPhase(phase.previous)}>Keep my details</button>
       </> : null}
       {phase.kind === "recording" ? <>
         <button className="order-button" type="button" onClick={() => recorder.current?.stop()}>Stop and generate draft</button>
@@ -171,7 +183,7 @@ export function VoiceDraftPanel({ formHasValues, onDraft, onManual }: {
       </> : null}
       {phase.kind === "requesting" || phase.kind === "processing" ? <button className="order-button order-secondary" type="button" onClick={cancel}>Cancel</button> : null}
       {phase.kind === "ready" || (phase.kind === "problem" && phase.canRecord) ? <button className="order-button order-secondary" type="button" onClick={record}>Record again</button> : null}
-      {phase.kind === "problem" ? <button className="order-text-button" type="button" onClick={onManual}>Fill in the form myself</button> : null}
+      {canDiscard ? <button className="order-text-button" type="button" onClick={discard}>Discard draft</button> : null}      {phase.kind === "problem" ? <button className="order-text-button" type="button" onClick={onManual}>Fill in the form myself</button> : null}
     </div>
   </section>;
 }

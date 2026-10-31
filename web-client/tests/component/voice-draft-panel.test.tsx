@@ -33,9 +33,10 @@ const draftReply = (outcome = "DRAFT") => (requestId: string) => json({
 
 async function renderPanel(formHasValues = false) {
   const onDraft = vi.fn();
+  const onDiscard = vi.fn();
   const onManual = vi.fn();
-  await act(async () => { render(<VoiceDraftPanel formHasValues={formHasValues} onDraft={onDraft} onManual={onManual} />); });
-  return { onDraft, onManual };
+  await act(async () => { render(<VoiceDraftPanel formHasValues={formHasValues} onDraft={onDraft} onDiscard={onDiscard} onManual={onManual} />); });
+  return { onDraft, onDiscard, onManual };
 }
 
 async function click(name: string) {
@@ -140,6 +141,31 @@ describe("VoiceDraftPanel", () => {
     await click("Start recording");
     await click("Replace and record");
     expect(FakeMediaRecorder.instances).toHaveLength(1);
+  });
+
+  it("keeps the draft discardable after Keep my details and a failed new recording (N3F3.1.2, N3F3.1.4)", async () => {
+    let calls = 0;
+    routeFetch((requestId) => (++calls === 1 ? draftReply()(requestId) : failure("DRAFT_FAILED", 502, "We could not draft your recording.")));
+    const { onDiscard } = await renderPanel(true);
+    await click("Start recording");
+    await click("Replace and record");
+    await click("Stop and generate draft");
+    expect(screen.getByRole("button", { name: "Discard draft" })).toBeInTheDocument();
+
+    await click("Record again");
+    await click("Keep my details");
+    // The draft state comes back, transcript included.
+    expect(screen.getByRole("status")).toHaveTextContent("Draft ready.");
+    expect(screen.getByText("Get me an iced latte from Tomoro")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Discard draft" })).toBeInTheDocument();
+
+    await click("Record again");
+    await click("Replace and record");
+    await click("Stop and generate draft");
+    expect(screen.getByRole("alert")).toHaveTextContent("We could not draft your recording.");
+    await click("Discard draft");
+    expect(onDiscard).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", { name: "Discard draft" })).not.toBeInTheDocument();
   });
 
   it("hides voice input when Voice Assist is unavailable (N3NFR2.2)", async () => {
