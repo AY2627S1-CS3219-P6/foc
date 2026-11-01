@@ -29,8 +29,10 @@ class FakeSuppliers:
         self.inactive = set(inactive)
         self.error = error
         self.details = []
+        self.listed = 0
 
     async def active(self, token):
+        self.listed += 1
         if self.error:
             raise SupplierLookupError
         return self.suppliers
@@ -52,8 +54,8 @@ class ScriptedTranscriber:
         self.text, self.error, self.delay = text, error, delay
         self.calls = []
 
-    async def transcribe(self, audio, content_type, hints):
-        self.calls.append((audio, content_type, hints))
+    async def transcribe(self, audio, content_type):
+        self.calls.append((audio, content_type))
         if self.delay:
             await asyncio.sleep(self.delay)
         if self.error is not None:

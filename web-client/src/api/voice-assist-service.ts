@@ -22,7 +22,7 @@ export type ErrandDraft = {
   requestId: string;
   generatedAt: string;
   timeZone: "Asia/Singapore";
-  outcome: "DRAFT" | "NO_SPEECH" | "MULTIPLE_ERRANDS";
+  outcome: "DRAFT" | "NO_SPEECH" | "NO_ERRAND" | "MULTIPLE_ERRANDS";
   transcript: string;
   fields: ErrandDraftFields | null;
 };

@@ -9,9 +9,10 @@ from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_RETENTION_NOTICE = (
-    "When you stop recording, your audio is sent to OpenAI to transcribe it and draft your "
-    "errand. OpenAI may keep API data for up to 30 days to detect abuse and does not use it to "
-    "train its models. FoC does not store your recording."
+    "When recording stops, either when you stop it or automatically at 60 seconds, your audio "
+    "is sent to OpenAI to transcribe it and draft your errand. OpenAI may keep API data for up "
+    "to 30 days to detect abuse and does not use it to train its models. FoC does not store "
+    "your recording."
 )
 
 

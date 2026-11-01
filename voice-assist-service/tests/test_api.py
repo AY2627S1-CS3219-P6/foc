@@ -91,10 +91,8 @@ async def test_recording_becomes_a_reviewable_draft():
     assert fields["deliveryDeadline"]["display"] == "Today, 3:00 PM SGT"
     assert fields["supplier"]["value"] == str(named("TOMORO COFFEE").id)
     assert fields["supplier"]["suggestion"]["pickupLocationDescription"] == "Main counter"
-    # The audio went to the transcriber as received, with supplier names as hints (N3F1.2).
-    audio, media_type, hints = transcriber.calls[0]
-    assert (audio, media_type) == (AUDIO, "audio/webm")
-    assert "TOMORO COFFEE" in hints
+    # The audio went to the transcriber as received (N3F1.2).
+    assert transcriber.calls == [(AUDIO, "audio/webm")]
 
 
 async def test_draft_contains_no_requester_or_order_fields():
@@ -118,11 +116,41 @@ async def test_draft_contains_no_requester_or_order_fields():
 
 @pytest.mark.parametrize("silence", ["", "   ", "Thank you.", "you"])
 async def test_no_speech_does_not_generate_a_draft(silence):
-    drafter = ScriptedDrafter(extraction())
-    async with client(transcriber=ScriptedTranscriber(silence), drafter=drafter) as http:
+    drafter, suppliers = ScriptedDrafter(extraction()), FakeSuppliers(SEED)
+    async with client(
+        transcriber=ScriptedTranscriber(silence), drafter=drafter, suppliers=suppliers
+    ) as http:
         body = (await post(http)).json()
     assert (body["outcome"], body["fields"], body["transcript"]) == ("NO_SPEECH", None, "")
     assert drafter.calls == []
+    # Suppliers are only needed for matching, so a silent recording never looks them up.
+    assert suppliers.listed == 0
+
+
+@pytest.mark.parametrize(
+    "extracted",
+    [
+        extraction(errand_count=0),
+        # The model counted an errand, but nothing it reported survived the "was it said" checks.
+        extraction(
+            item_description="testing",
+            delivery_location=None,
+            pickup_supplier_name=None,
+            reward=None,
+            acceptance_time=None,
+            delivery_time=None,
+        ),
+    ],
+)
+async def test_speech_without_an_errand_does_not_generate_a_draft(extracted):
+    async with client(
+        transcriber=ScriptedTranscriber("Hello hello, is this on?"),
+        drafter=ScriptedDrafter(extracted),
+    ) as http:
+        body = (await post(http)).json()
+    assert (body["outcome"], body["fields"]) == ("NO_ERRAND", None)
+    # The requester can see what was heard (N3F3.1.4).
+    assert body["transcript"] == "Hello hello, is this on?"
 
 
 async def test_multiple_errands_ask_for_a_new_recording():
@@ -215,6 +243,8 @@ async def test_status_reports_disclosure_and_limits():
     assert body["maxRecordingSeconds"] == 60
     assert body["processingTimeoutSeconds"] == 30
     assert "FoC does not store your recording" in body["retentionNotice"]
+    # N3NFR3.5: the automatic stop at the limit also sends the audio.
+    assert "automatically at 60 seconds" in body["retentionNotice"]
 
 
 async def test_rate_limit_rejects_before_any_provider_call():
