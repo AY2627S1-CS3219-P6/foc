@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
 import { type Category, type SupplierList, type SupplierListItem, type SupplierQuery, supplierService } from "../api/supplier-service";
@@ -8,6 +8,7 @@ import { SupplierIcon } from "../components/navigation-icons";
 import { SupplierStatusActions } from "../components/supplier-status-actions";
 
 const pageSizes = [6, 12, 20, 50];
+const statusOptions = [["", "All"], ["ACTIVE", "Active"], ["INACTIVE", "Inactive"]] as const;
 
 function readQuery(params: URLSearchParams, admin: boolean): SupplierQuery {
   const page = Number(params.get("page"));
@@ -42,6 +43,29 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  const categoryPicker = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    // <details> only closes from its own summary; close it like a menu when the user moves elsewhere.
+    function closeOutside(event: Event) {
+      const picker = categoryPicker.current;
+      if (picker?.open && !picker.contains(event.target as Node)) picker.open = false;
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      const picker = categoryPicker.current;
+      if (event.key !== "Escape" || !picker?.open) return;
+      picker.open = false;
+      picker.querySelector("summary")?.focus();
+    }
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("focusin", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("focusin", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
 
   useEffect(() => {
     setSearch(query.q ?? "");
@@ -130,14 +154,14 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
         <label className="supplier-search-field"><span className="sr-only">Search suppliers</span><span aria-hidden="true">⌕</span><input onChange={(event) => setSearch(event.target.value)} placeholder="Search names, areas or pickup locations" type="search" value={search} /></label>
       </div>
       <div className="supplier-filter-row">
-        <details className="supplier-category-picker"><summary>Categories: {selectedCategories.length ? selectedCategories.map((code) => names.get(code) ?? code).join(", ") : "All"}</summary>
+        <details className="supplier-category-picker" ref={categoryPicker}><summary><span>Categories: {selectedCategories.length ? selectedCategories.map((code) => names.get(code) ?? code).join(", ") : "All"}</span></summary>
           <div className="supplier-category-options">
             {categoryError ? <p>Categories could not load. <button className="supplier-inline-button" onClick={() => setCategoryReload((value) => value + 1)} type="button">Try again</button></p> : null}
             {categories.map((category) => <label key={category.code}><input checked={selectedCategories.includes(category.code)} onChange={() => toggleCategory(category.code)} type="checkbox" />{category.display_name}</label>)}
           </div>
         </details>
-        <label className="supplier-select-label"><span className="sr-only">Sort suppliers</span><select onChange={(event) => updateQuery({ sort: event.target.value === "desc" ? "desc" : null })} value={query.sort}><option value="asc">Sort: Name A–Z</option><option value="desc">Sort: Name Z–A</option></select></label>
-        {admin ? <label className="supplier-select-label"><span className="sr-only">Supplier status</span><select onChange={(event) => updateQuery({ status: event.target.value || null })} value={query.status ?? ""}><option value="">Status: All</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label> : <span className="supplier-active-note">Active suppliers only</span>}
+        <button aria-label={`Sort: Name ${query.sort === "desc" ? "Z–A" : "A–Z"}. Switch to ${query.sort === "desc" ? "A–Z" : "Z–A"}`} className="supplier-sort-toggle" onClick={() => updateQuery({ sort: query.sort === "desc" ? null : "desc" })} type="button">Sort: Name {query.sort === "desc" ? "Z–A" : "A–Z"}<span aria-hidden="true">⇅</span></button>
+        {admin ? <fieldset className="supplier-status-filter"><legend className="sr-only">Supplier status</legend>{statusOptions.map(([value, label]) => <label key={label}><input checked={(query.status ?? "") === value} className="sr-only" name="supplier-status" onChange={() => updateQuery({ status: value || null })} type="radio" />{label}</label>)}</fieldset> : <span className="supplier-active-note">Active suppliers only</span>}
         {hasFilters ? <button className="supplier-inline-button" onClick={() => { setSearch(""); updateQuery({ q: null, status: null }, []); }} type="button">Clear filters</button> : null}
       </div>
     </section>

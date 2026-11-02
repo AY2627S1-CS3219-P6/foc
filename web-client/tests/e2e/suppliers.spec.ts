@@ -58,6 +58,39 @@ for (const viewport of [{ width: 320, height: 640 }, { width: 768, height: 1024 
   });
 }
 
+test("supplier filter controls line up on a touch phone", async ({ browser }) => {
+  // Touch screens get taller controls; the custom category summary must stay centred like the native select.
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const page = await context.newPage();
+  await mockSupplierSession(page);
+  await page.goto("/suppliers");
+  await expect(page.getByRole("heading", { name: "Cool Spot" })).toBeVisible();
+  const centre = (box: { y: number; height: number } | null) => box!.y + box!.height / 2;
+  const categoryText = centre(await page.locator(".supplier-category-picker summary > span").boundingBox());
+  const sort = await page.getByRole("button", { name: /^Sort: Name/ }).boundingBox();
+  expect(sort!.height).toBeGreaterThanOrEqual(44);
+  expect(Math.abs(categoryText - centre(sort))).toBeLessThanOrEqual(1);
+  await context.close();
+});
+
+test("category menu closes when the user moves to another control or presses Escape", async ({ page }) => {
+  await mockSupplierSession(page);
+  await page.goto("/suppliers");
+  await expect(page.getByRole("heading", { name: "Cool Spot" })).toBeVisible();
+  const summary = page.locator(".supplier-category-picker summary");
+  const food = page.getByRole("checkbox", { name: "Food" });
+  await summary.click();
+  await food.click();
+  await expect(food).toBeVisible();
+  await page.getByRole("button", { name: /^Sort: Name/ }).click();
+  await expect(food).toBeHidden();
+  await summary.click();
+  await expect(food).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(food).toBeHidden();
+  await expect(summary).toBeFocused();
+});
+
 test("supplier list explains a service failure and recovers on retry", async ({ page }) => {
   await mockSupplierSession(page);
   let unavailable = true;
@@ -137,7 +170,7 @@ test("search and filters apply automatically without losing one another", async 
   await page.locator(".supplier-category-picker summary").click();
   await page.getByRole("checkbox", { name: "Food" }).click();
   await expect(page).toHaveURL(/category=FOOD/);
-  await page.getByRole("combobox", { name: "Sort suppliers" }).selectOption("desc");
+  await page.getByRole("button", { name: "Sort: Name A–Z. Switch to Z–A" }).click();
   await expect(page).toHaveURL(/q=cool/);
   const query = new URL(page.url()).searchParams;
   expect(query.get("q")).toBe("cool");
@@ -151,13 +184,28 @@ test("search and filters apply automatically without losing one another", async 
   expect(new URL(page.url()).searchParams.has("category")).toBe(false);
 });
 
+test("sort button flips between name orders and keeps the other filters", async ({ page }) => {
+  await mockSupplierSession(page);
+  await page.goto("/suppliers?category=FOOD&page=2");
+  await expect(page.getByRole("heading", { name: "Cool Spot" })).toBeVisible();
+  await page.getByRole("button", { name: "Sort: Name A–Z. Switch to Z–A" }).click();
+  await expect(page).toHaveURL(/sort=desc/);
+  let params = new URL(page.url()).searchParams;
+  expect(params.getAll("category")).toEqual(["FOOD"]);
+  expect(params.has("page")).toBe(false);
+  await page.getByRole("button", { name: "Sort: Name Z–A. Switch to A–Z" }).click();
+  await expect(page).not.toHaveURL(/sort=/);
+  params = new URL(page.url()).searchParams;
+  expect(params.getAll("category")).toEqual(["FOOD"]);
+});
+
 test("clearing supplier filters keeps the selected page size and sort order", async ({ page }) => {
   await mockSupplierSession(page);
   await page.goto("/suppliers?q=cool&category=FOOD&page_size=50&sort=desc");
   await expect(page.getByRole("heading", { name: "Cool Spot" })).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.getByRole("combobox", { name: "Suppliers per page" })).toHaveValue("50");
-  await expect(page.getByRole("combobox", { name: "Sort suppliers" })).toHaveValue("desc");
+  await expect(page.getByRole("button", { name: "Sort: Name Z–A. Switch to A–Z" })).toBeVisible();
   await expect(page.getByRole("searchbox", { name: "Search suppliers" })).toHaveValue("");
   const params = new URL(page.url()).searchParams;
   expect(params.get("page_size")).toBe("50");
@@ -287,10 +335,39 @@ test("admin listing includes inactive suppliers and applies the status filter", 
   });
   await page.goto("/admin/suppliers");
   await expect(page.getByRole("heading", { name: "Former Cafe" })).toBeVisible();
-  await page.getByRole("combobox", { name: "Supplier status" }).selectOption("INACTIVE");
+  const status = page.getByRole("group", { name: "Supplier status" });
+  await expect(status.getByRole("radio", { name: "All" })).toBeChecked();
+  await status.getByText("Inactive", { exact: true }).click();
+  await expect(page).toHaveURL(/status=INACTIVE/);
   await expect(page.getByRole("heading", { name: "Cool Spot" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Former Cafe" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("admin status filter is one tap on a phone and clears with the other filters", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const page = await context.newPage();
+  await mockSupplierSession(page, "ADMIN");
+  await page.route((url) => url.pathname === "/api/v1/admin/suppliers", (route) => route.fulfill({ json: {
+    items: [{ id: supplierId, name: "Cool Spot", categories: ["FOOD"], building_area: "Com2", floor: null, status: "ACTIVE", opening_time: null, closing_time: null }],
+    page: 1, page_size: 6, total: 1,
+  } }));
+  await page.goto("/admin/suppliers?page=2");
+  const status = page.getByRole("group", { name: "Supplier status" });
+  const panel = await page.locator(".supplier-filter-panel").boundingBox();
+  const group = await status.boundingBox();
+  expect(group!.width).toBeGreaterThan(panel!.width - 40);
+  for (const name of ["All", "Active", "Inactive"]) {
+    expect((await status.locator("label", { hasText: new RegExp(`^${name}$`) }).boundingBox())!.height).toBeGreaterThanOrEqual(38);
+  }
+  await status.getByText("Active", { exact: true }).tap();
+  await expect(page).toHaveURL(/status=ACTIVE/);
+  expect(new URL(page.url()).searchParams.has("page")).toBe(false);
+  await expect(status.getByRole("radio", { name: "Active", exact: true })).toBeChecked();
+  await page.getByRole("button", { name: "Clear filters" }).tap();
+  await expect(status.getByRole("radio", { name: "All" })).toBeChecked();
+  expect(new URL(page.url()).searchParams.has("status")).toBe(false);
+  await context.close();
 });
 
 test("supplier form validates required fields and 24-hour times before posting", async ({ page }) => {
