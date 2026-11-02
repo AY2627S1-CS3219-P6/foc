@@ -76,29 +76,50 @@ function queryString(query: SupplierQuery): string {
   return params.size ? `?${params}` : "";
 }
 
+// A stalled gateway or service should end in a retryable error, not an endless loading state.
+export const supplierRequestTimeoutMs = 10_000;
+
 async function supplierRequest<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
   headers.set("Authorization", `Bearer ${token}`);
   if (options.body) headers.set("Content-Type", "application/json");
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), supplierRequestTimeoutMs);
   let response: Response;
+  let body: (T & SupplierErrorBody) | undefined;
   try {
-    response = await fetch(`/api/v1${path}`, { ...options, headers, credentials: "same-origin" });
-  } catch {
+    response = await fetch(`/api/v1${path}`, { ...options, headers, credentials: "same-origin", signal: controller.signal });
+    body = response.headers.get("content-type")?.includes("application/json")
+      ? await response.json() as T & SupplierErrorBody
+      : undefined;
+  } catch (failure) {
+    if (controller.signal.aborted) {
+      throw new ApiRequestError(0, "Supplier Service took too long to respond. Try again.", { code: "TIMEOUT" });
+    }
+    if (failure instanceof SyntaxError) {
+      throw new ApiRequestError(502, "Supplier Service sent an unreadable response. Try again.", { code: "BAD_RESPONSE" });
+    }
     throw new ApiRequestError(0, "Check your connection and try again.", { code: "NETWORK_ERROR" });
+  } finally {
+    clearTimeout(timer);
   }
 
-  const body = response.headers.get("content-type")?.includes("application/json")
-    ? await response.json() as T & SupplierErrorBody
-    : undefined;
   if (!response.ok) {
     const error = body?.error;
     const fieldErrors: FieldError[] = (error?.fields ?? []).map((field) => ({ ...field, code: error?.code ?? "VALIDATION_ERROR" }));
-    throw new ApiRequestError(response.status, error?.message ?? "Supplier Service could not complete this request.", {
+    const fallback = response.status >= 500
+      ? "Supplier Service is unavailable right now. Try again in a moment."
+      : "Supplier Service could not complete this request.";
+    throw new ApiRequestError(response.status, error?.message ?? fallback, {
       code: error?.code,
       fieldErrors,
     });
+  }
+  if (response.status !== 204 && body === undefined) {
+    // A 2xx HTML page usually means a proxy served the SPA instead of the API.
+    throw new ApiRequestError(502, "Supplier Service sent an unreadable response. Try again.", { code: "BAD_RESPONSE" });
   }
   return body as T;
 }

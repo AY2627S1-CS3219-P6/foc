@@ -37,6 +37,98 @@ for (const viewport of [{ width: 375, height: 812 }, { width: 768, height: 1024 
   });
 }
 
+for (const viewport of [{ width: 320, height: 640 }, { width: 768, height: 1024 }, { width: 1024, height: 768 }, { width: 1440, height: 1024 }]) {
+  test(`supplier management list fits at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await mockSupplierSession(page, "ADMIN");
+    await page.route((url) => url.pathname === "/api/v1/admin/suppliers", (route) => route.fulfill({ json: {
+      items: Array.from({ length: 6 }, (_, index) => ({
+        id: `supplier-${index}`, name: `Supplier ${index + 1}`, categories: ["FOOD", "COFFEE"], building_area: "Faculty of Arts and Social Sciences",
+        floor: "1", status: index === 2 ? "INACTIVE" : "ACTIVE", opening_time: null, closing_time: null,
+      })),
+      page: 1, page_size: 6, total: 13,
+    } }));
+    await page.goto("/admin/suppliers");
+    await expect(page.getByRole("heading", { name: "Supplier 6" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Next", exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    for (const target of await page.locator(".supplier-admin-actions a, .supplier-admin-actions button, .supplier-card-link").all()) {
+      expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(24);
+    }
+  });
+}
+
+test("supplier list explains a service failure and recovers on retry", async ({ page }) => {
+  await mockSupplierSession(page);
+  let unavailable = true;
+  await page.route((url) => url.pathname === "/api/v1/suppliers", (route) => unavailable
+    ? route.fulfill({ status: 503, json: { error: { code: "SERVICE_UNAVAILABLE", message: "Supplier Service is temporarily unavailable." } } })
+    : route.fulfill({ json: {
+        items: [{ id: supplierId, name: "Cool Spot", categories: ["FOOD"], building_area: "Com2", floor: null, status: "ACTIVE", opening_time: null, closing_time: null }],
+        page: 1, page_size: 6, total: 1,
+      } }));
+  await page.goto("/suppliers");
+  const alert = page.getByRole("alert");
+  await expect(alert.getByRole("heading", { name: "Suppliers could not load" })).toBeVisible();
+  await expect(alert).toContainText("Supplier Service is temporarily unavailable.");
+  await expect(page.getByRole("combobox", { name: "Suppliers per page" })).toHaveCount(0);
+  await expect(page.getByRole("searchbox", { name: "Search suppliers" })).toBeEnabled();
+  unavailable = false;
+  await alert.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("heading", { name: "Cool Spot" })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("supplier list reports a lost connection without a raw error", async ({ page }) => {
+  await mockSupplierSession(page);
+  await page.route((url) => url.pathname === "/api/v1/suppliers", (route) => route.abort("internetdisconnected"));
+  await page.goto("/suppliers");
+  await expect(page.getByRole("alert")).toContainText("Check your connection and try again.");
+});
+
+test("category failure keeps suppliers visible and retries only categories", async ({ page }) => {
+  await mockSupplierSession(page);
+  let categoriesDown = true;
+  let listRequests = 0;
+  await page.route("**/api/v1/categories", (route) => categoriesDown
+    ? route.fulfill({ status: 500, body: "Internal Server Error", contentType: "text/plain" })
+    : route.fulfill({ json: [{ code: "FOOD", display_name: "Food" }] }));
+  await page.route((url) => url.pathname === "/api/v1/suppliers", (route) => {
+    listRequests += 1;
+    return route.fulfill({ json: {
+      items: [{ id: supplierId, name: "Cool Spot", categories: ["FOOD"], building_area: "Com2", floor: null, status: "ACTIVE", opening_time: null, closing_time: null }],
+      page: 1, page_size: 6, total: 1,
+    } });
+  });
+  await page.goto("/suppliers");
+  await expect(page.getByRole("heading", { name: "Cool Spot" })).toBeVisible();
+  await page.locator(".supplier-category-picker summary").click();
+  await expect(page.getByText("Categories could not load.")).toBeVisible();
+  const requestsBeforeRetry = listRequests;
+  categoriesDown = false;
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("checkbox", { name: "Food" })).toBeVisible();
+  await expect(page.getByText("Categories could not load.")).toHaveCount(0);
+  expect(listRequests).toBe(requestsBeforeRetry);
+});
+
+test("an unsupported page size in the URL falls back instead of failing validation", async ({ page }) => {
+  await mockSupplierSession(page);
+  const requested: string[] = [];
+  await page.route((url) => url.pathname === "/api/v1/suppliers", (route) => {
+    requested.push(new URL(route.request().url()).searchParams.get("page_size") ?? "");
+    return route.fulfill({ json: {
+      items: [{ id: supplierId, name: "Cool Spot", categories: ["FOOD"], building_area: "Com2", floor: null, status: "ACTIVE", opening_time: null, closing_time: null }],
+      page: 1, page_size: 6, total: 1,
+    } });
+  });
+  await page.goto("/suppliers?page_size=500");
+  await expect(page.getByRole("heading", { name: "Cool Spot" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Suppliers per page" })).toHaveValue("6");
+  expect(requested.length).toBeGreaterThan(0);
+  expect(new Set(requested)).toEqual(new Set(["6"]));
+});
+
 test("search and filters apply automatically without losing one another", async ({ page }) => {
   await mockSupplierSession(page);
   await page.goto("/suppliers");

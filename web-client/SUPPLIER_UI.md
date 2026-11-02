@@ -27,10 +27,47 @@ Service pages.
 | `M2NFR3.4` | Deactivating refreshes the admin view; normal browsing uses the active-only API. | Cross-client propagation within five seconds still needs a live integration test. |
 | `M2NFR4.1`–`M2NFR4.2` | Unauthorized users cannot navigate to management screens from the client. | Current-permission checks before mutation remain the API's responsibility. |
 
+## Responsive supplier listing
+
+| Width | Navigation | User listing | Admin listing |
+| --- | --- | --- | --- |
+| Below 650px | Bottom tab bar; labels shrink below 360px so they do not split mid-word | One card per row | One stacked card per row |
+| 650–1023px | Bottom tab bar | Two cards per row | Two cards per row |
+| 1024–1299px | Sidebar | Three cards per row | Two cards per row |
+| 1300px and wider | Sidebar | Three cards per row | Five-column table |
+
+Filters wrap below the search field, and long names and areas wrap inside
+their card. Action links are at least 24px tall, and on touch screens
+(`pointer: coarse`) actions, selects and category options are 44px tall.
+Browser tests check that the page never scrolls sideways at 320, 375, 768,
+1024 and 1440 pixels, for both the user and admin listings.
+
+## Supplier Service failure handling
+
+`src/api/supplier-service.ts` turns every failed request into an
+`ApiRequestError` with a message the page can show as is:
+
+| Failure | Message shown |
+| --- | --- |
+| API error body (`{"error": {"code", "message", "fields"}}`) | The API's sanitized message; field errors go to the form fields |
+| 5xx without a JSON body (gateway or proxy page) | "Supplier Service is unavailable right now. Try again in a moment." |
+| No response (offline, DNS, refused) | "Check your connection and try again." |
+| No response within 10 seconds | "Supplier Service took too long to respond. Try again." |
+| 2xx that is not JSON, or JSON that cannot be parsed | "Supplier Service sent an unreadable response. Try again." |
+| 401 | The shared auth provider refreshes the session once and retries; if that fails, the user is signed out |
+
+When the list fails, the page shows an alert (`role="alert"`) with the
+message and a **Try again** button, hides the pagination for the failed
+query, and keeps the search and filters usable. When categories fail, the
+supplier list still renders and the category menu offers its own retry,
+which does not reload the list. A page size in the URL other than 6, 12, 20
+or 50 falls back to 6, so a hand-edited link cannot fail validation on every
+retry. Responses that arrive after the query has changed are ignored.
+
 ## Milestone D2 point 5
 
 The client provides live Supplier API screens for viewing, creating, editing,
 deactivating, searching, filtering, sorting, and paginating. Layouts
-were checked in browser tests at 375, 768, 1024, and 1440 pixel widths against
-the supplied desktop and mobile Figma direction. Browser tests mock the API;
-the root Compose stack is the path for a live local demonstration.
+were checked in browser tests at 320, 375, 768, 1024, and 1440 pixel widths
+against the supplied desktop and mobile Figma direction. Browser tests mock
+the API; the root Compose stack is the path for a live local demonstration.

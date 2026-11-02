@@ -7,6 +7,8 @@ import { SupplierShell } from "../components/supplier-shell";
 import { SupplierIcon } from "../components/navigation-icons";
 import { SupplierStatusActions } from "../components/supplier-status-actions";
 
+const pageSizes = [6, 12, 20, 50];
+
 function readQuery(params: URLSearchParams, admin: boolean): SupplierQuery {
   const page = Number(params.get("page"));
   const pageSize = Number(params.get("page_size"));
@@ -17,7 +19,8 @@ function readQuery(params: URLSearchParams, admin: boolean): SupplierQuery {
     sort: params.get("sort") === "desc" ? "desc" : "asc",
     status: admin && (status === "ACTIVE" || status === "INACTIVE") ? status : undefined,
     page: Number.isInteger(page) && page > 0 ? page : 1,
-    pageSize: Number.isInteger(pageSize) && pageSize > 0 ? pageSize : 6,
+    // A hand-edited size outside the selector would fail API validation on every retry.
+    pageSize: pageSizes.includes(pageSize) ? pageSize : 6,
   };
 }
 
@@ -33,6 +36,7 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
   const [search, setSearch] = useState(query.q ?? "");
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryError, setCategoryError] = useState(false);
+  const [categoryReload, setCategoryReload] = useState(0);
   const [result, setResult] = useState<SupplierList | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +66,7 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
       .then((items) => { if (active) { setCategories(items); setCategoryError(false); } })
       .catch(() => { if (active) setCategoryError(true); });
     return () => { active = false; };
-  }, [withCurrentAccess, reload]);
+  }, [withCurrentAccess, categoryReload]);
 
   useEffect(() => {
     let active = true;
@@ -128,7 +132,7 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
       <div className="supplier-filter-row">
         <details className="supplier-category-picker"><summary>Categories: {selectedCategories.length ? selectedCategories.map((code) => names.get(code) ?? code).join(", ") : "All"}</summary>
           <div className="supplier-category-options">
-            {categoryError ? <p>Categories could not load. <button className="supplier-inline-button" onClick={() => setReload((value) => value + 1)} type="button">Try again</button></p> : null}
+            {categoryError ? <p>Categories could not load. <button className="supplier-inline-button" onClick={() => setCategoryReload((value) => value + 1)} type="button">Try again</button></p> : null}
             {categories.map((category) => <label key={category.code}><input checked={selectedCategories.includes(category.code)} onChange={() => toggleCategory(category.code)} type="checkbox" />{category.display_name}</label>)}
           </div>
         </details>
@@ -139,7 +143,7 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
     </section>
 
     {loading ? <p className="supplier-state" role="status">Loading suppliers…</p> : null}
-    {error ? <section className="supplier-state supplier-state-error" role="alert"><h2>Suppliers could not load</h2><p>{error}</p><button className="supplier-apply-button" onClick={() => setReload((value) => value + 1)} type="button">Try again</button></section> : null}
+    {error ? <section className="supplier-state supplier-state-error" role="alert"><h2>Suppliers could not load</h2><p>{error}</p><button className="supplier-apply-button" onClick={() => { setReload((value) => value + 1); if (categoryError) setCategoryReload((value) => value + 1); }} type="button">Try again</button></section> : null}
     {!loading && !error && result?.total === 0 ? <section className="supplier-state"><h2>{hasFilters ? "No suppliers found" : admin ? "No suppliers yet" : "No active suppliers yet"}</h2><p>{hasFilters ? "Try another search or use Clear filters above." : admin ? "Add the first campus supplier to get started." : "Check back soon for campus suppliers."}</p>{!hasFilters && admin ? <Link className="supplier-primary-action" to="/admin/suppliers/new">Add supplier</Link> : null}</section> : null}
     {!loading && !error && result && result.total > 0 ? <>
       <div aria-live="polite" className="supplier-results-count">{result.total} supplier{result.total === 1 ? "" : "s"}</div>
@@ -154,7 +158,7 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
     </> : null}
     {!error && result ? <div className="supplier-pagination">
       <span>Showing {from}–{to} of {result.total}</span>
-      <label>Per page <select aria-label="Suppliers per page" disabled={loading} onChange={(event) => updateQuery({ page_size: event.target.value === "6" ? null : event.target.value })} value={String(query.pageSize)}>{[6, 12, 20, 50].map((size) => <option key={size} value={size}>{size}</option>)}</select></label>
+      <label>Per page <select aria-label="Suppliers per page" disabled={loading} onChange={(event) => updateQuery({ page_size: event.target.value === "6" ? null : event.target.value })} value={String(query.pageSize)}>{pageSizes.map((size) => <option key={size} value={size}>{size}</option>)}</select></label>
       <div className="supplier-page-buttons">
         <button disabled={loading || result.page <= 1} onClick={() => updateQuery({ page: String(result.page - 1) })} type="button">Previous</button>
         <span>Page {result.page} of {maxPage}</span>
