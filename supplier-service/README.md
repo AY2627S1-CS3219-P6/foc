@@ -360,9 +360,10 @@ page 1 and page size 20 when the client omits them. Normal users see only
 contains 21 sample suppliers. The committed
 [`supabase/seed.sql`](supabase/seed.sql) inserts them after the migration.
 It decodes the Windows-1252 CSV to UTF-8, splits types such as `Food/Coffee`
-into two category assignments, converts `0900hrs` to `09:00`, and maps empty
-image URLs to `NULL`. The database generates IDs, timestamps, and the default
-`ACTIVE` status. All suppliers and their category assignments are inserted in
+into two category assignments, and converts `0900hrs` to `09:00`. It ignores
+the CSV's `ImageURL` column, so every seeded supplier has a `NULL`
+`image_url`; the app does not handle images. The database generates IDs,
+timestamps, and the default `ACTIVE` status. All suppliers and their category assignments are inserted in
 one transaction because the category requirement is checked at commit.
 
 After editing the CSV, regenerate and check the seed using Python 3 (no extra
