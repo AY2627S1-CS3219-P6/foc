@@ -129,6 +129,21 @@
       "id": "tomorrow-afternoon-clock",
       "transcript": "Order a bento from Insta Chef at the Terrace and bring it to the Terrace seating area by 12:30pm tomorrow, accept by 11am tomorrow, 5 credits.",
       "expected": {"outcome": "DRAFT", "supplier": "InstaChef", "itemDescription": "bento", "deliveryLocation": "Terrace seating area", "reward": 5, "acceptanceDeadline": "2026-10-31T03:00:00Z", "deliveryDeadline": "2026-10-31T04:30:00Z"}
+    },
+    {
+      "id": "calendar-date-and-next-weekday",
+      "transcript": "Get a matcha latte from Good Day Cafe and deliver it to COM1 level 2 by the 7th of November 11 p.m., accept by next Monday 9am, 6 credits.",
+      "expected": {"outcome": "DRAFT", "supplier": "Good Day Cafe", "itemDescription": "matcha latte", "deliveryLocation": "COM1 level 2", "reward": 6, "acceptanceDeadline": "2026-11-02T01:00:00Z", "deliveryDeadline": "2026-11-07T15:00:00Z"}
+    },
+    {
+      "id": "hour-without-am-pm-today",
+      "transcript": "Get a bubble tea from Cool Spot at COM2 and bring it to the COM1 lobby by 9, accept in 10 minutes, 3 credits.",
+      "expected": {"outcome": "DRAFT", "supplier": "Cool Spot", "itemDescription": "bubble tea", "deliveryLocation": "COM1 lobby", "reward": 3, "acceptanceDeadline": "2026-10-30T05:30:00Z", "deliveryDeadline": "2026-10-30T13:00:00Z"}
+    },
+    {
+      "id": "hour-without-am-pm-later-day",
+      "transcript": "Collect my printed notes from Printer at Com 2 and deliver them to COM3 level 2 by Monday at 5, 4 credits.",
+      "expected": {"outcome": "DRAFT", "supplier": "Printer @ Com 2", "itemDescription": "printed notes", "deliveryLocation": "COM3 level 2", "reward": 4, "acceptanceDeadline": null, "deliveryDeadline": null}
     }
   ]
 }

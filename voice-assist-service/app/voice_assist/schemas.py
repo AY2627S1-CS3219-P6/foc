@@ -20,12 +20,34 @@ class Principal(BaseModel):
 # the model must state "not mentioned" explicitly instead of omitting a key.
 
 
+SpokenDay = Literal[
+    "TODAY",
+    "TOMORROW",
+    "MONDAY",
+    "TUESDAY",
+    "WEDNESDAY",
+    "THURSDAY",
+    "FRIDAY",
+    "SATURDAY",
+    "SUNDAY",
+]
+
+
 class TimePhrase(BaseModel):
     raw: str = Field(description="The exact words the requester used for this time.")
-    day: Literal["TODAY", "TOMORROW"] | None = Field(
-        description="Only when the requester said today or tomorrow."
+    day: SpokenDay | None = Field(
+        description="Only when the requester said today, tomorrow or a weekday."
     )
-    clock: str | None = Field(description="24-hour HH:MM when a clock time was said, else null.")
+    next_week: bool = Field(description="True only when 'next' was said before the weekday.")
+    date: str | None = Field(
+        description="MM-DD when a calendar date was said ('7th of November' is 11-07), else null."
+    )
+    clock: str | None = Field(
+        description="HH:MM with the hour as said ('9pm' is 09:00) when a clock time was said."
+    )
+    meridiem: Literal["AM", "PM"] | None = Field(
+        description="Only when AM or PM was said or plainly meant, never guessed."
+    )
     relative_minutes: int | None = Field(
         description="Minutes from now for 'in N minutes/hours/half an hour', else null."
     )
