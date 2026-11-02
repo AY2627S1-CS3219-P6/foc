@@ -41,6 +41,7 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
   const [result, setResult] = useState<SupplierList | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [invalidFilters, setInvalidFilters] = useState(false);
   const [reload, setReload] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const categoryPicker = useRef<HTMLDetailsElement>(null);
@@ -108,7 +109,13 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
         }
         setResult(data);
       })
-      .catch((failure) => { if (active) { setResult(null); setError(isApiRequestError(failure) ? failure.message : "We could not load suppliers. Try again."); } })
+      .catch((failure) => {
+        if (!active) return;
+        setResult(null);
+        // A hand-edited or outdated link, such as an unknown category, fails validation on every retry.
+        setInvalidFilters(isApiRequestError(failure) && failure.status === 422);
+        setError(isApiRequestError(failure) ? failure.message : "We could not load suppliers. Try again.");
+      })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [admin, query, queryKey, reload, setSearchParams, withCurrentAccess]);
@@ -127,6 +134,11 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
     }
     if (!("page" in changes)) next.delete("page");
     setSearchParams(next);
+  }
+
+  function clearFilters() {
+    setSearch("");
+    updateQuery({ q: null, status: null }, []);
   }
 
   function toggleCategory(code: string) {
@@ -162,12 +174,13 @@ export function SupplierListPage({ admin = false }: { admin?: boolean }) {
         </details>
         <button aria-label={`Sort: Name ${query.sort === "desc" ? "Z–A" : "A–Z"}. Switch to ${query.sort === "desc" ? "A–Z" : "Z–A"}`} className="supplier-sort-toggle" onClick={() => updateQuery({ sort: query.sort === "desc" ? null : "desc" })} type="button">Sort: Name {query.sort === "desc" ? "Z–A" : "A–Z"}<span aria-hidden="true">⇅</span></button>
         {admin ? <fieldset className="supplier-status-filter"><legend className="sr-only">Supplier status</legend>{statusOptions.map(([value, label]) => <label key={label}><input checked={(query.status ?? "") === value} className="sr-only" name="supplier-status" onChange={() => updateQuery({ status: value || null })} type="radio" />{label}</label>)}</fieldset> : <span className="supplier-active-note">Active suppliers only</span>}
-        {hasFilters ? <button className="supplier-inline-button" onClick={() => { setSearch(""); updateQuery({ q: null, status: null }, []); }} type="button">Clear filters</button> : null}
+        {hasFilters ? <button className="supplier-inline-button" onClick={clearFilters} type="button">Clear filters</button> : null}
       </div>
     </section>
 
     {loading ? <p className="supplier-state" role="status">Loading suppliers…</p> : null}
-    {error ? <section className="supplier-state supplier-state-error" role="alert"><h2>Suppliers could not load</h2><p>{error}</p><button className="supplier-apply-button" onClick={() => { setReload((value) => value + 1); if (categoryError) setCategoryReload((value) => value + 1); }} type="button">Try again</button></section> : null}
+    {error && invalidFilters ? <section className="supplier-state supplier-state-error" role="alert"><h2>These filters cannot be used</h2><p>This link includes a search or filter that is not supported. Clear the filters to see all suppliers.</p><button className="supplier-apply-button" onClick={clearFilters} type="button">Clear filters</button></section> : null}
+    {error && !invalidFilters ? <section className="supplier-state supplier-state-error" role="alert"><h2>Suppliers could not load</h2><p>{error}</p><button className="supplier-apply-button" onClick={() => { setReload((value) => value + 1); if (categoryError) setCategoryReload((value) => value + 1); }} type="button">Try again</button></section> : null}
     {!loading && !error && result?.total === 0 ? <section className="supplier-state"><h2>{hasFilters ? "No suppliers found" : admin ? "No suppliers yet" : "No active suppliers yet"}</h2><p>{hasFilters ? "Try another search or use Clear filters above." : admin ? "Add the first campus supplier to get started." : "Check back soon for campus suppliers."}</p>{!hasFilters && admin ? <Link className="supplier-primary-action" to="/admin/suppliers/new">Add supplier</Link> : null}</section> : null}
     {!loading && !error && result && result.total > 0 ? <>
       <div aria-live="polite" className="supplier-results-count">{result.total} supplier{result.total === 1 ? "" : "s"}</div>

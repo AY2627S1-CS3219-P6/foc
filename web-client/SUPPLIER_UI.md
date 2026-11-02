@@ -62,6 +62,10 @@ query, and keeps the search and filters usable. When categories fail, the
 supplier list still renders and the category menu offers its own retry,
 which does not reload the list. A page size in the URL other than 6, 12, 20
 or 50 falls back to 6, so a hand-edited link cannot fail validation on every
+retry. Other unsupported filters in the link, such as an unknown category,
+return `422`; the list then explains that the filters cannot be used and
+offers **Clear filters** instead of **Try again**. On the detail page, a
+malformed supplier ID (`422`) shows "Supplier not found" like a `404`, with no
 retry. Responses that arrive after the query has changed are ignored.
 
 ## Milestone D2 point 5
