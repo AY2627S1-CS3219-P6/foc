@@ -42,9 +42,13 @@ CURRENCY for dollars, $, bucks or cents, otherwise UNSPECIFIED.
 - acceptance_time: only when the requester says by when someone must accept or take the \
 errand. delivery_time: by when it must be delivered. Never copy a delivery time into \
 acceptance_time.
-- Times: day is TODAY or TOMORROW only if said. clock is a 24-hour HH:MM only if a clock time \
-was said. relative_minutes is set for "in N minutes" or "in N hours" (hours times 60, half an \
-hour is 30). Leave unclear parts null but keep raw.
+- Times: day is TODAY, TOMORROW or the weekday named, only if said ("tonight" is TODAY). \
+next_week is true only when "next" comes before the weekday. date is MM-DD only if a calendar \
+date was said ("7th of November" is 11-07). clock is HH:MM with the hour exactly as said, never \
+converted to 24-hour: "9pm" and "9" are both 09:00; use 13 to 23 only for a time said in 24-hour \
+form. meridiem is AM or PM only if said or plainly meant ("in the morning", "tonight"; noon is \
+12:00 PM); never guess it. relative_minutes is set for "in N minutes" or "in N hours" (hours \
+times 60, half an hour is 30). Leave unclear parts null but keep raw.
 - errand_count: the number of independent errands. Several items from the same place are one \
 errand; different pickup places or unrelated tasks are separate errands.
 - conflicts: fields for which the requester said contradictory values, with a short reason.
@@ -132,10 +136,22 @@ class FakeDrafter:
             pickup_area=None,
             reward=RewardPhrase(raw="5 credits", amount=5, unit="CREDITS"),
             acceptance_time=TimePhrase(
-                raw="Accept in 20 minutes", day=None, clock=None, relative_minutes=20
+                raw="Accept in 20 minutes",
+                day=None,
+                next_week=False,
+                date=None,
+                clock=None,
+                meridiem=None,
+                relative_minutes=20,
             ),
             delivery_time=TimePhrase(
-                raw="deliver in an hour", day=None, clock=None, relative_minutes=60
+                raw="deliver in an hour",
+                day=None,
+                next_week=False,
+                date=None,
+                clock=None,
+                meridiem=None,
+                relative_minutes=60,
             ),
             conflicts=[],
         )

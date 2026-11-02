@@ -31,10 +31,22 @@ def extracted(**overrides) -> ExtractedDraft:
         "pickup_area": None,
         "reward": RewardPhrase(raw="5 credits", amount=5, unit="CREDITS"),
         "acceptance_time": TimePhrase(
-            raw="accept by 2pm today", day="TODAY", clock="14:00", relative_minutes=None
+            raw="accept by 2pm today",
+            day="TODAY",
+            clock="14:00",
+            next_week=False,
+            date=None,
+            meridiem=None,
+            relative_minutes=None,
         ),
         "delivery_time": TimePhrase(
-            raw="deliver by 3pm today", day="TODAY", clock="15:00", relative_minutes=None
+            raw="deliver by 3pm today",
+            day="TODAY",
+            clock="15:00",
+            next_week=False,
+            date=None,
+            meridiem=None,
+            relative_minutes=None,
         ),
         "conflicts": [],
     }
@@ -73,7 +85,15 @@ def test_values_absent_from_the_transcript_are_dropped():
         extracted(
             delivery_location="UTown Residence Block A",
             reward=RewardPhrase(raw="10 credits", amount=10, unit="CREDITS"),
-            delivery_time=TimePhrase(raw="by 6pm", day=None, clock="18:00", relative_minutes=None),
+            delivery_time=TimePhrase(
+                raw="by 6pm",
+                day=None,
+                clock="18:00",
+                next_week=False,
+                date=None,
+                meridiem=None,
+                relative_minutes=None,
+            ),
         ),
         TRANSCRIPT,
         NOW,
@@ -104,7 +124,13 @@ def test_delivery_time_is_never_used_as_the_acceptance_time():
             item_description="Latte",
             acceptance_time=None,
             delivery_time=TimePhrase(
-                raw="deliver by 3pm today", day="TODAY", clock="15:00", relative_minutes=None
+                raw="deliver by 3pm today",
+                day="TODAY",
+                clock="15:00",
+                next_week=False,
+                date=None,
+                meridiem=None,
+                relative_minutes=None,
             ),
         ),
         transcript,
@@ -157,10 +183,22 @@ def test_delivery_before_acceptance_flags_both():
     fields = build_fields(
         extracted(
             acceptance_time=TimePhrase(
-                raw="deliver by 3pm today", day="TODAY", clock="15:00", relative_minutes=None
+                raw="deliver by 3pm today",
+                day="TODAY",
+                clock="15:00",
+                next_week=False,
+                date=None,
+                meridiem=None,
+                relative_minutes=None,
             ),
             delivery_time=TimePhrase(
-                raw="accept by 2pm today", day="TODAY", clock="14:00", relative_minutes=None
+                raw="accept by 2pm today",
+                day="TODAY",
+                clock="14:00",
+                next_week=False,
+                date=None,
+                meridiem=None,
+                relative_minutes=None,
             ),
         ),
         TRANSCRIPT,
