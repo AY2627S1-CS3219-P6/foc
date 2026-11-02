@@ -10,7 +10,14 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from app import auth
 from app.config import Settings, get_settings
+from app.database import close_pools
 from app.main import app
+
+
+@pytest.fixture(autouse=True, scope="session")
+def close_database_pools():
+    yield
+    close_pools()
 
 
 @pytest.fixture

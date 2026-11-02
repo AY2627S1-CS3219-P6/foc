@@ -64,6 +64,15 @@ Do not commit the populated `.env` file. To use the hosted Supplier Service
 database instead, change only `SUPPLIER_DATABASE_URL` to its PostgreSQL
 connection string.
 
+API requests borrow connections from one shared pool (`app/database.py`)
+instead of opening a new connection per request. The pool keeps 1–10
+connections, checks each one before use, and closes when the app shuts down.
+It opens in the background, so the API still starts while the database is
+down; a request that cannot get a connection within five seconds returns
+`503 DATABASE_UNAVAILABLE`. Server-side prepared statements are off, so the
+URL may point at Supabase's session (5432) or transaction (6543) pooler. The
+readiness probe still opens its own fresh connection.
+
 With a User Service administrator access token, try:
 
 ```sh

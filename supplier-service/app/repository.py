@@ -6,10 +6,10 @@ from uuid import UUID
 import psycopg
 from fastapi import Depends
 from psycopg import sql
-from psycopg.rows import dict_row
 from pydantic import ValidationError
 
 from app.config import Settings, get_settings
+from app.database import get_pool
 from app.errors import ApiError, validation_fields
 from app.schemas import (
     CategoryResponse,
@@ -77,12 +77,17 @@ class SupplierRepository:
     def __init__(self, database_url: str) -> None:
         self.database_url = database_url
 
+    def _connection(self):
+        # Pool timeouts and broken connections raise psycopg.Error, which
+        # each method already reports as 503 DATABASE_UNAVAILABLE.
+        return get_pool(self.database_url).connection()
+
     def list_categories(self) -> list[CategoryResponse]:
         if not self.database_url:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
         try:
             with (
-                psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn,
+                self._connection() as conn,
                 conn.cursor() as cursor,
             ):
                 cursor.execute(
@@ -111,7 +116,7 @@ class SupplierRepository:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
         try:
             with (
-                psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn,
+                self._connection() as conn,
                 conn.cursor() as cursor,
             ):
                 clauses = []
@@ -186,7 +191,7 @@ class SupplierRepository:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
         try:
             with (
-                psycopg.connect(self.database_url, connect_timeout=5, row_factory=dict_row) as conn,
+                self._connection() as conn,
                 conn.cursor() as cursor,
             ):
                 active_predicate = (
@@ -217,11 +222,9 @@ class SupplierRepository:
         if not self.database_url:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
         try:
-            # The connection context commits only after all inserts and the
-            # deferred category trigger succeed; errors roll everything back.
-            with psycopg.connect(
-                self.database_url, connect_timeout=5, row_factory=dict_row
-            ) as conn:
+            # The pooled connection context commits only after all inserts and
+            # the deferred category trigger succeed; errors roll everything back.
+            with self._connection() as conn:
                 with conn.cursor() as cursor:
                     _check_categories(cursor, supplier.categories)
 
@@ -285,9 +288,7 @@ class SupplierRepository:
         if not self.database_url:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
         try:
-            with psycopg.connect(
-                self.database_url, connect_timeout=5, row_factory=dict_row
-            ) as conn:
+            with self._connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
                         "SELECT * FROM supplier_service.suppliers WHERE id = %s FOR UPDATE",
@@ -397,9 +398,7 @@ class SupplierRepository:
         if not self.database_url:
             raise ApiError(503, "DATABASE_UNAVAILABLE", "Supplier database is unavailable")
         try:
-            with psycopg.connect(
-                self.database_url, connect_timeout=5, row_factory=dict_row
-            ) as conn:
+            with self._connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
                         "SELECT status FROM supplier_service.suppliers WHERE id = %s FOR UPDATE",
