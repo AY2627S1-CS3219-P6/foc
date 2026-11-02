@@ -25,6 +25,7 @@ jobs:
       chat_changed: ${{ steps.filter.outputs.chat-service }}
       chat_available: ${{ steps.components.outputs.chat_available }}
       user_chat_changed: ${{ steps.filter.outputs.user-chat }}
+      cloud_changed: ${{ steps.filter.outputs.cloud-foundation }}
     steps:
       - name: Check out repository
         # actions/checkout@v4.2.2
@@ -36,6 +37,11 @@ jobs:
         uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad
         with:
           filters: |
+            cloud-foundation:
+              - 'deploy/aws/**'
+              - 'web-client/nginx/default.conf'
+              - '.github/workflows/cloud-foundation.yml'
+              - '.github/workflows/ci.yml'
             user-chat:
               - 'user-service/**'
               - 'chat-service/**'
@@ -69,7 +75,7 @@ jobs:
           CHANGED_COMPONENTS: ${{ steps.filter.outputs.changes }}
           CHAT_CHANGED: ${{ steps.filter.outputs.chat-service }}
         run: |
-          services=$(jq -c 'map(select(. != "chat-service" and . != "user-chat"))' <<< "$CHANGED_COMPONENTS")
+          services=$(jq -c 'map(select(. != "chat-service" and . != "user-chat" and . != "cloud-foundation"))' <<< "$CHANGED_COMPONENTS")
           echo "services=$services" >> "$GITHUB_OUTPUT"
           # The CI-only PR can merge before the separate Chat backend PR.
           # Once its manifest lands, missing implementation files fail validation.
@@ -599,9 +605,15 @@ jobs:
         if: ${{ always() }}
         run: bash .github/ci/user-chat/run.sh down
 
+  validate-cloud:
+    name: Validate cloud foundation
+    needs: changes
+    if: ${{ needs.changes.outputs.cloud_changed == 'true' }}
+    uses: ./.github/workflows/cloud-foundation.yml
+
   ci-passed:
     name: CI passed
-    needs: [changes, validate, validate-chat, validate-user-chat]
+    needs: [changes, validate, validate-chat, validate-user-chat, validate-cloud]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -613,6 +625,8 @@ jobs:
           CHAT_REQUIRED: ${{ needs.changes.outputs.chat_changed == 'true' && needs.changes.outputs.chat_available == 'true' }}
           USER_CHAT_RESULT: ${{ needs.validate-user-chat.result }}
           USER_CHAT_REQUIRED: ${{ needs.changes.outputs.user_chat_changed == 'true' }}
+          CLOUD_RESULT: ${{ needs.validate-cloud.result }}
+          CLOUD_REQUIRED: ${{ needs.changes.outputs.cloud_changed == 'true' }}
         run: |
           if [ "$CHANGES_RESULT" != "success" ]; then
             echo "Change detection did not complete successfully: $CHANGES_RESULT"
@@ -631,5 +645,10 @@ jobs:
 
           if [ "$USER_CHAT_REQUIRED" = "true" ] && [ "$USER_CHAT_RESULT" != "success" ]; then
             echo "User + Chat integration did not complete successfully: $USER_CHAT_RESULT"
+            exit 1
+          fi
+
+          if [ "$CLOUD_REQUIRED" = "true" ] && [ "$CLOUD_RESULT" != "success" ]; then
+            echo "Cloud foundation validation did not complete successfully: $CLOUD_RESULT"
             exit 1
           fi

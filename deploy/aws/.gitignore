@@ -1,0 +1,6 @@
+/.env
+/secrets/
+/bootstrap.env
+/backups/
+/.provision-*/
+
