@@ -5,12 +5,17 @@ Dockerfiles and versioned APIs/events. The root `compose.yaml` remains the local
 development stack. No service business-logic changes, migration reset, ECR publication,
 GitHub AWS credentials or public ingress are performed by this configuration.
 
-The first stage is private: the website binds to `127.0.0.1:3000` and the demo
+The default stage is private: the website binds to `127.0.0.1:3000` and the demo
 mailbox to `127.0.0.1:8025`. Six independent Supabase PostgreSQL databases retain
 their existing project IDs, ports and migration directories. Supabase CLI is used
 in **database-only** mode: Auth, Data API, Studio and the other development
 services are not started. This is a self-hosted course sandbox, not managed
 Supabase hosting or a high-availability production deployment.
+
+After private verification, follow [Public HTTPS with CloudFront](PUBLIC_HTTPS.md).
+Its optional overlay adds only the CloudFront origin listener on TCP 8080; it
+requires a separate EC2 firewall restriction before use. It does not move services
+off EC2, open database ports, rotate keys or deploy automatically.
 
 ```mermaid
 flowchart TD
@@ -21,7 +26,7 @@ flowchart TD
     Workers[User, Order and Chat outboxes / Order recovery and expiry / Credit consumer] --> DB
     Workers --> Rabbit[RabbitMQ: stable identity and persistent volume]
     APIs --> Mail[Private Mailpit demo inbox]
-    Future[Next stage: CloudFront public HTTPS address] -. pending .-> Web
+    Future[Optional: CloudFront public HTTPS overlay] -. TCP 8080 / restricted origin .-> Web
 ```
 
 The database box represents six separate databases, not a shared schema or
@@ -68,10 +73,10 @@ Create an application directory owned by the session user:
 sudo install -d -m 0750 -o "$(id -u)" -g "$(id -g)" /opt/foc
 ```
 
-After the branch has been pushed, clone it into this empty directory:
+After the deployment PR has merged, clone reviewed main into this empty directory:
 
 ```bash
-git clone --branch chore/cloud-deployment-foundation --single-branch https://github.com/AY2627S1-CS3219-P6/foc.git /opt/foc
+git clone --branch main --single-branch https://github.com/AY2627S1-CS3219-P6/foc.git /opt/foc
 ```
 
 ```bash
@@ -243,12 +248,13 @@ does not claim external email integration. Its inbox must remain loopback-only
 and accessible through an authorized Session Manager port-forwarding session.
 Provider SMTP TLS/authentication requires coordination with the User owner.
 
-The next public-access step uses an AWS-assigned CloudFront HTTPS hostname,
-without buying a domain. It is **not implemented by this private foundation**.
-It must disable caching for authenticated requests, forward cookies/auth/query
-strings and Chat upgrade/origin headers, support all required API methods,
-restrict EC2 origin access, set the exact Chat browser origin, and verify refresh
-cookies and Voice microphone access. Do not simply open all host ports.
+The optional [public HTTPS runbook](PUBLIC_HTTPS.md) uses an AWS-assigned
+CloudFront hostname without buying a domain. Its configuration disables caching,
+forwards cookies/auth/query strings and Chat upgrade/origin headers, supports all
+required API methods and preserves blocked internal routes. Operators must apply
+the EC2 firewall restriction and exact Chat browser origin, then verify the final
+HTTPS site. This configuration alone does not establish a deployed distribution
+or successful refresh-cookie/Voice microphone behavior.
 
 Before claiming deployment complete, demonstrate from the final HTTPS site:
 registration/demo OTP limits, login/refresh, Supplier access, funded Order

@@ -1,16 +1,18 @@
-"""Render and check the private cloud Compose contract without printing secrets."""
+"""Render and check private or CloudFront cloud Compose without printing secrets."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import subprocess
 from urllib.parse import urlsplit
 
 from cloud_config import DATABASES, ROOT, validate_origin
+from public_https import validate_public_origin
 
 
-def validate(config: dict) -> None:
+def validate(config: dict, *, public: bool = False) -> None:
     services = config["services"]
     expected = {
         "web-client",
@@ -33,16 +35,21 @@ def validate(config: dict) -> None:
     if set(services) != expected:
         raise ValueError("Cloud service inventory is incomplete or unexpected.")
     for name, service in services.items():
+        allowed = {
+            "web-client": {("127.0.0.1", 3000, 80)},
+            "mailpit": {("127.0.0.1", 8025, 8025)},
+        }.get(name, set()).copy()
+        if public and name == "web-client":
+            allowed.add(("0.0.0.0", 8080, 8080))
+        observed = []
         for port in service.get("ports", []):
-            expected_port = {"web-client": (3000, 80), "mailpit": (8025, 8025)}.get(name)
-            if (
-                not expected_port
-                or port.get("host_ip") != "127.0.0.1"
-                or (int(port["published"]), port["target"]) != expected_port
-            ):
-                raise ValueError(
-                    "Foundation ports must be limited to the private website and mailbox."
-                )
+            observed.append((port.get("host_ip"), int(port["published"]), int(port["target"])))
+            if port.get("protocol", "tcp") != "tcp":
+                raise ValueError("Cloud ingress bindings must use TCP.")
+        if set(observed) != allowed or len(observed) != len(allowed):
+            raise ValueError(
+                "Cloud ports must match the selected private or CloudFront ingress mode."
+            )
         if service.get("restart") != "unless-stopped":
             raise ValueError("Every cloud workload needs an explicit restart policy.")
         if service.get("logging", {}).get("options", {}).get("max-size") != "10m":
@@ -99,6 +106,15 @@ def validate(config: dict) -> None:
     if len(chat_origin) != 1:
         raise ValueError("Set the exact cloud browser origin.")
     validate_origin(chat_origin[0])
+    if public:
+        validate_public_origin(chat_origin[0])
+        if not any(
+            mount.get("target") == "/etc/nginx/foc-public"
+            and mount.get("type") == "bind"
+            and mount.get("read_only") is True
+            for mount in services["web-client"].get("volumes", [])
+        ):
+            raise ValueError("Public ingress needs its read-only Nginx listener configuration.")
     for worker, owner in (
         ("outbox-publisher", "user-service"),
         ("order-recovery", "order-service"),
@@ -123,7 +139,13 @@ def validate(config: dict) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--public", action="store_true", help="Validate the CloudFront overlay.")
+    args = parser.parse_args()
     prefix = ["sudo", "docker"] if os.name == "posix" and os.getuid() != 0 else ["docker"]
+    files = ["-f", str(ROOT / "compose.yaml")]
+    if args.public:
+        files += ["-f", str(ROOT / "compose.public.yaml")]
     try:
         result = subprocess.run(
             [
@@ -131,8 +153,7 @@ def main() -> None:
                 "compose",
                 "--env-file",
                 str(ROOT / ".env"),
-                "-f",
-                str(ROOT / "compose.yaml"),
+                *files,
                 "--profile",
                 "*",
                 "config",
@@ -147,15 +168,16 @@ def main() -> None:
             raise ValueError(
                 "Compose rendering failed. Check .env and file paths privately; output suppressed."
             )
-        validate(json.loads(result.stdout))
+        validate(json.loads(result.stdout), public=args.public)
     except (ValueError, OSError, KeyError, TypeError) as error:
         if isinstance(error, ValueError) and not isinstance(error, json.JSONDecodeError):
             raise SystemExit(str(error)) from None
         raise SystemExit(
             "Cloud config validation failed; output suppressed to protect secrets."
         ) from None
+    mode = "CloudFront overlay (verify EC2 firewall separately)" if args.public else "private ports"
     print(
-        "PASS: cloud inventory, private ports, owned databases, matched secrets, workers and broker persistence."
+        f"PASS: cloud inventory, {mode}, owned databases, matched secrets, workers and broker persistence."
     )
 
 

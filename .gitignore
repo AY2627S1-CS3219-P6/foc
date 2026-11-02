@@ -32,6 +32,9 @@ venv/
 !**/.env.*.example
 **/secrets/
 
+# Generated CloudFront deployment request (public metadata, local caller reference)
+deploy/aws/*.local.json
+
 # Supabase CLI runtime state; configuration, migrations, and seeds stay tracked
 **/supabase/.branches/
 **/supabase/.temp/

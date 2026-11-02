@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   configuration:
-    name: Validate private cloud configuration
+    name: Validate cloud configuration and ingress
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -28,6 +28,14 @@ jobs:
         run: python deploy/aws/scripts/generate_env.py
       - name: Render and validate all profiles without contacting AWS or databases
         run: python deploy/aws/scripts/validate.py
+      - name: Check public configuration without creating AWS resources
+        env:
+          CLOUD_COMPOSE_SMOKE: "1"
+        run: |
+          python -m unittest discover -s deploy/aws/tests -p test_public_https.py -v
+          python deploy/aws/scripts/public_https.py distribution --origin-domain ec2-54-179-16-136.ap-southeast-1.compute.amazonaws.com
+          python deploy/aws/scripts/public_https.py set-origin --origin https://dexample.cloudfront.net
+          python deploy/aws/scripts/validate.py --public
       - name: Bootstrap one real Supabase project on this disposable runner
         run: python deploy/aws/scripts/prepare_databases.py --ec2-sandbox --service user
       - name: Verify the same project can resume without resetting data or secrets
@@ -36,17 +44,38 @@ jobs:
         env:
           CLOUD_DB_SMOKE: "1"
         run: python -m unittest discover -s deploy/aws/tests -p test_database_live.py -v
-      - name: Check Nginx configuration with the cloud include
+      - name: Check Nginx local, private and public configurations
         run: |
+          docker run --rm \
+            --mount type=bind,src="$PWD/web-client/nginx/default.conf",dst=/etc/nginx/conf.d/default.conf,readonly \
+            --add-host user-service:127.0.0.1 \
+            nginx:1.27-alpine nginx -t
           docker network create cloud-config-check
-          docker run -d --name cloud-config-user --network cloud-config-check --network-alias user-service nginx:1.27-alpine
+          docker run -d --name cloud-config-user --network cloud-config-check \
+            --network-alias user-service --network-alias order-service \
+            --network-alias credit-service --network-alias supplier-service \
+            --network-alias chat-service --network-alias admin-service --network-alias voice-assist-service \
+            --mount type=bind,src="$PWD/deploy/aws/tests/ingress_upstream.conf",dst=/etc/nginx/conf.d/default.conf,readonly \
+            nginx:1.27-alpine
           docker run --rm --network cloud-config-check \
             --mount type=bind,src="$PWD/web-client/nginx/default.conf",dst=/etc/nginx/conf.d/default.conf,readonly \
             --mount type=bind,src="$PWD/deploy/aws/nginx",dst=/etc/nginx/foc,readonly \
             nginx:1.27-alpine nginx -t
+          docker run -d --name cloud-config-proxy --network cloud-config-check \
+            --mount type=bind,src="$PWD/web-client/nginx/default.conf",dst=/etc/nginx/conf.d/default.conf,readonly \
+            --mount type=bind,src="$PWD/deploy/aws/nginx",dst=/etc/nginx/foc,readonly \
+            --mount type=bind,src="$PWD/deploy/aws/nginx-public",dst=/etc/nginx/foc-public,readonly \
+            nginx:1.27-alpine
+          docker exec cloud-config-proxy nginx -t
+      - name: Verify public/private routing, auth headers, cookies and Chat upgrade
+        run: |
+          docker run --rm --network cloud-config-check \
+            --env CLOUD_INGRESS_SMOKE=1 \
+            --mount type=bind,src="$PWD/deploy/aws/tests",dst=/checks,readonly \
+            python:3.13-alpine python -m unittest discover -s /checks -p test_ingress_live.py -v
       - name: Remove configuration-check resources
         if: always()
         run: |
-          docker rm -f cloud-config-user || true
+          docker rm -f cloud-config-user cloud-config-proxy || true
           docker network rm cloud-config-check || true
 
