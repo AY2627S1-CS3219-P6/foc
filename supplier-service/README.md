@@ -8,9 +8,9 @@ categories in one PostgreSQL transaction. It returns `201`. The
 `PATCH /api/v1/admin/suppliers/{supplier_id}` route checks the current admin role
 again, merges supplied fields with the stored record, validates the complete
 result, and commits supplier and category changes together. It returns `200`.
-`DELETE /api/v1/admin/suppliers/{supplier_id}` currently retains the supplier
-and marks it `INACTIVE`, returning `{"id":"...","outcome":"DEACTIVATED"}`.
-Permanent deletion awaits the Errand Service reference contract described in
+`DELETE /api/v1/admin/suppliers/{supplier_id}` retains the supplier and marks
+it `INACTIVE`, returning `{"id":"...","outcome":"DEACTIVATED"}`. Suppliers are
+never permanently deleted; see
 [API.md](API.md#delete-contract-and-errand-references).
 Authenticated users can also call `GET /api/v1/categories` to read supported
 category codes and display names directly from the lookup table.
@@ -109,9 +109,9 @@ curl -i -X DELETE http://127.0.0.1:8001/api/v1/admin/suppliers/YOUR_SUPPLIER_UUI
 The Supplier Service asks User Service for a current `SUPPLIER_DEACTIVATE`
 decision. A missing supplier returns `404`. Repeating DELETE on an already
 inactive supplier returns `DEACTIVATED` again. The row and its category links
-remain in Supplier PostgreSQL. Normal-user listing excludes inactive suppliers;
-Errand Service selection checks are still planned, so this interim route does
-not complete every part of backlog M2F1.3.
+remain in Supplier PostgreSQL. Normal-user listing excludes inactive suppliers,
+and Order Service rejects an inactive supplier when an errand is created.
+Permanent deletion (backlog M2F1.3.1) is out of scope.
 
 The User Service's published contract is
 [`../user-service/docs/supplier-authorization-contract.md`](../user-service/docs/supplier-authorization-contract.md).
@@ -402,8 +402,8 @@ This deletes the hosted project's data, then reruns all migrations and
   (M2NFR3.1).
 - **Requires Supplier Service API work:** exact input `HH:mm` and HTTP(S) URL
   validation, field-level error responses, partial-update and optional-field
-  removal semantics (M2F1.1.5, M2F1.1.7, M2F1.2); deletion versus
-  deactivation based on errand references (M2F1.3); listing, details, search,
+  removal semantics (M2F1.1.5, M2F1.1.7, M2F1.2); deactivation that retains
+  every supplier (M2F1.3; permanent deletion is out of scope); listing, details, search,
   filters, sorting, and pagination (M2F2-M2F3); and authentication and
   administrator authorization (M2F4). D2 Supplier Service points 2-4 also
   require working APIs and integration. The D2 point 5 UI is separate work.
