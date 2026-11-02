@@ -28,18 +28,28 @@
 .supplier-search-field input::placeholder { color: #8492a3; }
 .supplier-filter-row { align-items: center; display: flex; flex-wrap: wrap; gap: .55rem; margin-top: .75rem; }
 .supplier-category-picker { max-width: 100%; min-width: 10rem; position: relative; }
-.supplier-category-picker summary, .supplier-select-label select, .supplier-pagination select { appearance: none; background: #fff; border: 1px solid var(--supplier-line); border-radius: 8px; color: var(--supplier-ink); cursor: pointer; font-size: .8rem; min-height: 39px; padding: .55rem 1.7rem .55rem .7rem; }
-.supplier-category-picker summary { list-style: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.supplier-category-picker summary, .supplier-pagination select, .supplier-sort-toggle { appearance: none; background: #fff; border: 1px solid var(--supplier-line); border-radius: 8px; color: var(--supplier-ink); cursor: pointer; font-size: .8rem; min-height: 39px; padding: .55rem 1.7rem .55rem .7rem; }
+.supplier-category-picker summary { align-items: center; display: flex; gap: .5rem; list-style: none; padding-right: .75rem; }
+.supplier-category-picker summary > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .supplier-category-picker summary::-webkit-details-marker { display: none; }
-.supplier-category-picker summary::after { content: "⌄"; float: right; margin-left: .5rem; }
+/* One drawn chevron, centred in both controls whatever their height. */
+.supplier-category-picker summary::after { border-bottom: 1.5px solid var(--supplier-muted); border-right: 1.5px solid var(--supplier-muted); content: ""; flex: none; height: .38rem; pointer-events: none; transform: translateY(-25%) rotate(45deg); width: .38rem; }
 .supplier-category-options { background: #fff; border: 1px solid var(--supplier-line); border-radius: 10px; box-shadow: 0 12px 32px rgb(26 50 77 / 15%); display: grid; gap: .1rem; left: 0; max-height: 250px; max-width: calc(100vw - 4rem); min-width: 13rem; overflow-y: auto; padding: .5rem; position: absolute; top: calc(100% + .3rem); z-index: 6; }
 .supplier-category-options label { align-items: center; border-radius: 6px; cursor: pointer; display: flex; font-size: .83rem; gap: .5rem; padding: .35rem .4rem; }
 .supplier-category-options label:hover { background: #f1f5fa; }
 .supplier-category-options input { accent-color: var(--supplier-blue); }
 .supplier-category-options p { font-size: .8rem; margin: .4rem; }
 .supplier-inline-button { background: none; border: 0; color: var(--supplier-blue); font-weight: 750; text-decoration: underline; }
-.supplier-select-label { position: relative; }
-.supplier-select-label::after { color: var(--supplier-muted); content: "⌄"; pointer-events: none; position: absolute; right: .65rem; top: .48rem; }
+/* Two orders only, so one tap flips them instead of opening a native picker. */
+.supplier-shell .supplier-sort-toggle { align-items: center; display: inline-flex; font-size: .8rem; gap: .5rem; padding-right: .75rem; }
+.supplier-sort-toggle > span { color: var(--supplier-muted); font-size: .95rem; line-height: 1; }
+.supplier-sort-toggle:hover { border-color: #c9d3e0; }
+/* Status has three values: show them all as one segmented radio group instead of a native picker. */
+.supplier-status-filter { background: #fff; border: 1px solid var(--supplier-line); border-radius: 8px; display: flex; flex: 1 1 100%; gap: 2px; margin: 0; min-width: 0; padding: 2px; }
+.supplier-status-filter label { align-items: center; border-radius: 6px; color: var(--supplier-muted); cursor: pointer; display: flex; flex: 1; font-size: .8rem; font-weight: 650; justify-content: center; min-height: 33px; padding: 0 .8rem; position: relative; }
+.supplier-status-filter label:hover { color: var(--supplier-ink); }
+.supplier-status-filter label:has(input:checked) { background: var(--supplier-navy); color: #fff; }
+.supplier-status-filter label:has(input:focus-visible) { outline: 2px solid #6ba3d4; outline-offset: 1px; }
 .supplier-active-note { color: var(--supplier-muted); font-size: .78rem; margin-left: auto; }
 .supplier-results-count { color: var(--supplier-muted); font-size: .8rem; margin: 0 0 .6rem; }
 .supplier-card-grid { display: grid; gap: .8rem; grid-template-columns: minmax(0, 1fr); }
@@ -122,11 +132,13 @@
 /* Touch screens get 44px targets; fine pointers keep the compact Figma rows. */
 @media (pointer: coarse) {
   .supplier-card-link, .supplier-admin-actions > a, .supplier-status-actions button, .supplier-page-buttons button, .supplier-inline-button { min-height: 44px; }
-  .supplier-category-picker summary, .supplier-select-label select, .supplier-pagination select { min-height: 44px; }
+  .supplier-category-picker summary, .supplier-pagination select, .supplier-sort-toggle { min-height: 44px; }
+  .supplier-status-filter label { min-height: 38px; }
   .supplier-category-options label { min-height: 44px; }
 }
 
 @media (min-width: 650px) {
+  .supplier-status-filter { flex: none; }
   .supplier-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .supplier-admin-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .supplier-detail-grid { grid-template-columns: minmax(0, 1.6fr) minmax(16rem, 1fr); }
