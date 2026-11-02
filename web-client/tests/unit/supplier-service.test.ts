@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { supplierService } from "../../src/api/supplier-service";
+import { supplierRequestTimeoutMs, supplierService } from "../../src/api/supplier-service";
 
 describe("Supplier Service client", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
   it("sends bearer auth and repeated category filters to the same-origin API", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], page: 2, page_size: 6, total: 0 }), {
@@ -26,5 +26,41 @@ describe("Supplier Service client", () => {
 
     await expect(supplierService.create({ name: "", categories: [], building_area: "", pickup_location_description: "" }, "test-token"))
       .rejects.toMatchObject({ status: 422, fieldErrors: [{ field: "name", message: "Must not be blank" }] });
+  });
+  it("explains a gateway failure that has no JSON error body", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<html>Bad Gateway</html>", {
+      status: 502, headers: { "content-type": "text/html" },
+    })));
+
+    await expect(supplierService.list({}, "test-token")).rejects.toMatchObject({
+      status: 502, message: "Supplier Service is unavailable right now. Try again in a moment.",
+    });
+  });
+
+  it("reports a dropped connection as a network error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+    await expect(supplierService.list({}, "test-token")).rejects.toMatchObject({ status: 0, code: "NETWORK_ERROR" });
+  });
+
+  it("rejects a successful response that is not the API's JSON", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response("<!doctype html>", { headers: { "content-type": "text/html" } }))
+      .mockResolvedValueOnce(new Response("{\"items\":", { headers: { "content-type": "application/json" } })));
+
+    await expect(supplierService.list({}, "test-token")).rejects.toMatchObject({ code: "BAD_RESPONSE" });
+    await expect(supplierService.list({}, "test-token")).rejects.toMatchObject({ code: "BAD_RESPONSE" });
+  });
+
+  it("stops waiting for a stalled request", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn((_url: string, options: RequestInit) => new Promise((_resolve, reject) => {
+      options.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+    })));
+
+    const request = supplierService.list({}, "test-token");
+    const outcome = expect(request).rejects.toMatchObject({ status: 0, code: "TIMEOUT" });
+    await vi.advanceTimersByTimeAsync(supplierRequestTimeoutMs);
+    await outcome;
   });
 });

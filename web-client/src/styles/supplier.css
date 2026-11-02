@@ -52,7 +52,7 @@
 .supplier-status { align-self: start; border-radius: 999px; font-size: .68rem; font-weight: 800; padding: .3rem .58rem; white-space: nowrap; }
 .supplier-status.active { background: #e7f6ef; color: #14715b; }
 .supplier-status.inactive { background: #f2f3f6; color: #5e6a79; }
-.supplier-card-link { align-items: center; color: var(--supplier-blue); display: flex; font-size: .78rem; font-weight: 800; gap: .3rem; grid-column: 2 / -1; justify-content: space-between; }
+.supplier-card-link { align-items: center; color: var(--supplier-blue); display: flex; font-size: .78rem; font-weight: 800; gap: .3rem; grid-column: 2 / -1; justify-content: space-between; min-height: 24px; }
 .supplier-card-link:hover { text-decoration: underline; }
 .supplier-state { align-items: center; background: #fff; border: 1px solid var(--supplier-line); border-radius: 12px; color: var(--supplier-muted); display: flex; flex-direction: column; justify-content: center; min-height: 210px; padding: 1.5rem; text-align: center; }
 .supplier-state h1, .supplier-state h2 { color: var(--supplier-ink); font-size: 1.25rem; margin: 0 0 .35rem; }
@@ -85,10 +85,10 @@
 .supplier-admin-category, .supplier-admin-area { color: var(--supplier-muted); font-size: .79rem; line-height: 1.4; overflow-wrap: anywhere; }
 .supplier-admin-row .supplier-status { justify-self: start; }
 .supplier-admin-actions { align-items: center; display: flex; flex-wrap: wrap; gap: .5rem .8rem; }
-.supplier-admin-actions > a { color: var(--supplier-blue); font-size: .79rem; font-weight: 750; }
+.supplier-admin-actions > a { align-items: center; color: var(--supplier-blue); display: inline-flex; font-size: .79rem; font-weight: 750; min-height: 24px; }
 .supplier-admin-actions > a:hover { text-decoration: underline; }
 .supplier-status-actions { align-items: center; display: inline-flex; flex-wrap: wrap; gap: .7rem; }
-.supplier-status-actions button { background: none; border: 0; color: var(--supplier-blue); font-size: .79rem; font-weight: 750; padding: .2rem 0; }
+.supplier-status-actions button { background: none; border: 0; color: var(--supplier-blue); font-size: .79rem; font-weight: 750; min-height: 24px; padding: .2rem 0; }
 .supplier-status-actions button:hover { text-decoration: underline; }
 .supplier-detail-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 1rem; margin: -.2rem 0 1.25rem; }
 .supplier-dialog-backdrop { align-items: center; background: rgb(18 33 53 / 56%); display: flex; inset: 0; justify-content: center; padding: 1rem; position: fixed; z-index: 20; }
@@ -119,8 +119,16 @@
 .supplier-form-cancel:hover { color: var(--supplier-blue); }
 .sr-only { clip: rect(0,0,0,0); clip-path: inset(50%); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
 
+/* Touch screens get 44px targets; fine pointers keep the compact Figma rows. */
+@media (pointer: coarse) {
+  .supplier-card-link, .supplier-admin-actions > a, .supplier-status-actions button, .supplier-page-buttons button, .supplier-inline-button { min-height: 44px; }
+  .supplier-category-picker summary, .supplier-select-label select, .supplier-pagination select { min-height: 44px; }
+  .supplier-category-options label { min-height: 44px; }
+}
+
 @media (min-width: 650px) {
   .supplier-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .supplier-admin-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .supplier-detail-grid { grid-template-columns: minmax(0, 1.6fr) minmax(16rem, 1fr); }
   .supplier-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .supplier-form-wide { grid-column: 1 / -1; }
@@ -133,7 +141,7 @@
 }
 
 @media (min-width: 1300px) {
-  .supplier-admin-results { background: #fff; border: 1px solid var(--supplier-line); border-radius: 11px; gap: 0; overflow: hidden; }
+  .supplier-admin-results { background: #fff; border: 1px solid var(--supplier-line); border-radius: 11px; gap: 0; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
   .supplier-table-head, .supplier-admin-row { align-items: center; display: grid; gap: 1rem; grid-template-columns: minmax(0, 1.4fr) minmax(0, .9fr) minmax(0, 1fr) 70px minmax(0, 1.4fr); padding: .85rem 1rem; }
   .supplier-table-head { background: #eff3f8; color: var(--supplier-muted); font-size: .73rem; font-weight: 750; }
   .supplier-admin-row { border: 0; border-bottom: 1px solid var(--supplier-line); border-radius: 0; }
