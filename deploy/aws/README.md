@@ -111,8 +111,10 @@ python3 deploy/aws/scripts/prepare_databases.py --ec2-sandbox
 ```
 
 This is an explicit operator step, never an application startup hook. It uses
-temporary Node 22 tooling containers with the host Docker socket and the same
-absolute source paths. Each service's exact lockfile-pinned Supabase CLI is
+temporary Node 22 tooling containers with Docker CLI, the host Docker socket
+and the same absolute source paths. The tooling image is built from the official
+Node and Docker client images, and its Docker executable is checked before use.
+Each service's exact lockfile-pinned Supabase CLI is
 installed with `npm ci`; host Node/npm and Supabase account login are unnecessary.
 The tooling has host-administration access, so run only reviewed repository code.
 
@@ -155,7 +157,8 @@ python3 deploy/aws/scripts/prepare_databases.py --ec2-sandbox --service order
 It uses the generated admin credential and `migration up --db-url`; the default
 local CLI password is deliberately no longer valid. Routine recovery uses the
 existing containers/volumes, not a reset. Errors identify the service and step
-while suppressing dependency output that could contain connection credentials.
+with bounded, redacted startup diagnostics; SQL and secret-bearing dependency
+output are suppressed.
 
 ## 4. Validate and start the application
 

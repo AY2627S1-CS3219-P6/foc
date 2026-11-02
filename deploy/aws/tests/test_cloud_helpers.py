@@ -20,7 +20,7 @@ from cloud_config import (
     validate_origin,
 )
 from generate_env import generate, private_file
-from prepare_databases import ProvisionError, checked
+from prepare_databases import ProvisionError, checked, safe_diagnostic
 
 
 class SecretGenerationTests(unittest.TestCase):
@@ -153,6 +153,45 @@ class OriginAndDiagnosticsTests(unittest.TestCase):
             checked(Result(), "user", "migration")
         self.assertNotIn("should-not-leak", str(caught.exception))
         self.assertNotIn("postgresql", str(caught.exception))
+
+    def test_safe_diagnostic_keeps_startup_cause_without_credentials(self):
+        class Result:
+            stdout = ""
+            stderr = (
+                "failed to inspect container health: docker: command not found\n"
+                "Error: password='private password with spaces'\n"
+                "Error: connect postgresql://private:secret@database/\n"
+                "Error: ALTER ROLE sample PASSWORD 'hidden-sql-value';\n"
+                "Error: value " + "a" * 64 + "\n"
+            )
+
+        diagnostic = safe_diagnostic(Result())
+        # The summary is bounded; inspect each independent case too so the cause
+        # cannot be accidentally hidden by later redaction markers.
+        self.assertNotIn("private password", diagnostic)
+        self.assertNotIn("postgresql://", diagnostic)
+        self.assertNotIn("hidden-sql-value", diagnostic)
+        self.assertNotIn("a" * 64, diagnostic)
+        Result.stderr = "failed to inspect container health: docker: command not found"
+        self.assertIn("docker: command not found", safe_diagnostic(Result()))
+
+    def test_diagnostics_redact_tokens_private_keys_and_driver_urls(self):
+        jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature"
+        private_body = "unit-test-private-key-body"
+
+        class Result:
+            stdout = ""
+            stderr = (
+                "Error: " + jwt + "\n"
+                "Error: -----BEGIN PRIVATE KEY-----\n" + private_body + "\n"
+                "-----END PRIVATE KEY-----\n"
+                "Error: postgresql+asyncpg://user:private-value@database/db\n"
+                "Error: sb_secret_example01234567890123456789\n"
+            )
+
+        diagnostic = safe_diagnostic(Result())
+        for value in (jwt, private_body, "private-value", "sb_secret_example01234567890123456789"):
+            self.assertNotIn(value, diagnostic)
 
 
 if __name__ == "__main__":

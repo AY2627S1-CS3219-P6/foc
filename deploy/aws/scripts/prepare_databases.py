@@ -14,7 +14,9 @@ import subprocess
 import time
 import tomllib
 
-from cloud_config import DATABASES, PROJECT_IDS, REPOSITORY, load_database_secrets
+from cloud_config import DATABASES, PROJECT_IDS, REPOSITORY, ROOT, load_database_secrets
+
+TOOLING_IMAGE = "foc-cloud-tooling:node22-docker29"
 
 
 class ProvisionError(RuntimeError):
@@ -52,7 +54,7 @@ def cli(service: str, *arguments: str):
         "type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock",
         "--workdir",
         path,
-        "node:22-bookworm",
+        TOOLING_IMAGE,
         *arguments,
     )
 
@@ -145,10 +147,67 @@ COMMIT;
 """
 
 
+def safe_diagnostic(result) -> str:
+    output = (result.stdout or "") + "\n" + (result.stderr or "")
+    output = re.sub(
+        r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
+        "[PRIVATE KEY REDACTED]",
+        output,
+        flags=re.DOTALL,
+    )
+    output = re.sub(
+        r"(?i)\b(?:postgres(?:ql)?(?:\+[A-Za-z0-9_]+)?|amqps?|https?)://\S+",
+        "[URL REDACTED]",
+        output,
+    )
+    output = re.sub(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", "[JWT REDACTED]", output)
+    output = re.sub(r"\b[a-fA-F0-9]{64}\b", "[GENERATED SECRET REDACTED]", output)
+    output = re.sub(r"\b(?:sb_(?:secret|publishable)_|sk-)[A-Za-z0-9_-]+", "[KEY REDACTED]", output)
+    lines = []
+    for line in output.splitlines():
+        if not re.search(
+            r"(?i)\b(error|failed|denied|not found|not supported|unknown command|unhealthy|timeout|fatal)\b",
+            line,
+        ):
+            continue
+        if re.search(
+            r"(?i)\b(?:CREATE|ALTER|DROP)\s+(?:ROLE|USER|TABLE|SCHEMA|DATABASE|INDEX|EXTENSION|FUNCTION)\b|\b(?:SELECT|GRANT|REVOKE|INSERT|UPDATE|DELETE|TRUNCATE)\s",
+            line,
+        ):
+            continue
+        line = re.sub(
+            r"(?i)\b(password|secret|token|api[_ -]?key)\s*[:=].*",
+            "[SENSITIVE DETAILS REDACTED]",
+            line,
+        )
+        lines.append(line.strip())
+    return " | ".join(lines[-3:])[:1200]
+
+
 def checked(result, service: str, step: str):
     if result.returncode != 0:
-        raise ProvisionError(f"{service}: {step} failed. Output suppressed to protect credentials.")
+        detail = safe_diagnostic(result)
+        message = f"{service}: {step} failed."
+        if detail:
+            message += f" Diagnostic: {detail}"
+        else:
+            message += " Output suppressed to protect credentials."
+        raise ProvisionError(message)
     return result
+
+
+def prepare_tooling() -> None:
+    context = str(ROOT / "tooling")
+    checked(
+        docker("build", "--quiet", "--tag", TOOLING_IMAGE, context),
+        "tooling",
+        "Node/Docker client build",
+    )
+    checked(
+        docker("run", "--rm", TOOLING_IMAGE, "docker", "--version"),
+        "tooling",
+        "Docker client check",
+    )
 
 
 def harden_network(service: str, password: str) -> None:
@@ -305,6 +364,7 @@ def main() -> None:
         if os.name != "posix":
             raise ProvisionError("Run only on the dedicated Linux EC2 sandbox.")
         state = load_database_secrets()
+        prepare_tooling()
         for service in [args.service] if args.service else DATABASES:
             prepare(service, state[service])
     except (ValueError, OSError, KeyError, ProvisionError, subprocess.SubprocessError) as error:
