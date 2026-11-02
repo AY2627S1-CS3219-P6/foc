@@ -30,10 +30,22 @@ def extraction(**overrides):
         "pickup_area": None,
         "reward": RewardPhrase(raw="5 credits", amount=5, unit="CREDITS"),
         "acceptance_time": TimePhrase(
-            raw="accept in 20 minutes", day=None, clock=None, relative_minutes=20
+            raw="accept in 20 minutes",
+            day=None,
+            clock=None,
+            next_week=False,
+            date=None,
+            meridiem=None,
+            relative_minutes=20,
         ),
         "delivery_time": TimePhrase(
-            raw="deliver by 3pm today", day="TODAY", clock="15:00", relative_minutes=None
+            raw="deliver by 3pm today",
+            day="TODAY",
+            clock="15:00",
+            next_week=False,
+            date=None,
+            meridiem=None,
+            relative_minutes=None,
         ),
         "conflicts": [],
     }

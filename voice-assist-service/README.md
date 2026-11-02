@@ -66,7 +66,7 @@ Tests use fakes and a mocked HTTP transport for the OpenAI SDK; they never spend
 
 ## Evaluation (N3NFR4.2)
 
-`scripts/eval_drafts.py` sends the 21 scripted transcripts in
+`scripts/eval_drafts.py` sends the 24 scripted transcripts in
 `tests/fixtures/eval/transcripts.json` to the configured drafting model and scores the
 post-processed draft: stated fields must be at least 85 percent correct and no unsaid value may
 be filled. It spends a few cents of credit, so run it deliberately:

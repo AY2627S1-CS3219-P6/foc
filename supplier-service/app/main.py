@@ -1,5 +1,7 @@
 """HTTP entry point for the Supplier Service."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -15,6 +17,7 @@ from app.auth import (
     require_supplier_read_admin,
 )
 from app.config import Settings, get_settings
+from app.database import close_pools
 from app.errors import ApiError, api_error_handler, validation_error_handler
 from app.health import router as health_router
 from app.repository import SupplierRepository, get_repository
@@ -28,7 +31,14 @@ from app.schemas import (
     SupplierResponse,
 )
 
-app = FastAPI(title="FoC Supplier Service")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    yield
+    close_pools()
+
+
+app = FastAPI(title="FoC Supplier Service", lifespan=lifespan)
 app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.include_router(health_router)

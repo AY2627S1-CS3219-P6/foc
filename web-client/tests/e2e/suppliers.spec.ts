@@ -119,6 +119,37 @@ test("supplier list reports a lost connection without a raw error", async ({ pag
   await expect(page.getByRole("alert")).toContainText("Check your connection and try again.");
 });
 
+test("an unsupported filter in the link offers Clear filters instead of a retry", async ({ page }) => {
+  await mockSupplierSession(page);
+  await page.route((url) => url.pathname === "/api/v1/suppliers", (route) => new URL(route.request().url()).searchParams.has("category")
+    ? route.fulfill({ status: 422, json: { error: { code: "VALIDATION_ERROR", message: "Supplier data is invalid", fields: [{ field: "category", message: "Unsupported category: BOGUS" }] } } })
+    : route.fulfill({ json: {
+        items: [{ id: supplierId, name: "Cool Spot", categories: ["FOOD"], building_area: "Com2", floor: null, status: "ACTIVE", opening_time: null, closing_time: null }],
+        page: 1, page_size: 6, total: 1,
+      } }));
+  await page.goto("/suppliers?category=BOGUS&sort=desc");
+  const alert = page.getByRole("alert");
+  await expect(alert.getByRole("heading", { name: "These filters cannot be used" })).toBeVisible();
+  await expect(alert.getByRole("button", { name: "Try again" })).toHaveCount(0);
+  await alert.getByRole("button", { name: "Clear filters" }).click();
+  await expect(page.getByRole("heading", { name: "Cool Spot" })).toBeVisible();
+  await expect(page).not.toHaveURL(/category=/);
+  await expect(page).toHaveURL(/sort=desc/);
+});
+
+test("a malformed supplier ID reads as not found without a retry", async ({ page }) => {
+  await mockSupplierSession(page);
+  await page.route((url) => url.pathname === "/api/v1/suppliers/not-a-uuid", (route) => route.fulfill({
+    status: 422, json: { error: { code: "VALIDATION_ERROR", message: "Supplier data is invalid", fields: [{ field: "supplier_id", message: "Input should be a valid UUID" }] } },
+  }));
+  await page.goto("/suppliers/not-a-uuid");
+  const alert = page.getByRole("alert");
+  await expect(alert.getByRole("heading", { name: "Supplier not found" })).toBeVisible();
+  await expect(alert).toContainText("This supplier may have been deactivated or is no longer available.");
+  await expect(alert).not.toContainText("Supplier data is invalid");
+  await expect(alert.getByRole("button", { name: "Try again" })).toHaveCount(0);
+});
+
 test("category failure keeps suppliers visible and retries only categories", async ({ page }) => {
   await mockSupplierSession(page);
   let categoriesDown = true;

@@ -251,7 +251,7 @@ Rules:
 - delivery_location: where to deliver, as said.
 - reward: amount is the number exactly as said. unit is CREDITS when they said credits, CURRENCY for dollars, $, bucks or cents, otherwise UNSPECIFIED.
 - acceptance_time: only when the requester says by when someone must accept or take the errand. delivery_time: by when it must be delivered. Never copy a delivery time into acceptance_time.
-- Times: day is TODAY or TOMORROW only if said. clock is a 24-hour HH:MM only if a clock time was said. relative_minutes is set for "in N minutes" or "in N hours" (hours times 60, half an hour is 30). Leave unclear parts null but keep raw.
+- Times: day is TODAY, TOMORROW or the weekday named, only if said ("tonight" is TODAY). next_week is true only when "next" comes before the weekday. date is MM-DD only if a calendar date was said ("7th of November" is 11-07). clock is HH:MM with the hour exactly as said, never converted to 24-hour: "9pm" and "9" are both 09:00; use 13 to 23 only for a time said in 24-hour form. meridiem is AM or PM only if said or plainly meant ("in the morning", "tonight"; noon is 12:00 PM); never guess it. relative_minutes is set for "in N minutes" or "in N hours" (hours times 60, half an hour is 30). Leave unclear parts null but keep raw.
 - errand_count: the number of independent errands. Several items from the same place are one errand; different pickup places or unrelated tasks are separate errands.
 - conflicts: fields for which the requester said contradictory values, with a short reason.
 ```
@@ -288,8 +288,10 @@ explicitly when something wasn't said.
 `RewardPhrase`: `raw` (exact words), `amount` (number or null), `unit`
 (`CREDITS` / `CURRENCY` / `UNSPECIFIED`).
 
-`TimePhrase`: `raw` (exact words), `day` (`TODAY` / `TOMORROW` / null), `clock`
-(`"HH:MM"` 24-hour or null), `relative_minutes` (integer or null).
+`TimePhrase`: `raw` (exact words), `day` (`TODAY` / `TOMORROW` / `MONDAY` … `SUNDAY` / null),
+`next_week` (true only for "next" before a weekday), `date` (`"MM-DD"` or null), `clock`
+(`"HH:MM"` with the hour as said, or null), `meridiem` (`AM` / `PM` / null),
+`relative_minutes` (integer or null).
 
 `FieldConflict`: `field` (one of `itemDescription`, `deliveryLocation`, `reward`,
 `acceptanceDeadline`, `deliveryDeadline`, `supplier`) and `reason`.
@@ -325,11 +327,16 @@ The schema OpenAI enforces (abridged; generated from the Pydantic model):
     },
     "TimePhrase": {
       "type": "object", "additionalProperties": false,
-      "required": ["raw", "day", "clock", "relative_minutes"],
+      "required": ["raw", "day", "next_week", "date", "clock", "meridiem", "relative_minutes"],
       "properties": {
         "raw": { "type": "string" },
-        "day": { "anyOf": [{ "enum": ["TODAY", "TOMORROW"] }, { "type": "null" }] },
+        "day": { "anyOf": [{ "enum": ["TODAY", "TOMORROW", "MONDAY", "TUESDAY", "WEDNESDAY",
+                                      "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] },
+                           { "type": "null" }] },
+        "next_week": { "type": "boolean" },
+        "date": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "clock": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "meridiem": { "anyOf": [{ "enum": ["AM", "PM"] }, { "type": "null" }] },
         "relative_minutes": { "anyOf": [{ "type": "integer" }, { "type": "null" }] }
       }
     },
@@ -356,8 +363,10 @@ The schema OpenAI enforces (abridged; generated from the Pydantic model):
   "pickup_supplier_name": "Tomoro Coffee",
   "pickup_area": null,
   "reward": { "raw": "5 credits", "amount": 5, "unit": "CREDITS" },
-  "acceptance_time": { "raw": "accept in 20 minutes", "day": null, "clock": null, "relative_minutes": 20 },
-  "delivery_time": { "raw": "deliver by 3pm today", "day": "TODAY", "clock": "15:00", "relative_minutes": null },
+  "acceptance_time": { "raw": "accept in 20 minutes", "day": null, "next_week": false, "date": null,
+                       "clock": null, "meridiem": null, "relative_minutes": 20 },
+  "delivery_time": { "raw": "deliver by 3pm today", "day": "TODAY", "next_week": false, "date": null,
+                     "clock": "03:00", "meridiem": "PM", "relative_minutes": null },
   "conflicts": []
 }
 ```
@@ -415,17 +424,24 @@ Every value is checked against the transcript before it can be filled. This is w
 The request time is taken by the server when the request arrives. All dates use Singapore's
 calendar, so "tomorrow" at 00:30 SGT means the next Singapore day, not the UTC one.
 
-| What was said | Model output | Result at 13:20 SGT |
+| What was said | Model output | Result at 13:20 SGT on Friday 30 Oct |
 | --- | --- | --- |
 | "in 20 minutes" | `relative_minutes: 20` | FILLED, 13:40 |
 | "in an hour" / "in two hours" | `relative_minutes: 60` / `120` | FILLED, 14:20 / 15:20 |
 | "half an hour" | `relative_minutes: 30` | FILLED, 13:50 |
-| "by 3pm today" | `day: TODAY, clock: 15:00` | FILLED, today 15:00 |
-| "by 3pm" | `clock: 15:00` | FILLED, today 15:00 (still ahead) |
-| "by 10am" | `clock: 10:00` | AMBIGUOUS: passed today, and no day was said |
-| "by 9am today" | `day: TODAY, clock: 09:00` | CONFLICT: already passed |
-| "tomorrow at 9am" | `day: TOMORROW, clock: 09:00` | FILLED, tomorrow 09:00 |
-| "tomorrow" | `day: TOMORROW` | AMBIGUOUS: no time |
+| "by 3pm today" | `day: TODAY, clock: 03:00, meridiem: PM` | FILLED, today 15:00 |
+| "by 3pm" | `clock: 03:00, meridiem: PM` | FILLED, today 15:00 (still ahead) |
+| "by 9" | `clock: 09:00` | FILLED, today 21:00 (9 AM has passed, so the next 9 o'clock) |
+| "by 12:30" | `clock: 12:30` | AMBIGUOUS: 00:30 and 12:30 have both passed |
+| "by 10am" | `clock: 10:00, meridiem: AM` | AMBIGUOUS: passed today, and no day was said |
+| "by 9am today" | `day: TODAY, clock: 09:00, meridiem: AM` | CONFLICT: already passed |
+| "tomorrow at 9am" | `day: TOMORROW, clock: 09:00, meridiem: AM` | FILLED, tomorrow 09:00 |
+| "tomorrow at 5" | `day: TOMORROW, clock: 05:00` | AMBIGUOUS: AM or PM not said for a later day |
+| "Monday 9am" | `day: MONDAY, clock: 09:00, meridiem: AM` | FILLED, Mon 2 Nov 09:00 (the next Monday, today included) |
+| "next Friday 3pm" | `day: FRIDAY, next_week: true, ...` | FILLED, Fri 6 Nov 15:00 (Friday of the following Monday-to-Sunday week) |
+| "7th of November 11 p.m." | `date: 11-07, clock: 11:00, meridiem: PM` | FILLED, Sat 7 Nov 23:00 |
+| "Sunday 7th of November" | `day: SUNDAY, date: 11-07, ...` | AMBIGUOUS: 7 Nov is a Saturday |
+| "tomorrow" / "Monday" | `day` only | AMBIGUOUS: no time |
 | "after lunch" | nothing usable | AMBIGUOUS |
 
 Relative times are rounded **up** to the next minute because the form only keeps minutes: at
@@ -438,8 +454,11 @@ Extra rules:
   is not used for it."*
 - If both times are filled and delivery isn't later than acceptance, **both** become
   `CONFLICT`: *"Delivery must be later than acceptance."*
-- A relative time said together with a day or clock time, or more than 7 days ahead, is
+- A relative time said together with a day, date or clock time, or more than 7 days ahead, is
   `AMBIGUOUS`.
+- A date without a year is its next occurrence; one more than 31 days ahead (for example
+  "29th of October" said on 30 October) is `AMBIGUOUS`. When a weekday and a date are both
+  said, the date decides and the weekday must agree with it.
 - Values are sent as UTC ISO strings (`2026-10-30T05:40:00Z`) with a readable `display`
   (`Today, 1:40 PM SGT`). The web client shows the value in its Singapore-time inputs instead of
   `display`.
@@ -660,7 +679,7 @@ Cost limits (all checked **before** any OpenAI call):
 | `tests/test_eval_script.py` | The evaluation's fixture set and scoring (not the model itself) | no |
 | `web-client/tests/...` | Recorder, draft application, panel states, discard, page integration, stale responses, 30 s timeout | no |
 | `web-client/tests/e2e/voice-draft.spec.ts` | Real Chromium with a fake microphone at 375 px and 1440 px, posting the errand | no |
-| `scripts/eval_drafts.py` | The real model on 21 scripted transcripts (N3NFR4.2) | yes, a few cents |
+| `scripts/eval_drafts.py` | The real model on 24 scripted transcripts (N3NFR4.2) | yes, a few cents |
 
 The evaluation sends each transcript in `tests/fixtures/eval/transcripts.json` through the real
 extraction model and the same post-processing, then checks:
@@ -668,7 +687,7 @@ extraction model and the same post-processing, then checks:
 - **Accuracy:** at least 85 percent of the fields the requester stated are filled correctly.
 - **No invention:** zero fields filled that the requester did not say.
 
-Result of the run on 2026-10-31 with `gpt-4.1-mini` (each case prints `ok`, or `FAIL` with
+Result of the run on 2026-11-02 with `gpt-4.1-mini` (each case prints `ok`, or `FAIL` with
 the wrong or invented fields):
 
 ```text
@@ -677,13 +696,13 @@ Model: gpt-4.1-mini
 ok   complete
 ok   partial-no-times
 ...
-ok   tomorrow-afternoon-clock
+ok   hour-without-am-pm-later-day
 
-Outcomes 21/21 · stated fields correct 94/94 (100%) · invented values 0
+Outcomes 24/24 · stated fields correct 110/110 (100%) · invented values 0
 N3NFR4.2 met
 ```
 
-The 94 are the fields the transcripts state; the other 26 expect `null` and must stay empty. The
+The 110 are the fields the transcripts state; the other 28 expect `null` and must stay empty. The
 set has no no-errand cases. Run the script again after changing the prompt, the model or the
 post-processing.
 

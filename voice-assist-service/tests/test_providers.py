@@ -23,7 +23,15 @@ DRAFT = {
     "pickup_area": None,
     "reward": {"raw": "5 credits", "amount": 5, "unit": "CREDITS"},
     "acceptance_time": None,
-    "delivery_time": {"raw": "by 3pm", "day": None, "clock": "15:00", "relative_minutes": None},
+    "delivery_time": {
+        "raw": "by 3pm",
+        "day": None,
+        "next_week": False,
+        "date": None,
+        "clock": "03:00",
+        "meridiem": "PM",
+        "relative_minutes": None,
+    },
     "conflicts": [],
 }
 

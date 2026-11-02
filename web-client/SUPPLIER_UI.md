@@ -10,7 +10,7 @@ Service pages.
 | `M2F1.1.1`–`M2F1.1.5` | Admin create form has required and optional fields, category choices from the API, paired coordinates/times, exact 24-hour `HH:mm`, and HTTP(S) URL validation. | Supplier Service validates again, generates ID and timestamps, and defaults status. |
 | `M2F1.1.6`–`M2F1.1.7` | The form shows API duplicate and field errors without claiming success. | Normalized uniqueness and atomic rollback belong to the database/API. |
 | `M2F1.2.1`–`M2F1.2.7` | Admin edit preloads the complete record; fields and categories can change, optional values can be cleared, status can change, and validation or load failures are displayed. ID and timestamps are read-only. | The API validates the merged row, rejects duplicates, and commits changes atomically. |
-| `M2F1.3.1`–`M2F1.3.3` | Deactivate confirmation calls the current `DELETE` contract and refreshes the record. Inactive suppliers can be reactivated. | Permanent deletion of never-referenced suppliers and the Errand Service selection guard remain pending their service contract. |
+| `M2F1.3.1`–`M2F1.3.3` | Deactivate confirmation calls `DELETE`, which only deactivates, and refreshes the record. Inactive suppliers can be reactivated. | Permanent deletion (`M2F1.3.1`) is out of scope: suppliers are always retained. Order Service rejects an inactive supplier when an errand is created. |
 | `M2F2.1.1`–`M2F2.1.4` | Normal list uses the active-only route; admin list uses the management route and includes status filtering. Both show required list fields and pagination/page-size controls when needed. | API enforces visibility and paging. The UI deliberately requests six rows per page for the layout; the API default remains 20 when omitted. |
 | `M2F2.2.1`–`M2F2.2.3` | Detail view shows complete supplier data and handles not found, load failure, and retry states. | API supplies the record and sanitized error response. |
 | `M2F3.1.1`–`M2F3.1.4` | Search automatically applies `q` for name, area, or pickup text after a short typing pause and trims whitespace. | API implements case-insensitive partial matching. |
@@ -62,6 +62,10 @@ query, and keeps the search and filters usable. When categories fail, the
 supplier list still renders and the category menu offers its own retry,
 which does not reload the list. A page size in the URL other than 6, 12, 20
 or 50 falls back to 6, so a hand-edited link cannot fail validation on every
+retry. Other unsupported filters in the link, such as an unknown category,
+return `422`; the list then explains that the filters cannot be used and
+offers **Clear filters** instead of **Try again**. On the detail page, a
+malformed supplier ID (`422`) shows "Supplier not found" like a `404`, with no
 retry. Responses that arrive after the query has changed are ignored.
 
 ## Milestone D2 point 5
