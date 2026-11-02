@@ -123,6 +123,35 @@ def test_normal_list_search_filter_sort_and_page(sample_suppliers):
     assert invalid_category.value.status_code == 422
 
 
+def test_search_is_literal_and_ties_follow_sort_direction(sample_suppliers):
+    repository, marker, *_ = sample_suppliers
+    created = []
+    try:
+        for area in ("East", "West"):
+            created.append(
+                repository.create(
+                    SupplierCreate(
+                        name=f"Twin\\{marker}",
+                        categories=["FOOD"],
+                        building_area=area,
+                        pickup_location_description="Twin pickup",
+                    )
+                ).id
+            )
+        twin_ids = sorted(created)
+
+        ascending = repository.list_active_suppliers(_filters(f"twin\\{marker}"))
+        assert [item.id for item in ascending.items] == twin_ids
+        descending = repository.list_active_suppliers(_filters(f"Twin\\{marker}", sort="desc"))
+        assert [item.id for item in descending.items] == twin_ids[::-1]
+        assert repository.list_active_suppliers(_filters(f"Twin{marker}")).total == 0
+    finally:
+        with psycopg.connect(repository.database_url) as conn, conn.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM supplier_service.suppliers WHERE id = ANY(%s)", (created,)
+            )
+
+
 def test_active_detail_hides_inactive_and_missing_suppliers(sample_suppliers):
     repository, _marker, first, _second, _third, inactive = sample_suppliers
     detail = repository.get_active_supplier(first.id)

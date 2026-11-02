@@ -72,6 +72,12 @@ on either list route. The normal list never accepts a status override. Read
 current status from the database so deactivation disappears from normal
 listings within the backlog's five-second limit.
 
+`supabase/migrations/20261102000100_supplier_list_indexes.sql` indexes
+`(lower(name), id)` for the sort (plus a partial `ACTIVE`-only copy for the
+normal list) and adds `pg_trgm` GIN indexes on the three searched columns. The
+query therefore searches with escaped `ILIKE '%term%'`, and the `id`
+tie-breaker follows the name sort direction so one index serves both orders.
+
 List response shape:
 
 ```json

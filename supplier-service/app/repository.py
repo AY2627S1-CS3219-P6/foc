@@ -54,6 +54,10 @@ def _check_categories(
         )
 
 
+def _escape_like(term: str) -> str:
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _response(row: dict, categories: list[str]) -> SupplierResponse:
     result = dict(row)
     result["categories"] = categories
@@ -117,14 +121,16 @@ class SupplierRepository:
                     parameters.append(status)
                 term = filters.q.strip() if filters.q else ""
                 if term:
+                    # ILIKE lets the trigram indexes serve the search; escape
+                    # LIKE wildcards so the term stays a literal substring.
+                    pattern = "%" + _escape_like(term) + "%"
                     clauses.append(
                         sql.SQL(
-                            "(strpos(lower(s.name), lower(%s)) > 0 OR "
-                            "strpos(lower(s.building_area), lower(%s)) > 0 OR "
-                            "strpos(lower(s.pickup_location_description), lower(%s)) > 0)"
+                            "(s.name ILIKE %s OR s.building_area ILIKE %s OR "
+                            "s.pickup_location_description ILIKE %s)"
                         )
                     )
-                    parameters.extend((term, term, term))
+                    parameters.extend((pattern, pattern, pattern))
                 if filters.categories:
                     _check_categories(cursor, filters.categories, field="category")
                     clauses.append(
@@ -142,6 +148,8 @@ class SupplierRepository:
                     parameters,
                 )
                 total = cursor.fetchone()["total"]
+                # The id tie-breaker follows the name direction so one
+                # (lower(name), id) index serves both sort orders.
                 direction = sql.SQL("ASC" if filters.sort == "asc" else "DESC")
                 cursor.execute(
                     sql.SQL(
@@ -151,8 +159,8 @@ class SupplierRepository:
                         "FROM supplier_service.supplier_categories sc "
                         "WHERE sc.supplier_id = s.id ORDER BY sc.category_code) AS categories "
                         "FROM supplier_service.suppliers s WHERE {} "
-                        "ORDER BY lower(s.name) {}, s.id ASC LIMIT %s OFFSET %s"
-                    ).format(where_sql, direction),
+                        "ORDER BY lower(s.name) {}, s.id {} LIMIT %s OFFSET %s"
+                    ).format(where_sql, direction, direction),
                     (*parameters, filters.page_size, (filters.page - 1) * filters.page_size),
                 )
                 rows = cursor.fetchall()
