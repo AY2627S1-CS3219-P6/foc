@@ -678,3 +678,8 @@ For service-specific APIs, development commands and test requirements, see
 [Order](order-service/README.md), [Credit](credit-service/README.md) and
 [Chat](chat-service/README.md).
 The root instructions above describe the combined real-service Docker workflow.
+
+For the separate AWS course sandbox, see [the EC2 foundation runbook](deploy/aws/README.md).
+It uses its own Compose project, cloud-only secrets, six separately owned Supabase
+PostgreSQL databases and initially private access. Public HTTPS and automated cloud
+releases are separate rollout steps; the local setup above is unchanged.
