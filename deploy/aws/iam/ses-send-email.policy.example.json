@@ -1,0 +1,16 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SendFoCVerificationEmail",
+      "Effect": "Allow",
+      "Action": "ses:SendEmail",
+      "Resource": "arn:aws:ses:ap-southeast-1:REPLACE_ACCOUNT_ID:identity/REPLACE_VERIFIED_SENDER",
+      "Condition": {
+        "StringEquals": {
+          "ses:FromAddress": "REPLACE_VERIFIED_SENDER"
+        }
+      }
+    }
+  ]
+}

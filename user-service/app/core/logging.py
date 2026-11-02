@@ -110,7 +110,9 @@ def configure_logging(level: str) -> None:
 
     # AMQP client log messages can include connection URLs. Outbox failures are
     # already recorded through this service's redacted structured logger.
-    for dependency_logger_name in ("aio_pika", "aiormq"):
+    # SDK debug output can contain request bodies/Authorization headers, including
+    # verification codes. Record provider failures only through our safe logger.
+    for dependency_logger_name in ("aio_pika", "aiormq", "boto3", "botocore"):
         logging.getLogger(dependency_logger_name).setLevel(logging.CRITICAL)
     logger = logging.getLogger("user_service")
     logger.handlers.clear()

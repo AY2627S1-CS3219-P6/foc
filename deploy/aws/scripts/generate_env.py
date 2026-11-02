@@ -68,7 +68,13 @@ def generate(root: Path, origin: str, uid: int, gid: int, key_generator=generate
         "RABBITMQ_PASSWORD",
     ):
         values[key] = secrets.token_hex(32)
-    values.update(RABBITMQ_USER="foc_cloud", OPENAI_API_KEY="")
+    values.update(
+        RABBITMQ_USER="foc_cloud",
+        OPENAI_API_KEY="",
+        OTP_EMAIL_PROVIDER="smtp",
+        SES_REGION="ap-southeast-1",
+        SES_FROM_ADDRESS="",
+    )
     # Stage the entire key set before exposing an environment file that references it.
     with tempfile.TemporaryDirectory(prefix=".provision-", dir=root) as temporary:
         staging = Path(temporary)

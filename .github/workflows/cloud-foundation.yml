@@ -33,6 +33,7 @@ jobs:
           CLOUD_COMPOSE_SMOKE: "1"
         run: |
           python -m unittest discover -s deploy/aws/tests -p test_public_https.py -v
+          python -m unittest discover -s deploy/aws/tests -p test_email_configuration.py -v
           python deploy/aws/scripts/public_https.py distribution --origin-domain ec2-54-179-16-136.ap-southeast-1.compute.amazonaws.com
           python deploy/aws/scripts/public_https.py set-origin --origin https://dexample.cloudfront.net
           python deploy/aws/scripts/validate.py --public

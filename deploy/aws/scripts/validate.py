@@ -57,6 +57,15 @@ def validate(config: dict, *, public: bool = False) -> None:
     user = services["user-service"]["environment"]
     if user["ENVIRONMENT"] != "production":
         raise ValueError("User must retain production secure-cookie behavior.")
+    email_provider = user.get("OTP_EMAIL_PROVIDER", "smtp")
+    if email_provider not in {"smtp", "ses"}:
+        raise ValueError("Select SMTP/Mailpit or SES explicitly for verification email.")
+    if email_provider == "ses" and (not user.get("SES_REGION") or not user.get("SES_FROM_ADDRESS")):
+        raise ValueError("SES verification email requires a region and verified sender address.")
+    if any(
+        key in user for key in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN")
+    ):
+        raise ValueError("Use the EC2 instance role for SES, not application AWS access keys.")
     for name, (port, _, _) in DATABASES.items():
         environment = services[f"{name}-service"]["environment"]
         key = "SUPPLIER_DATABASE_URL" if name == "supplier" else "DATABASE_URL"

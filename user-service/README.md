@@ -13,6 +13,12 @@ verifies normal access tokens locally and asks User Service for a current,
 fail-closed supplier-management decision immediately before an administrative
 operation.
 
+Verification email defaults to SMTP/Mailpit for development. Optional AWS SES
+delivery uses the existing sender boundary and an EC2 role, without storing AWS
+access keys. See [SES setup and development compatibility](docs/SES_EMAIL.md)
+before enabling it; sandbox recipients, sender verification and IAM permissions
+are separate from code deployment.
+
 Chat Service uses the dedicated, private [chat identity interfaces](docs/chat-integration-contract.md)
 for caller-authorized partial username search and current participant lookup. Configure
 `CHAT_SERVICE_SHARED_SECRET` separately from Supplier Service's secret. The participant
