@@ -25,6 +25,10 @@ x-user-env: &user-env
   SMTP_HOST: mailpit
   SMTP_PORT: "1025"
   SMTP_FROM: no-reply@foc.local
+  # Existing cloud environments remain on Mailpit until SES is deliberately enabled.
+  OTP_EMAIL_PROVIDER: ${OTP_EMAIL_PROVIDER:-smtp}
+  SES_REGION: ${SES_REGION:-ap-southeast-1}
+  SES_FROM_ADDRESS: ${SES_FROM_ADDRESS:-}
 
 x-order-env: &order-env
   ENVIRONMENT: production

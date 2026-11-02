@@ -103,15 +103,9 @@ class PublicConfigurationTests(unittest.TestCase):
             self.assertEqual((root / ".env").stat().st_mode & 0o777, 0o600)
 
 
-@unittest.skipUnless(
-    os.environ.get("CLOUD_COMPOSE_SMOKE") == "1", "real Docker Compose config parser"
-)
-class ComposeIngressTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.temporary = tempfile.TemporaryDirectory()
-        cls.addClassCleanup(cls.temporary.cleanup)
-        root = Path(cls.temporary.name)
+def render_compose_configs():
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
         generate(root, "https://dexample.cloudfront.net", 1001, 1001, test_keys)
         command = [
             "docker",
@@ -121,7 +115,7 @@ class ComposeIngressTests(unittest.TestCase):
             "-f",
             str(ROOT / "compose.yaml"),
         ]
-        cls.configs = {}
+        configs = {}
         for mode in ("private", "public"):
             files = ["-f", str(ROOT / "compose.public.yaml")] if mode == "public" else []
             result = subprocess.run(
@@ -132,7 +126,17 @@ class ComposeIngressTests(unittest.TestCase):
             )
             if result.returncode:
                 raise RuntimeError("Disposable Compose parsing failed; resolved output suppressed.")
-            cls.configs[mode] = json.loads(result.stdout)
+            configs[mode] = json.loads(result.stdout)
+        return configs
+
+
+@unittest.skipUnless(
+    os.environ.get("CLOUD_COMPOSE_SMOKE") == "1", "real Docker Compose config parser"
+)
+class ComposeIngressTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.configs = render_compose_configs()
 
     def test_both_modes_render_and_require_explicit_public_selection(self):
         validate(self.configs["private"])

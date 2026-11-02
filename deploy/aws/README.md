@@ -205,6 +205,12 @@ an appropriate server-side key in the ignored environment. No fake provider or
 successful fake Credit fallback is enabled. Begin with one Voice process because
 its existing rate limiter is process-local.
 
+Cloud verification email continues to use private Mailpit by default. Optional
+[SES email setup](../../user-service/docs/SES_EMAIL.md) uses a verified sender and
+scoped EC2 role, with an explicit configuration switch; deploying the new image
+does not automatically enable SES. Real public registration requires appropriate
+recipient/sandbox or production access, not a publicly accessible Mailpit inbox.
+
 ## 5. Bootstrap a cloud Super Admin privately
 
 In the Bash terminal, collect credentials without adding the password to shell

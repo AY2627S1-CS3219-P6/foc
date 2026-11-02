@@ -28,7 +28,7 @@ from app.core.correlation import (
 from app.core.logging import configure_logging, logger
 from app.core.timing import RequestTimingMiddleware
 from app.db import Database, DatabaseUnavailableError
-from app.registration.mailer import OtpSender, SmtpOtpSender
+from app.registration.mailer import OtpSender, create_otp_sender
 from app.registration.service import RegistrationService
 
 
@@ -67,7 +67,7 @@ def create_app(
     service_database = database or Database(service_settings.database_url)
     registration_service = RegistrationService(
         service_settings,
-        otp_sender or SmtpOtpSender(service_settings),
+        otp_sender if otp_sender is not None else create_otp_sender(service_settings),
     )
     service_authentication = authentication_service or AuthenticationService(service_settings)
 

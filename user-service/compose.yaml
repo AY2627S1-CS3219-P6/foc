@@ -18,6 +18,7 @@ services:
       DATABASE_URL: ${DATABASE_URL_DOCKER:-}
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
+      OTP_EMAIL_PROVIDER: smtp
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-foc_user_service}:${RABBITMQ_PASSWORD:-foc-local-rabbitmq}@rabbitmq:5672/
     volumes:
       - ./secrets/development:/app/secrets/development:ro
