@@ -46,12 +46,14 @@ export function SupplierDetailPage({ admin = false }: { admin?: boolean }) {
   }, [admin, supplierId, reload, withCurrentAccess]);
 
   const listPath = admin ? "/admin/suppliers" : "/suppliers";
+  // A malformed ID in the URL fails validation (422); retrying cannot find it either.
+  const notFound = error?.status === 404 || error?.status === 422;
   const categorySummary = supplier?.categories.map((code) => categoryNames[code] ?? readableCategory(code)).join(" / ") ?? "";
   return <SupplierShell>
     <Link className="supplier-back-link" to={listPath}>← All suppliers</Link>
     {notice ? <p className="supplier-notice" role="status">{notice}</p> : null}
     {loading ? <p className="supplier-state" role="status">Loading supplier…</p> : null}
-    {error ? <section className="supplier-state supplier-state-error" role="alert"><h1>{error.status === 404 ? "Supplier not found" : "Supplier could not load"}</h1><p>{error.status === 404 ? "This supplier may have been removed or is no longer available." : error.message}</p>{error.status !== 404 ? <button className="supplier-apply-button" onClick={() => setReload((value) => value + 1)} type="button">Try again</button> : null}</section> : null}
+    {error ? <section className="supplier-state supplier-state-error" role="alert"><h1>{notFound ? "Supplier not found" : "Supplier could not load"}</h1><p>{notFound ? "This supplier may have been deactivated or is no longer available." : error.message}</p>{!notFound ? <button className="supplier-apply-button" onClick={() => setReload((value) => value + 1)} type="button">Try again</button> : null}</section> : null}
     {!loading && supplier ? <>
       <div className="supplier-page-heading supplier-detail-heading"><div><h1>{supplier.name}</h1><p>{supplier.building_area}{supplier.floor ? ` · Floor ${supplier.floor}` : ""} · {categorySummary}</p></div><span className={`supplier-status ${supplier.status.toLowerCase()}`}>{supplier.status === "ACTIVE" ? "Active" : "Inactive"}</span></div>
       {admin ? <div className="supplier-detail-actions"><Link className="supplier-primary-action" to={`/admin/suppliers/${supplier.id}/edit`}>Edit supplier</Link><SupplierStatusActions id={supplier.id} name={supplier.name} onChanged={(message) => { setNotice(message); setReload((value) => value + 1); }} status={supplier.status} /></div> : null}
