@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20
+# Scope: Implemented the local Supabase-backed test runner.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Run pytest against the running local Supabase PostgreSQL instance.
 
 The helper reads the CLI's DB_URL in memory and never writes or prints it.

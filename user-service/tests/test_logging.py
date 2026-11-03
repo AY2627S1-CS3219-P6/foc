@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20
+# Scope: Added or extended tests for structured logging and secret redaction.
+# Author review: I validated correctness and added boundary checks where needed.
+
 import json
 import logging
 

@@ -1,3 +1,10 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20, 2026-09-21
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-08
+# Scope: Generated Python package and test settings, CLI entry points, and pytest import
+# configuration.
+# Author review: I validated correctness and added boundary checks where needed.
+
 [build-system]
 requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"

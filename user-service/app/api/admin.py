@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-21, 2026-09-24
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-07
+# Scope: Implemented administrator operations, lookup, and active administrator list handlers.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Super Admin-only system-role lifecycle endpoints."""
 
 # ruff: noqa: B008

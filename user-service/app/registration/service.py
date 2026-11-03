@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20, 2026-09-21, 2026-09-22
+# Scope: Implemented verified registration and updated account creation and event persistence.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Verified-account creation with bounded pending registrations."""
 
 from __future__ import annotations

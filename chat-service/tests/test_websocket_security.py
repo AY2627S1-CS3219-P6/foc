@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+# Scope: Added or extended tests for WebSocket origin, authentication, and participant checks.
+# Author review: I validated correctness and added boundary checks where needed.
+
 import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect

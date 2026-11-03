@@ -1,3 +1,10 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20, 2026-09-21
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-10
+# Scope: Implemented service settings for startup, registration, sessions, role guards,
+# publishing, and Chat.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Typed, local-file-aware service configuration."""
 
 from __future__ import annotations

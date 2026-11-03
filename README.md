@@ -683,3 +683,21 @@ For the separate AWS course sandbox, see [the EC2 foundation runbook](deploy/aws
 It uses its own Compose project, cloud-only secrets, six separately owned Supabase
 PostgreSQL databases and initially private access. Public HTTPS and automated cloud
 releases are separate rollout steps; the local setup above is unchanged.
+
+## AI Use Summary
+
+**Scope** covers Feng1231’s implementation work in `user-service/` and `chat-service/`.
+
+**Tools** include ChatGPT through Codex (`gpt-5.6-terra` and `gpt-6.1-sol`) and GitHub Copilot for the User Service bootstrap pull request review.
+
+The course policy gives this example wording for a project-wide disclosure:
+
+> Prohibited phases avoided: requirements elicitation; architecture/design decisions.
+
+This implementation record covers the two services and is separate from a project-wide compliance attestation.
+
+- **User Service** used AI to implement and debug service startup, registration, sessions, profiles, administrator operations, event publishing, and Chat identity lookups.
+- **Chat Service** used AI to implement and debug service startup, identity checks, private conversations, messaging, live delivery, unread state, and recovery.
+- **Verification** included author review, boundary checks, and existing unit, integration, and smoke tests as recorded in the implementation history.
+
+The [AI usage log](ai/usage-log.md) records the prompts, key responses, and affected files in chronological order.

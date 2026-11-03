@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-24
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-07
+# Scope: Implemented account lookup and the active administrator list.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Safe exact-identity lookup for authorised User Service administrators."""
 
 from __future__ import annotations

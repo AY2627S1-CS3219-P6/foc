@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-10, 2026-10-11
+# Scope: Added or extended tests for multi-process delivery, unread updates, and reconnect
+# recovery.
+# Author review: I validated correctness and added boundary checks where needed.
+
 import asyncio
 import contextlib
 import json

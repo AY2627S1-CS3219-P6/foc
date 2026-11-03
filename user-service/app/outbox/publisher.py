@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-21
+# Scope: Implemented RabbitMQ publication with confirms, leases, and retries.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """RabbitMQ publisher for the deliberately minimal User Service event contract."""
 
 from __future__ import annotations

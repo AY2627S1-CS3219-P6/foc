@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20
+# Scope: Implemented structured API error responses.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Safe application errors shared by User Service route handlers."""
 
 from __future__ import annotations

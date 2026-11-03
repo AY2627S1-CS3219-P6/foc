@@ -1,3 +1,10 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20, 2026-09-21
+# Tool: GitHub Copilot, date: 2026-09-20
+# Scope: Implemented structured logs, secret redaction, and logging updates for event
+# publishing.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """JSON logging that prevents structured context from exposing credentials."""
 
 from __future__ import annotations

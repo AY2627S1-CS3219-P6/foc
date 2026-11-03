@@ -1,3 +1,8 @@
+-- AI Assistance Disclosure:
+-- Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20
+-- Scope: Wrote the migration for authentication sessions and refresh token persistence.
+-- Author review: I validated correctness and added boundary checks where needed.
+
 -- Phase 2 adds server-revocable refresh-token sessions. Raw refresh tokens
 -- never enter this table; only a SHA-256 digest of a high-entropy opaque token
 -- is retained.

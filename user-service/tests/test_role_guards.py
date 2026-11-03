@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-21
+# Scope: Added or extended tests for system-role guards.
+# Author review: I validated correctness and added boundary checks where needed.
+
 from __future__ import annotations
 
 from app.auth.dependencies import has_minimum_role

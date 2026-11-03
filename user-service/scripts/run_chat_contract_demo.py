@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+# Scope: Implemented the local Chat identity contract demonstration.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Demonstrate real HTTP contracts with disposable accounts and in-memory RSA keys."""
 
 from __future__ import annotations

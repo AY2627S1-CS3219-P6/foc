@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+# Scope: Implemented live checks against the User Service integration.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Production HTTP-client smoke against User Service's owner-provisioned disposable demo.
 
 Read credentials in memory only. Never provision/reset User Service data or copy signing keys.

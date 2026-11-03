@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11, 2026-10-13, 2026-10-21
+# Scope: Implemented local Chat API and publisher startup and corrected the host port mapping.
+# Author review: I validated correctness and added boundary checks where needed.
+
 # Standalone service-local launcher. Use the root chat profile for unified startup.
 name: foc-chat-dev
 services:

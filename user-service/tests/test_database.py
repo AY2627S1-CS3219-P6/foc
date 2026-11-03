@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20
+# Scope: Added coverage for PostgreSQL URL normalization and asyncpg TLS options.
+# Author review: I validated correctness and added boundary checks where needed.
+
 from unittest.mock import patch
 
 from app.db import Database, async_database_url

@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-21
+# Scope: Implemented Supplier authorization decision handling.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Narrow current-authorization contract for Supplier Service."""
 
 # ruff: noqa: B008

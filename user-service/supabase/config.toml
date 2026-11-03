@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-19
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-08
+# Scope: Prepared the local Supabase configuration and corrected conflicting ports.
+# Author review: I validated correctness and added boundary checks where needed.
+
 # For detailed configuration reference documentation, visit:
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the

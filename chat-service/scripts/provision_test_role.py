@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+# Scope: Implemented local Chat test database role provisioning.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Provision only the disposable loopback Chat Service test login after a clean reset."""
 
 import json

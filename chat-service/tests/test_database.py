@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+# Scope: Added tests for database readiness, transactional behavior, and runtime grants.
+# Author review: I validated correctness and added boundary checks where needed.
+
 from uuid import uuid4
 
 import pytest

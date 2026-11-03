@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-07
+# Scope: Added or extended tests for filtering the D2 demo’s captured event.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """The demo must identify its registration even when bootstrap publishes first."""
 
 from __future__ import annotations

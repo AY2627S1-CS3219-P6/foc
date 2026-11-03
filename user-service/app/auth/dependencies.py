@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20, 2026-09-21, 2026-09-24
+# Scope: Implemented session, account-status, and role guards.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """FastAPI dependencies that turn a Bearer header into a checked principal."""
 
 # ruff: noqa: B008

@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20
+# Scope: Implemented request correlation ID propagation.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Request correlation identifiers used by API responses and service logs."""
 
 from __future__ import annotations

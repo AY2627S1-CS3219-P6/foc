@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20
+# Scope: Implemented authentication, refresh rotation, reuse detection, and session expiry.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Credential checks, refresh-token rotation, and current-session validation."""
 
 from __future__ import annotations
