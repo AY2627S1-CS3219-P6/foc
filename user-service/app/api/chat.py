@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-10, 2026-10-11
+# Scope: Implemented Chat service identity checks and internal lookup handlers.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Dedicated, private User Service contracts for Chat Service."""
 
 # ruff: noqa: B008

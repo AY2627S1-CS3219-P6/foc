@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-10
+# Scope: Added or extended tests for startup and configuration.
+# Author review: I validated correctness and added boundary checks where needed.
+
 import httpx
 import pytest
 

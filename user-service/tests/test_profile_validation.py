@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20, 2026-09-22, 2026-09-24
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-07
+# Scope: Added or extended tests for profile update and deletion input validation.
+# Author review: I validated correctness and added boundary checks where needed.
+
 from __future__ import annotations
 
 import pytest

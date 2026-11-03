@@ -1,3 +1,8 @@
+-- AI Assistance Disclosure:
+-- Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-21
+-- Scope: Wrote the migration for registration outbox tables and indexes.
+-- Author review: I validated correctness and added boundary checks where needed.
+
 -- Phase 6 stores a minimal registration event in the same transaction as the
 -- verified identity. The event record has no credentials or profile fields;
 -- the publisher derives exactly the four public contract fields from it.

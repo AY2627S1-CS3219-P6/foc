@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-10, 2026-10-11
+# Scope: Generated the Chat Service container build and startup configuration.
+# Author review: I validated correctness and added boundary checks where needed.
+
 FROM python:3.13-slim
 WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./

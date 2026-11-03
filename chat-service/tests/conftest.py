@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-10, 2026-10-13
+# Scope: Implemented test fixtures for service identity, database access, and upstream errors.
+# Author review: I validated correctness and added boundary checks where needed.
+
 import os
 import time
 from uuid import uuid4

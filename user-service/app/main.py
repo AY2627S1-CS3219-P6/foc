@@ -1,3 +1,11 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20, 2026-09-21
+# Tool: GitHub Copilot, date: 2026-09-20
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-10
+# Scope: Implemented startup, health checks, error handling, and API registration for account
+# and Chat operations.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """FastAPI application factory and operations endpoints."""
 
 from __future__ import annotations

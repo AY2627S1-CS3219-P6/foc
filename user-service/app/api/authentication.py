@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20
+# Scope: Implemented login, refresh, logout, and JWKS handlers.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Session endpoints and public JWKS publication for Phase 2."""
 
 # ruff: noqa: B008

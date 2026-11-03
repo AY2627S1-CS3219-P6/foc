@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+# Scope: Implemented the isolated Chat identity regression runner.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Run tests on a dedicated local Supabase project; never use the linked database."""
 
 from __future__ import annotations

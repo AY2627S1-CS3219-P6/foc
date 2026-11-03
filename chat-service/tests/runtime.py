@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-10
+# Scope: Implemented local runtime helpers for broker and multi-process tests.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Loopback-only contract fixture for multi-process tests. Never shipped in the image."""
 
 from uuid import UUID

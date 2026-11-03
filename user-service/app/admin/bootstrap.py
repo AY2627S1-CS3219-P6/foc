@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-21
+# Scope: Implemented the local Super Admin bootstrap command.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """One-shot command for creating the first verified Super Admin.
 
 Run ``bootstrap-super-admin`` only with explicit local secret-file settings.

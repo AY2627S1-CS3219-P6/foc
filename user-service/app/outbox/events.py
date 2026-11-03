@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-21
+# Scope: Implemented registration event creation and serialization.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """The public, credential-free registration-event contract."""
 
 from __future__ import annotations

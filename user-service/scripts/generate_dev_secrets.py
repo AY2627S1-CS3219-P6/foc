@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-19, 2026-09-20, 2026-09-21
+# Tool: GitHub Copilot, date: 2026-09-20
+# Scope: Generated local credentials and signing keys and updated the configuration writer.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Generate non-production User Service secrets without printing them.
 
 Run from user-service after `npx supabase start`:

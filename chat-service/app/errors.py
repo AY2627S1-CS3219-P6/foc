@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-10
+# Scope: Implemented structured errors for Chat startup and request handling.
+# Author review: I validated correctness and added boundary checks where needed.
+
 from dataclasses import dataclass
 
 

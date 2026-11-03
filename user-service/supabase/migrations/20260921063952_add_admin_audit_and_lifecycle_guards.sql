@@ -1,3 +1,8 @@
+-- AI Assistance Disclosure:
+-- Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-21
+-- Scope: Wrote the migration for administrator audit records and lifecycle guards.
+-- Author review: I validated correctness and added boundary checks where needed.
+
 -- Phase 5 adds the immutable administrator-lifecycle evidence store. The
 -- application role can read and append records but cannot alter history.
 

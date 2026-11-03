@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-21
+# Scope: Implemented the D2 timing measurement helper.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Measure local p95 registration, login, profile-read, and profile-write timings.
 
 Run against the local D2 stack. Supply a verified timing account through the

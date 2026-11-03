@@ -1,3 +1,8 @@
+-- AI Assistance Disclosure:
+-- Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-07
+-- Scope: Wrote the migration for removing the suspended account status.
+-- Author review: I validated correctness and added boundary checks where needed.
+
 -- Account status supports active identities and terminal deleted tombstones.
 -- Refuse unexpected legacy data instead of reactivating or deleting accounts.
 

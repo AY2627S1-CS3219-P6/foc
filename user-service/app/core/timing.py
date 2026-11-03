@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-21
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-10
+# Scope: Implemented operation timings for registration, event publishing, and Chat lookup.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Safe request-duration instrumentation used by the D2 timing evidence."""
 
 from __future__ import annotations

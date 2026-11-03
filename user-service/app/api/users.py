@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20, 2026-09-21, 2026-09-22, 2026-09-24
+# Scope: Implemented authenticated profile handlers, password changes, and role checks.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Self-owned User Service identity endpoints."""
 
 # ruff: noqa: B008

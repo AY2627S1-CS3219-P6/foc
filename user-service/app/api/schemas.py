@@ -1,3 +1,10 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20, 2026-09-21, 2026-09-22, 2026-09-24
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-07
+# Scope: Implemented and updated validation for registration, sessions, profiles,
+# authorization, and admin operations.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Strict public DTOs for registration, authentication, and self profiles."""
 
 from __future__ import annotations

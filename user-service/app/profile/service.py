@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20, 2026-09-21, 2026-09-22, 2026-09-24
+# Scope: Implemented profile editing, deletion and tombstones, and password updates.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Transactional mutations for the authenticated caller's own profile."""
 
 from __future__ import annotations

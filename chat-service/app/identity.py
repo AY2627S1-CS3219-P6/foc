@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-10, 2026-10-11, 2026-10-13
+# Scope: Implemented identity and session checks and corrected upstream error mapping.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Public-key verification plus authoritative current-session/status HTTP checks."""
 
 import asyncio

@@ -1,3 +1,10 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20, 2026-09-21, 2026-09-22
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-07
+# Scope: Implemented User Service persistence mappings and updated account, session, audit, and
+# outbox fields.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Runtime SQLAlchemy models for the committed Supabase schema.
 
 The models support queries and transactions only. Schema changes belong solely

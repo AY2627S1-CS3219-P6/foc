@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-10
+# Scope: Implemented Chat request and response validation.
+# Author review: I validated correctness and added boundary checks where needed.
+
 from typing import Literal
 from uuid import UUID
 

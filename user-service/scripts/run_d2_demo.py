@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-21, 2026-09-22, 2026-09-30
+# Scope: Implemented the registration and event demo and updated its profile and bootstrap
+# checks.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Run the local D2 User Service demonstration without printing secrets.
 
 Start Supabase and ``docker compose up --build`` first. Configure the initial

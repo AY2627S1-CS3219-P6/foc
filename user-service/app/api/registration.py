@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20
+# Scope: Implemented registration, resend, and verification handlers.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Public registration and email-verification routes."""
 
 # ruff: noqa: B008

@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-10, 2026-10-11
+# Scope: Added or extended tests for caller-scoped username search.
+# Author review: I validated correctness and added boundary checks where needed.
+
 from __future__ import annotations
 
 import base64

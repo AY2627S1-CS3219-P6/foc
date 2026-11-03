@@ -1,3 +1,8 @@
+-- AI Assistance Disclosure:
+-- Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20
+-- Scope: Wrote the migration for registration tables and constraints.
+-- Author review: I validated correctness and added boundary checks where needed.
+
 -- Phase 1 owns only pending registration, verified identity, and credentials.
 -- FastAPI applies this schema through the Supabase migration workflow; it never
 -- creates schema objects at startup.

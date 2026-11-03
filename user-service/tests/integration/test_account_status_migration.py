@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-07
+# Scope: Added or extended tests for account status migration behavior.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Exercise canonical migrations in temporary databases, never the configured schema."""
 
 from __future__ import annotations

@@ -1,3 +1,8 @@
+-- AI Assistance Disclosure:
+-- Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+-- Scope: Wrote the migration for restricting Chat runtime role update grants.
+-- Author review: I validated correctness and added boundary checks where needed.
+
 -- Runtime writes only the mutable counters/worker state it actually owns.
 -- Accepted message content, identities, pair keys and outbox payloads are immutable to runtime.
 REVOKE UPDATE ON chat_service.messages FROM chat_runtime;
