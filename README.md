@@ -14,7 +14,7 @@ withdrawn, or exchanged for money, and only circulate within the platform.
 
 | Name | Role |
 | ----- | ----- |
-| Your Name | Your ownership |
+| Chen Feng | User & Chat Service |
 | Your Name | Your ownership |
 | Your Name | Your ownership |
 | Your Name | Your ownership |
