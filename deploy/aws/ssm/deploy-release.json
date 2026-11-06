@@ -10,7 +10,9 @@
     "Manifest": {
       "type": "String",
       "default": "e30=",
-      "allowedPattern": "^[A-Za-z0-9+/=]{4,60000}$",
+      "allowedPattern": "^[A-Za-z0-9+/=]+$",
+      "minChars": 4,
+      "maxChars": 60000,
       "interpolationType": "ENV_VAR"
     }
   },

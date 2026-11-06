@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -237,6 +238,30 @@ class DeploymentRecoveryTests(unittest.TestCase):
 
 
 class SourceAndPermissionTests(unittest.TestCase):
+    def test_ssm_manifest_uses_parameter_length_limits_and_safe_alphabet(self):
+        document = json.loads(
+            (REPOSITORY / "deploy/aws/ssm/deploy-release.json").read_text(encoding="utf-8")
+        )
+        parameter = document["parameters"]["Manifest"]
+        self.assertEqual(parameter["minChars"], 4)
+        self.assertEqual(parameter["maxChars"], 60000)
+        self.assertEqual(parameter["interpolationType"], "ENV_VAR")
+        pattern = parameter["allowedPattern"]
+        # SSM Agent's Go regex rejects counted repetitions above 1000.
+        for count in re.findall(r"\d+", pattern):
+            self.assertLessEqual(int(count), 1000)
+
+        def accepted(value):
+            return (
+                parameter["minChars"] <= len(value) <= parameter["maxChars"]
+                and re.fullmatch(pattern, value) is not None
+            )
+
+        for value in (parameter["default"], "A" * 60000, "aB09+/=="):
+            self.assertTrue(accepted(value))
+        for value in ("", "AAA", "A" * 60001, "AAAA\n", "$(id)", 'AAA"'):
+            self.assertFalse(accepted(value))
+
     def test_database_timeout_does_not_expose_operator_password(self):
         password = "private-operator-password"
         timeout = subprocess.TimeoutExpired(
