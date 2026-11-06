@@ -150,9 +150,9 @@ A failure before deliveryDeadline never becomes overdue afterward.
 
 ## Unilateral participant failure
 
-The user approved this strategy under the supplied mentor guidance on 2026-10-11.
-It revises original M3F8's mutual confirm/reject flow: either the requester or
-assigned courier can mark ACCEPTED/PICKED_UP as FAILED without second-party approval.
+Either the requester or assigned courier can mark ACCEPTED/PICKED_UP as FAILED
+without second-party approval, allowing an unfulfillable errand to close without
+admin intervention.
 There is no failure from OPEN, DELIVERED or any terminal state, no admin bypass,
 automatic penalty or fault determination. Physical return/compensation and
 post-delivery complaints are outside this implementation.
@@ -292,8 +292,8 @@ nullable `orderId`, plus Location and Retry-After headers. It means no successfu
 OPEN result is being claimed. Poll the status URL, then resend the **same POST
 body and key** when `retryCreation=true`. The user's current session and Supplier
 eligibility are rechecked. SUCCEEDED exposes the order ID; ABORTED is a final
-failed attempt. A new attempt after ABORTED needs a new key. There is no operation
-cleanup in this slice, so used keys remain reserved to their original request.
+failed attempt. A new attempt after ABORTED needs a new key. Operation records
+are retained, so used keys remain bound to their original request.
 
 ## Storage and recovery
 
@@ -345,18 +345,16 @@ an existing reservation is insufficient: a delayed reserve could arrive afterwar
 This creation-abort operation compensates an unpublished attempt; it is
 not cancellation of an OPEN Order and does not fabricate a lifecycle event.
 
-## Verification and remaining work
+## Verification coverage
 
 Unit/API tests cover validation, current identity, privacy/admin checks, replay,
 timeout/deadline recovery and dependency contracts with explicit doubles. Real
 PostgreSQL tests exercise competing requests, leases, transaction rollback,
 lost commit acknowledgments, grants and queries in a disposable database.
 
-These advance M3F1-M3F7 (including pickup/delivery/completion/overdue), and related
-security/retry invariants. M3F8 is implemented under the approved unilateral revision;
-the original other-party confirm/reject criteria are not claimed as fulfilled unchanged.
-They do not prove real Credit integration, NFR load targets or D3's required
-meaningful terminal-event consumer effect. Credit conservation/ledger correctness
-remains Credit-owned. Core lifecycle UI and real Credit wiring are implemented;
-the deployable mock demo has been removed. Automated test doubles remain only
-under `tests/`; their results must not be presented as real wallet evidence.
+Lifecycle coverage includes pickup, delivery, completion, overdue tracking and
+unilateral participant failure, with security and retry invariants. Credit owns
+wallet conservation and ledger correctness. Verify terminal-event settlement
+against Credit's wallet and ledger in an integrated environment. Automated doubles
+under `tests/` exercise dependency behavior; they do not verify real settlement
+or performance under load.

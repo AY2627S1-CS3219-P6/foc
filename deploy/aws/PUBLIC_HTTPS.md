@@ -3,8 +3,7 @@
 This stage publishes the existing EC2 application at an AWS-assigned
 `https://d….cloudfront.net` address. Users need only a browser. SSM remains the
 private operator connection, and the original localhost tunnel remains usable.
-Review/merge this branch and pass CI before updating EC2; the user runs all AWS
-commands and owns commits, pushes and PRs.
+Deploy a reviewed commit with passing CI before configuring public ingress.
 
 ```mermaid
 flowchart LR
@@ -218,9 +217,9 @@ recreate Chat; do not regenerate keys or edit wallet data.
 
 Before final teardown, disable and then delete the CloudFront distribution,
 remove its added firewall rule and deliberately clean up retained AWS storage
-after approved backups. The NUS deadline remains 11 December 2026. This branch
-does not implement ECR publishing, automated CD, backup/restore or availability
-across multiple servers.
+after verified backups. The NUS teardown deadline is 11 December 2026.
+For application image publishing and automated delivery, see [DELIVERY.md](DELIVERY.md).
+This single-server deployment requires separate backup/restore and availability planning.
 
 ## Sources
 

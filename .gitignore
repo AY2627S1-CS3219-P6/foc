@@ -46,3 +46,6 @@ supplier-service/postman/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local working notes
+/.local-notes/

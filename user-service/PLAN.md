@@ -226,23 +226,3 @@ Required verification includes:
 - Existing User Service API, JWKS, Supplier authorization, and registration-event regression checks pass.
 
 No chat UI, conversation database, RabbitMQ delivery, typing indicators, first-contact requests, reporting, errand integration, or formal Sprint 4 scale certification is implemented by this User Service interface plan.
-
-## Separate cloud email delivery phase (3 November 2026)
-
-User approved this focused extension after public AWS hosting: preserve default
-SMTP/Mailpit and the existing OTP/account/event contracts, add an optional SES
-HTTPS sender through `OtpSender`, validate configuration and safe failures, and
-supply scoped operator/IAM/cloud configuration instructions. No schema change,
-new registration workflow, mailbox password, static AWS key or automatic provider
-fallback is part of this phase. Earlier Chat phases remain unchanged.
-
-Verification: sender/configuration/redaction tests, complete User regression on
-a disposable migrated/reset Supabase project, real isolated Mailpit delivery
-and cloud Compose checks. Live SES identity/recipient/IAM/inbox checks remain
-operator work. Human check: development OTP arrives only in private Mailpit;
-deliberately configured SES delivers to a verified test inbox, preserves resend
-and invalid-code rules and fails safely without activating an account.
-
-This phase advances verified registration/email delivery and N4 cloud usability;
-it does not itself satisfy all registration, N4 or inbox-delivery requirements.
-User owns branch creation, commit/push/PR and AWS changes.
