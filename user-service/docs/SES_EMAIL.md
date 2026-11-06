@@ -47,9 +47,8 @@ deliverability setup if mailbox-only sending is rejected or classified as spam.
 ## AWS setup (operator steps; not performed by the application)
 
 1. Check `sesv2 get-account` in Singapore. Sandbox/identity state is regional.
-   The initial course account check reported sending enabled, sandbox enabled,
-   200 messages/day, one/second. Check current settings rather than assuming
-   those values remain unchanged.
+   Inspect `SendingEnabled`, `ProductionAccessEnabled` and `SendQuota` to confirm
+   the current sending permissions and limits.
 2. Create an SES email identity for a real personal/group mailbox the team may
    use and can open. Click the verification email's link in that mailbox. This
    establishes sender control, not ownership of its whole domain. Never provide
@@ -60,10 +59,17 @@ deliverability setup if mailbox-only sending is rejected or classified as spam.
    Production access is needed before arbitrary NUS students can register
    without first being verified with AWS.
 4. Add a scoped inline send policy to the EC2 instance role (`foc-ec2-role`),
-   replacing both placeholders in
+   replacing the account, sender and verified test-recipient placeholders in
    [`ses-send-email.policy.example.json`](../../deploy/aws/iam/ses-send-email.policy.example.json)
-   with the account ID and exact verified sender identity. Attach only the SES
-   send action/identity, not administrator or full SES permissions. Keep the
+   with the account ID and exact verified identities. If sending returns
+   `AccessDeniedException` on a verified recipient identity, check that the
+   policy covers that identity. Include each verified sandbox test recipient's ARN in
+   `Resource` as well as the sender ARN. Retain the exact sender in the
+   `ses:FromAddress` condition: listing the recipient ARN must not permit using
+   that address as the From address. Add additional verified test recipients
+   explicitly; do not solve this by granting unrestricted SES access. This
+   scoped test policy must be reviewed when enabling public production signup.
+   Attach only `ses:SendEmail`, not administrator or full SES permissions. Keep the
    existing SSM policy. The operator's SSO role and EC2 application role are
    distinct; being able to inspect SES on the PC does not grant EC2 send access.
 5. Check that the User container can use IMDSv2 instance-role credentials. The
@@ -79,11 +85,50 @@ deliverability setup if mailbox-only sending is rejected or classified as spam.
 7. For independent public signup, request SES production access for transactional
    OTP mail, with an accurate description of consent, rate limits and how the
    team handles bounce/complaint feedback. Approval is separate from sender
-   verification and is not guaranteed. Do not claim access has been granted
-   before checking `ProductionAccessEnabled` again.
+   verification and is not guaranteed. Confirm `ProductionAccessEnabled` before
+   allowing signup from recipients that are not individually verified in SES.
+   If the Get set up console disables its request button until a sending
+   domain is verified, verifying a Gmail mailbox does not satisfy that domain
+   requirement or provide DNS control. AWS also documents `sesv2 put-account-details` as a
+   production-access request route without a domain parameter; this submits a
+   review request, not an immediate approval or a bypass of AWS requirements.
+   If the API/reviewer requires a domain, use a team-controlled domain or retain
+   sandbox testing. Domain verification requires control of the domain's DNS;
+   NUS and AWS-assigned CloudFront domains are not team-controlled domains.
 
 No AWS resource is created, sender verified, policy attached, real email sent or
 production request submitted by the service code or CI tests.
+
+## Production approval and public NUS recipients
+
+Check the deployment account in the configured SES region:
+
+```sh
+aws sesv2 get-account --profile foc --region ap-southeast-1 --query "{SendingEnabled:SendingEnabled,ProductionAccessEnabled:ProductionAccessEnabled,SendQuota:SendQuota}" --output json --no-cli-pager
+```
+
+Public signup requires sending enabled and `ProductionAccessEnabled=true`.
+The returned quota defines sending limits, not free email credits or application
+capacity. Recheck these settings when preparing a deployment.
+
+Production recipients do not need individual AWS identity verification. They
+still enter the FoC OTP to activate their account. The sender must remain verified.
+For public NUS signup, use
+[`ses-send-email.production.policy.example.json`](../../deploy/aws/iam/ses-send-email.production.policy.example.json)
+after replacing the account and sender placeholders. Replace the existing named
+inline send policy rather than leaving another broader policy attached. This
+policy covers identity resources only in the specified account/Singapore region,
+allows only SendEmail, requires the exact group From address, and requires every
+recipient to be in @u.nus.edu. The recipient condition also covers CC/BCC.
+The identity wildcard avoids individually listing recipient identity resources;
+the From condition still prevents sending as a recipient identity.
+
+IAM-only updates require no image rebuild or service restart. After updating
+permissions, test actual public signup using a consenting new NUS user whose
+address has not been verified in AWS. Approval and simulation are not inbox
+delivery evidence. Enable feedback forwarding and assign an operator to review
+the sender mailbox's bounce/complaint notifications, or configure automated
+handling. Local Mailpit behavior is unchanged.
 
 ## Enable on EC2 once sender/recipient/IAM are ready
 
