@@ -3,4 +3,6 @@
 /bootstrap.env
 /backups/
 /.provision-*/
+/.release-state/
+/.ecr-*/
 

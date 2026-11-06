@@ -45,8 +45,7 @@ database URL and the service credentials it needs. Order uses real Credit.
   Session Manager connection. No SSH port or key pair is required.
 - Python 3.11+ and OpenSSL on the host. Docker's official Ubuntu installation is
   documented at <https://docs.docker.com/engine/install/ubuntu/>.
-- A reviewed commit pushed to the chosen branch. The user owns commits, pushes
-  and PRs. Do not clone an unreviewed branch onto a shared environment.
+- A reviewed commit with passing CI, available on the remote repository.
 
 NUS staff confirmed an allocation of **SGD 50 per person**; use the actual group
 size and monitor the remaining group allowance. AWS's instance prices are shown
@@ -249,10 +248,10 @@ permissions or a public bootstrap endpoint.
 
 ## 6. Verification and remaining release work
 
-Mailpit is a **private demo SMTP sink**, not delivery to NUS inboxes. This branch
-does not claim external email integration. Its inbox must remain loopback-only
-and accessible through an authorized Session Manager port-forwarding session.
-Provider SMTP TLS/authentication requires coordination with the User owner.
+Mailpit is a **private test SMTP inbox**. Keep it loopback-only and access it
+through an authorized Session Manager port-forwarding session. For delivery to
+real NUS inboxes, configure the optional SES provider using the
+[verification email guide](../../user-service/docs/SES_EMAIL.md).
 
 The optional [public HTTPS runbook](PUBLIC_HTTPS.md) uses an AWS-assigned
 CloudFront hostname without buying a domain. Its configuration disables caching,
@@ -262,17 +261,26 @@ the EC2 firewall restriction and exact Chat browser origin, then verify the fina
 HTTPS site. This configuration alone does not establish a deployed distribution
 or successful refresh-cookie/Voice microphone behavior.
 
-Before claiming deployment complete, demonstrate from the final HTTPS site:
+Verify the following workflows through the final HTTPS site:
 registration/demo OTP limits, login/refresh, Supplier access, funded Order
 creation, competing/forbidden actions, completion transfer, cancel/expiry/failure
 release, Chat reconnect and admin reads. Show actual Wallet/ledger effects after
 asynchronous processing. Broker/outbox/consumer restart tests must preserve data.
 
-This branch builds from reviewed source on EC2 for the first manual release.
-ECR publication, GitHub AWS authentication, automated release/rollback, backup
-and restore rehearsal, monitoring and teardown automation are subsequent work.
-Do not claim these from the existing CI or a running container. Application
-rollback also does not undo database migrations.
+The initial manual deployment builds reviewed source on EC2. The optional delivery
+pipeline below publishes the exact CI-built images, authenticates GitHub to AWS,
+and automates application rollout and rollback after operator setup. Verify live
+delivery before enabling automatic releases. Backup/restore rehearsal, monitoring
+and teardown automation require separate setup. Application rollback does not undo
+database migrations.
+
+## Automatic application delivery
+
+See [DELIVERY.md](DELIVERY.md) for the automatic post-main-CI release pipeline,
+scoped GitHub OIDC/ECR/SSM setup, first host bootstrap, digest-pinned application
+rollout, readiness and rollback. It must be explicitly armed after setup. Database
+migrations and deployment-configuration changes remain reviewed operator steps.
+After a release, manual container recreations must retain its active image overlay.
 
 ## Stop, resume and protect data
 

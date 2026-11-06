@@ -199,7 +199,7 @@ never the shared `foc.events` exchange or a real Credit queue.
 
 ## Creation recovery worker
 
-Install/update the package after pulling this slice (`pip install -e '.[dev]'`).
+After updating the checkout, reinstall the package (`pip install -e '.[dev]'`).
 In a separate terminal using Order's environment, run:
 
 ```bash
@@ -318,126 +318,14 @@ use `verify-full` with a trusted certificate for verified remote connections.
 See [asyncpg connection options](https://magicstack.github.io/asyncpg/current/api/index.html)
 and [Supabase CLI configuration](https://supabase.com/docs/guides/local-development/cli/config).
 
-## Historical UI and isolated Credit simulation verification (2026-10-11)
+## Verification coverage
 
-The following dated results describe the former demo, not a current setup
-instruction. Its deployable files, containers and simulated data were removed
-on 2026-10-16 after real Credit integration. Automated regression doubles and
-tests remain; the old simulation results do not prove real Credit settlement.
+Automated tests cover authenticated creation and retries, competing acceptors,
+participant permissions, lifecycle transitions, deadlines, transaction rollback,
+and outbox delivery/retries. Database and broker checks require the isolated
+resources described in [Tests](#tests).
 
-### Fulfilment/completion extension
-
-- 278 backend tests passed (239 isolated + 39 real PostgreSQL/RabbitMQ checks),
-  including 100 concurrent first completions with one event, authorized replays,
-  failed-event rollback, least-privilege writes, delayed consumption/deduplication,
-  late delivery/worker races, on-time delivered orders and migration preservation
-  of existing OPEN/ACCEPTED/CANCELLED data and terminal events.
-- 71 frontend unit/component and 73 browser tests passed, covering courier pickup/
-  delivery, requester-only confirmed completion, ambiguous-response retries,
-  waiting states, overdue feedback and no false payment confirmation.
-- `order.completed.v1` is a fact emitted atomically by Order; Credit is responsible
-  for its idempotent transfer. The isolated simulator now records TRANSFERRED and
-  recipient identity without implementing wallet balances or real Credit logic.
-- Rebuilt the isolated Docker demo and additively upgraded its existing database
-  without resetting data. Live smoke passed pickup/delivery/completion while the
-  simulator was offline, followed by one simulated transfer when it restarted.
-  Real User/Supplier APIs and RabbitMQ were used; real Credit was not. The 73
-  browser tests were rerun against the rebuilt demo with test-only HTTP responses;
-  desktop/mobile renders, TypeScript, Ruff and changed-file ESLint passed.
-- Unilateral FAILED now follows the user-approved revision of M3F8; original
-  other-party confirm/reject requirements are not claimed as fulfilled unchanged.
-  There are no penalties, physical-loss compensation, post-delivery complaints
-  or automatic requester-confirmation timeout.
-
-### Unilateral failure extension (current verification)
-
-- **326 backend tests passed (269 isolated + 57 PostgreSQL/RabbitMQ)**, including
-  100 concurrent first failures, 100 repeated HTTP retries, participant conflicts,
-  pickup/delivery races, rejected terminal reversals, atomic rollback, restricted
-  app-role writes, migration preservation and duplicate failure-event consumption.
-- **72 frontend unit/component and 77 browser regressions passed**, including both
-  participants, required reason/Other details, confirmation, disabled duplicate
-  clicks, frozen ambiguous reports, conflict/refresh and visible failure history.
-  TypeScript, Ruff, changed-file ESLint, whitespace and desktop/mobile renders passed.
-- Existing isolated demo database upgraded without reset; Docker images rebuilt.
-  Live smoke passed requester failure in ACCEPTED and courier failure in PICKED_UP,
-  actual RabbitMQ delivery and simulated RELEASED state. Existing completion/outage/
-  restart checks passed too. Real Credit integration and NFR load targets remain pending.
-
-### Earlier acceptance/cancellation/expiry UI slice
-
-- Full backend rerun: **186 passed** (159 isolated + 27 PostgreSQL/RabbitMQ
-  integration checks in separate disposable test containers). Includes 15 simulator contract checks:
-  real Order HTTP client compatibility, stable concurrent reservation identities,
-  secret/field validation, denial/outage modes, abort fencing, restart persistence
-  and duplicate/mismatched release handling.
-- 68 frontend unit/component and 69 browser regression tests passed. Browser
-  responses are test doubles; includes confirmation, double-click protection,
-  ambiguous response retry, conflict/refresh, deadline passage, participant history
-  and terminal states. TypeScript, build and changed-file ESLint passed.
-- Separate live HTTP smoke used actual User registration/authentication and
-  Supplier data through the demo website proxy, isolated Order PostgreSQL with a
-  restricted login, and simulated Credit via HTTP. Created OPEN errands, accepted
-  and retried, checked authorization, cancelled and automatically expired, and
-  observed real RabbitMQ delivery producing simulated RELEASED state. Restarting
-  the simulator preserved its state. Temporary User accounts self-deleted; normal
-  User audit and isolated demo evidence remain. Existing Order Supabase untouched.
-- Real Credit wallets/settlement, production consumer behavior, Postman GUI and
-  NFR load/usability targets remain unverified. The simulator is not D3 evidence
-  of integration with the teammate's real Credit Service.
-
-## Earlier backend acceptance/cancellation/expiry verification (2026-10-11)
-
-- Full backend suite: **171 passed** (144 isolated, 27 real PostgreSQL/RabbitMQ
-  checks). Ruff and whitespace checks passed. CI still runs the isolated subset.
-- Real PostgreSQL 17: 100 competing acceptors produce one winner; accept/cancel
-  and expiry races, duplicate retries, post-lock deadline checks, atomic rollback,
-  expiry SYSTEM history, column privileges and stale publisher leases verified.
-- Canonical migrations reconstructed a fresh disposable database. A separate
-  upgrade test preserved an existing OPEN order/history. No existing development
-  Supabase database was reset or migrated; no Supabase CLI reset claimed here.
-- Real RabbitMQ 4.1: four unroutable attempts remain pending, binding recovery
-  succeeds, a broken connection retries, and a simulated crash after broker ack
-  republishes the same event ID. Test sink only, not a Credit release consumer.
-- Docker image built and ran API/expiry/outbox entrypoints as non-root. API
-  readiness recovered after its independent restart. One due fixture expired
-  within 0.52s after workers started and its event reached a disposable queue;
-  this is a smoke check, not throughput or p95/NFR workload evidence.
-- Frontend TypeScript and 66 unit/component tests passed for the nullable SYSTEM
-  actor contract alignment. No lifecycle buttons added; browser suite not rerun
-  for this type-only frontend change.
-- Real Credit release, full User/Supplier/Credit workflow, Postman GUI execution,
-  consumer deduplication and load/usability/deployment targets remain unverified.
-
-## Create/read verification (2026-10-09)
-
-- Full suite: 105 passed, including 12 real-PostgreSQL tests. CI selection:
-  93 passed, 12 deselected. Ruff and whitespace checks passed.
-- Canonical SQL migrations applied to a fresh disposable PostgreSQL 17 container
-  with Supabase role names bootstrapped for grants. This verifies PostgreSQL SQL,
-  not a new Supabase CLI reset; existing development databases were not migrated/reset.
-- Real-DB tests cover concurrent same-key creation, stale leases, rollback after
-  inserting an Order but before history, lost post-commit acknowledgment, recovery,
-  filtering and API queries. Credit/User/Supplier responses are test doubles.
-- Four creation/recovery/API tests also passed under a restricted login inheriting
-  `order_service_app`. The built non-root image returned 200 for live/ready/docs/
-  OpenAPI, remained ready after its restart, packaged `order-recovery`, and contained
-  no `.env` files. Only disposable test containers were used for these checks.
-- Real Credit integration and real User/Supplier runtime smoke, Postman GUI execution,
-  workload measurements and future lifecycle/events are not claimed by this evidence.
-
-## Historical F0 verification (2026-10-09)
-
-- 39 pytest tests passed, including two read-only real-PostgreSQL checks; Ruff passed.
-- The new empty Order database was rebuilt with `supabase db reset --local --yes`;
-  the schema-only migration applied successfully. Existing service databases were untouched.
-- The Docker image built and ran as `order_service` (non-root). Both health endpoints
-  returned 200 and Studio returned 200.
-- With only Order PostgreSQL stopped, liveness stayed at 200 and readiness returned
-  503. Readiness recovered after the database started, without an API restart.
-- An independent API restart succeeded; migration metadata survived the database restart.
-
-These checks advance Order's portion of M7NFR1.2, M7NFR2.1-2.2 and M7NFR3.2-3.3.
-They do not complete an M3 business feature, the shared one-command deployment,
-production credential provisioning, NFR load targets or a real Order/Credit workflow.
-HTTP smoke checks were automated; the Postman GUI was not exercised.
+Dependency doubles exercise outage and retry paths without modifying real
+wallets. Validate integrated settlement against Credit's wallet and ledger;
+unit-test results alone do not establish inbox delivery, cloud availability or
+performance under load.
