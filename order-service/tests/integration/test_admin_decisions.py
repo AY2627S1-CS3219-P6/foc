@@ -9,8 +9,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.orders.errors import ApiError
 from tests.integration.test_fulfilment import accepted
-from tests.integration.test_lifecycle import snapshot
 from tests.integration.test_lifecycle import lifecycle_db as _lifecycle_database  # noqa: F401
+from tests.integration.test_lifecycle import snapshot
 
 pytestmark = pytest.mark.integration
 REASON = "Requester showed the errand never arrived."
@@ -28,9 +28,10 @@ async def test_admin_fails_a_delivered_errand_once_and_releases_credits(lifecycl
     admin, dispute = uuid4(), uuid4()
     await repo.decide(order_id, admin, "fail", dispute_id=dispute, reason=REASON)
     before = await snapshot(database, order_id)
-    await asyncio.gather(
-        *[repo.decide(order_id, admin, "fail", dispute_id=dispute, reason=REASON) for _ in range(20)]
-    )
+    retries = [
+        repo.decide(order_id, admin, "fail", dispute_id=dispute, reason=REASON) for _ in range(20)
+    ]
+    await asyncio.gather(*retries)
     assert await snapshot(database, order_id) == before
     row, history, events = before
     assert row["state"] == "FAILED" and row["delivered_at"] is not None
