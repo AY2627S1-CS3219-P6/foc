@@ -1,4 +1,8 @@
-"""Dispute workflow and dashboard audit log (N2F3). Decisions never change errands or credits."""
+"""Dispute workflow and dashboard audit log (N2F3).
+
+A decision changes an errand only when the administrator chooses an errand outcome (N2F3.7);
+Order then applies it and Credit follows the errand. This service never moves credits itself.
+"""
 
 import logging
 from typing import Annotated
@@ -11,7 +15,14 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.admin.auth import Admin, BearerToken
-from app.admin.disputes import DisputeNotFound, OrderNotFound, request_fingerprint
+from app.admin.disputes import (
+    DecisionIncomplete,
+    DisputeNotFound,
+    OrderNotFound,
+    VersionConflict,
+    check_transition,
+    request_fingerprint,
+)
 from app.admin.errors import ApiError
 from app.admin.schemas import (
     AuditEntry,
@@ -61,6 +72,7 @@ def summary_fields(row) -> dict:
         "description": row["description"],
         "status": row["status"],
         "resolution_reason": row["resolution_reason"],
+        "errand_outcome": row.get("errand_outcome"),
         "reporter_role": row.get("reporter_role"),
         "created_by": row["created_by"],
         "created_at": row["created_at"],
@@ -83,6 +95,7 @@ async def load_dispute(request: Request, dispute_id: UUID) -> DisputeView:
                 to_status=event["to_status"],
                 actor_id=event["actor_id"],
                 reason=event["reason"],
+                errand_outcome=event.get("errand_outcome"),
                 occurred_at=event["occurred_at"],
             )
             for event in events
@@ -143,17 +156,50 @@ async def get_dispute(dispute_id: UUID, request: Request, admin: Admin):
     return await load_dispute(request, dispute_id)
 
 
-@router.post("/disputes/{dispute_id}/transitions", response_model=DisputeView)
-async def change_status(dispute_id: UUID, request: Request, body: Transition, admin: Admin):
+async def apply_errand_outcome(request: Request, dispute_id: UUID, body: Transition, admin, token):
+    """Check the dispute can close, then have Order apply the outcome (N2F3.7).
+
+    The check comes first so an errand is never changed for a dispute that cannot be closed.
+    """
+    row, _ = await request.app.state.disputes.dispute(dispute_id)
+    if row is None:
+        raise DisputeNotFound()
+    if row["version"] != body.expected_version:
+        raise VersionConflict()
+    check_transition(row["status"], body.to_status, body.reason)
     try:
-        await request.app.state.disputes.transition(
-            dispute_id,
-            to_status=body.to_status,
-            reason=body.reason,
-            expected_version=body.expected_version,
-            actor=admin.user_id,
-            correlation_id=request.state.correlation_id,
+        await request.app.state.orders.decide(
+            row["order_id"], body.errand_outcome, dispute_id, body.reason, token
         )
+    except ApiError as error:
+        await record_rejection(
+            request, admin.user_id, "ERRAND_DECISION", "ORDER", row["order_id"], error
+        )
+        raise
+
+
+@router.post("/disputes/{dispute_id}/transitions", response_model=DisputeView)
+async def change_status(
+    dispute_id: UUID, request: Request, body: Transition, admin: Admin, token: BearerToken
+):
+    try:
+        if body.errand_outcome is not None:
+            await apply_errand_outcome(request, dispute_id, body, admin, token)
+        try:
+            await request.app.state.disputes.transition(
+                dispute_id,
+                to_status=body.to_status,
+                reason=body.reason,
+                expected_version=body.expected_version,
+                actor=admin.user_id,
+                correlation_id=request.state.correlation_id,
+                errand_outcome=body.errand_outcome,
+            )
+        except ApiError:
+            if body.errand_outcome is None:
+                raise
+            # Order already applied the outcome; repeating the request is safe.
+            raise DecisionIncomplete() from None
     except ApiError as error:
         await record_rejection(
             request, admin.user_id, "DISPUTE_TRANSITION", "DISPUTE", dispute_id, error

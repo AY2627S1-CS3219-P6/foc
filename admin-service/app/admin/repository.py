@@ -135,13 +135,24 @@ class DisputeRepository:
             return dispute_id, True
 
     async def transition(
-        self, dispute_id, *, to_status, reason, expected_version, actor, correlation_id
+        self,
+        dispute_id,
+        *,
+        to_status,
+        reason,
+        expected_version,
+        actor,
+        correlation_id,
+        errand_outcome=None,
     ) -> None:
-        """Change status, append history and audit in one transaction; rejections roll back."""
+        """Change status, append history and audit in one transaction; rejections roll back.
+
+        errand_outcome records an outcome Order has already applied for this dispute (N2F3.7).
+        """
         async with self.sessions() as session, session.begin():
             current = (
                 await session.execute(
-                    select(disputes.c.status, disputes.c.version)
+                    select(disputes.c.status, disputes.c.version, disputes.c.order_id)
                     .where(disputes.c.id == dispute_id)
                     .with_for_update()
                 )
@@ -157,6 +168,7 @@ class DisputeRepository:
                 .values(
                     status=to_status,
                     resolution_reason=reason if to_status in FINAL_STATUSES else None,
+                    errand_outcome=errand_outcome,
                     version=disputes.c.version + 1,
                     updated_at=func.clock_timestamp(),
                 )
@@ -174,6 +186,7 @@ class DisputeRepository:
                     to_status=to_status,
                     actor_id=actor,
                     reason=reason,
+                    errand_outcome=errand_outcome,
                 )
             )
             await session.execute(
@@ -187,6 +200,18 @@ class DisputeRepository:
                     )
                 )
             )
+            if errand_outcome is not None:
+                await session.execute(
+                    insert(audit_log).values(
+                        **audit_entry(
+                            actor=actor,
+                            action="ERRAND_DECISION",
+                            target_type="ORDER",
+                            target_id=current.order_id,
+                            correlation_id=correlation_id,
+                        )
+                    )
+                )
 
     async def record_rejection(self, **values) -> None:
         """Audit a rejected attempt in its own transaction, after the attempt rolled back."""

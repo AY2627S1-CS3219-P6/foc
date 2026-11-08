@@ -34,6 +34,7 @@ def report_view(row, viewer) -> ReportView:
         description=row["description"] if own else None,
         status=row["status"],
         resolution_reason=row["resolution_reason"],
+        errand_outcome=row.get("errand_outcome"),
         reporter_role=row["reporter_role"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],

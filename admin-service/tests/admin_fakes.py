@@ -48,6 +48,11 @@ class FakeOrders:
             raise self.error
         return self.known
 
+    async def decide(self, order_id, outcome, dispute_id, reason, token):
+        self.calls.append(("decide", order_id, outcome, dispute_id, reason, token))
+        if self.error is not None:
+            raise self.error
+
     async def participation(self, order_id, token, user_id):
         self.calls.append((order_id, token, user_id))
         if self.error is not None:
@@ -113,7 +118,12 @@ class FakeDisputes:
         self.calls.append(("transition", dispute_id, values))
         if self.error is not None:
             raise self.error
-        self.row = {**self.row, "status": values["to_status"], "version": self.row["version"] + 1}
+        self.row = {
+            **self.row,
+            "status": values["to_status"],
+            "errand_outcome": values.get("errand_outcome"),
+            "version": self.row["version"] + 1,
+        }
 
     async def report(self, **values):
         self.calls.append(("report", values))

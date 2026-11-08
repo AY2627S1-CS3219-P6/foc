@@ -15,6 +15,7 @@ disputes = Table(
     Column("status", Text, nullable=False),
     Column("resolution_reason", Text),
     Column("reporter_role", Text),
+    Column("errand_outcome", Text),
     Column("created_by", UUID(as_uuid=True), nullable=False),
     Column("idempotency_key", UUID(as_uuid=True), nullable=False),
     Column("request_hash", Text, nullable=False),
@@ -32,6 +33,7 @@ dispute_events = Table(
     Column("to_status", Text, nullable=False),
     Column("actor_id", UUID(as_uuid=True), nullable=False),
     Column("reason", Text),
+    Column("errand_outcome", Text),
     Column("occurred_at", DateTime(timezone=True), nullable=False),
 )
 

@@ -69,7 +69,7 @@ administrator recorded the dispute. History entries are
 ### Changing status
 
 Request: `{"toStatus": "UNDER_REVIEW" | "RESOLVED" | "REJECTED", "reason": string | null,
-"expectedVersion": int}`.
+"expectedVersion": int, "errandOutcome": "FAILED" | "COMPLETED" | null}`.
 
 | From | Allowed to | Reason |
 | --- | --- | --- |
@@ -83,8 +83,32 @@ Request: `{"toStatus": "UNDER_REVIEW" | "RESOLVED" | "REJECTED", "reason": strin
   administrator to refresh and review the current dispute (N2NFR3.4, N2NFR4.5).
 - Each accepted change appends a history entry with the previous and new status, acting
   administrator, reason and time (N2F3.3.4).
-- Resolving or rejecting records a decision only. It never changes the errand or any wallet
-  (N2F3.5).
+- Without `errandOutcome`, resolving or rejecting records a decision only. It never changes the
+  errand or any wallet (N2F3.5).
+
+### Deciding the errand outcome (N2F3.7)
+
+When closing a dispute (`RESOLVED` or `REJECTED`), the administrator may also decide the errand:
+
+| `errandOutcome` | Order call | Allowed errand states | Credit effect (applied by Order and Credit) |
+| --- | --- | --- | --- |
+| `FAILED` | `POST /v1/admin/orders/{orderId}/fail` with the reason | ACCEPTED, PICKED_UP, DELIVERED | Reserved reward returns to the requester |
+| `COMPLETED` | `POST /v1/admin/orders/{orderId}/complete` | DELIVERED | Reward is transferred to the courier |
+
+1. The service first checks that the dispute exists, is at `expectedVersion` and may make this
+   change with a reason. Otherwise it returns the usual error and Order is never called.
+2. It calls Order with the administrator's own token. With an outcome the reason must be at
+   most 500 characters (Order's limit); otherwise `422 VALIDATION_ERROR`. If the errand has
+   moved on (for example the requester already confirmed), Order's 409 becomes
+   `409 ERRAND_CHANGED` and the dispute stays `UNDER_REVIEW`.
+3. It closes the dispute, recording `errandOutcome` on the dispute and its history entry, and
+   audits `DISPUTE_TRANSITION` plus `ERRAND_DECISION` (target `ORDER`) in one transaction.
+4. If closing fails after Order applied the outcome, the response is `409 DECISION_INCOMPLETE`.
+   Repeating the request with the current version is safe: Order treats the same decision for
+   the same dispute as already done, and the dispute then closes.
+
+Rejected outcome attempts are audited as `ERRAND_DECISION` with outcome `REJECTED`. Both
+participants see `errandOutcome` on their reports (`GET /v1/disputes`).
 
 ## Participant reports
 
@@ -120,8 +144,8 @@ it. Participants never see the administrators involved, the status history or th
 
 ### Audit log
 
-Every dispute create, participant report and status-change attempt, successful or rejected,
-appends
+Every dispute create, participant report, status-change and errand-outcome attempt,
+successful or rejected, appends
 `{"auditId", "actorId", "action", "targetType", "targetId", "outcome": "SUCCESS" | "REJECTED",
 "errorCode", "correlationId", "occurredAt"}` (N2F3.6). The runtime database role cannot update
 or delete history or audit rows (N2NFR3.2).
@@ -134,6 +158,7 @@ Admin Service itself uses only these read contracts:
 | --- | --- | --- | --- |
 | User | `GET /v1/users/me` | Current session, role and account status | Existing |
 | Order | `GET /v1/admin/orders/{orderId}` | Confirm the errand exists before recording a dispute | Proposed; Order owner review |
+| Order | `POST /v1/admin/orders/{orderId}/fail` and `/complete` | Apply the errand outcome an administrator chose when closing a dispute | Added with N2F3.7 |
 | Order | `GET /v1/orders/{orderId}` | Confirm the caller takes part in the errand before accepting a report | Existing |
 
 The dashboard pages call these owning-service contracts directly from the browser:
