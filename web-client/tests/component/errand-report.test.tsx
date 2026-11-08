@@ -71,6 +71,12 @@ describe("Errand problem reports", () => {
     await renderPanel("COMPLETED");
     expect(screen.getByText("Rejected")).toBeVisible();
     expect(screen.getByText("Courier showed a delivery photo.")).toBeVisible();
+  });
+
+  it("tells both participants the errand outcome an administrator applied", async () => {
+    routeFetch([{ ...report("RESOLVED", "Nothing arrived."), errandOutcome: "FAILED" }]);
+    await renderPanel("FAILED");
+    expect(screen.getByText(/The errand was marked as failed, so the reward returns to the requester/)).toBeVisible();
     expect(screen.getByLabelText("What went wrong")).toBeVisible();
   });
 

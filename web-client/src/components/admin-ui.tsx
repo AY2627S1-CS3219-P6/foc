@@ -2,6 +2,7 @@ import type { PropsWithChildren, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { DisputeStatus, DisputeSummary } from "../api/admin-service";
 import type { Settlement } from "../api/credit-service";
+import type { OrderState } from "../api/order-service";
 import { adminError, disputeOrigin, disputeStatusLabels, shortId, updatedAt } from "../app/admin-presentation";
 import { orderTime } from "../app/order-presentation";
 
@@ -50,15 +51,18 @@ const settlementLabels: Record<Settlement["state"], string> = {
 };
 
 // N2F3.4.3: the credit outcome is shown apart from the errand state.
-export function SettlementFacts({ settlement }: { settlement: Settlement | null }) {
+export function SettlementFacts({ settlement, errandState }: { settlement: Settlement | null; errandState?: OrderState }) {
   if (!settlement) return <p className="order-muted">No credit reservation is recorded for this errand.</p>;
+  // Credit settles shortly after Order records the outcome, so a reservation may briefly remain.
+  const pending = settlement.state === "RESERVED" && (errandState === "FAILED" || errandState === "COMPLETED");
   return <>
     <dl className="order-facts">
       <AdminFact label="Credit state">{settlementLabels[settlement.state]}</AdminFact>
       <AdminFact label="Amount">{settlement.amount} credits</AdminFact>
       <AdminFact label="Last change">{orderTime(settlement.updatedAt)} SGT</AdminFact>
     </dl>
-    <p className="order-muted">Dispute decisions never move credits.</p>
+    {pending ? <p role="status">{errandState === "FAILED" ? "Release to the requester is processing." : "Transfer to the courier is processing."} Refresh shortly to see it settled.</p> : null}
+    <p className="order-muted">Credits follow the errand: they move only when the errand ends.</p>
   </>;
 }
 

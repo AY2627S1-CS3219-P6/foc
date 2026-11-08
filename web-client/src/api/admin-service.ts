@@ -3,6 +3,8 @@ import { requestJson } from "./client";
 export type DisputeStatus = "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "REJECTED";
 export type DisputeTarget = Exclude<DisputeStatus, "OPEN">;
 export type ReporterRole = "REQUESTER" | "COURIER";
+// N2F3.7: the errand outcome an administrator applied through Order when closing a dispute.
+export type ErrandOutcome = "FAILED" | "COMPLETED";
 
 export type DisputeHistoryEntry = {
   sequence: number;
@@ -10,6 +12,7 @@ export type DisputeHistoryEntry = {
   toStatus: DisputeStatus;
   actorId: string;
   reason: string | null;
+  errandOutcome?: ErrandOutcome | null;
   occurredAt: string;
 };
 
@@ -19,6 +22,7 @@ export type DisputeSummary = {
   description: string;
   status: DisputeStatus;
   resolutionReason: string | null;
+  errandOutcome?: ErrandOutcome | null;
   // Null when an administrator recorded the dispute rather than an errand participant.
   reporterRole: ReporterRole | null;
   createdBy: string;
@@ -32,7 +36,7 @@ export type Dispute = DisputeSummary & { evidenceRefs: string[]; history: Disput
 export type AuditEntry = {
   auditId: string;
   actorId: string;
-  action: "DISPUTE_CREATE" | "DISPUTE_REPORT" | "DISPUTE_TRANSITION";
+  action: "DISPUTE_CREATE" | "DISPUTE_REPORT" | "DISPUTE_TRANSITION" | "ERRAND_DECISION";
   targetType: "DISPUTE" | "ORDER";
   targetId: string;
   outcome: "SUCCESS" | "REJECTED";
@@ -44,13 +48,18 @@ export type AuditEntry = {
 // What an errand participant sees: never the administrators or the history, and the
 // description only for their own reports.
 export type DisputeReport = Pick<
-  DisputeSummary, "disputeId" | "orderId" | "status" | "resolutionReason" | "createdAt" | "updatedAt"
+  DisputeSummary, "disputeId" | "orderId" | "status" | "resolutionReason" | "errandOutcome" | "createdAt" | "updatedAt"
 > & { reporterRole: ReporterRole; ownReport: boolean; description: string | null };
 
 export type AdminPage<T> = { items: T[]; page: number; pageSize: number; total: number };
 export type NewDispute = { orderId: string; description: string; evidenceRefs: string[] };
 export type NewReport = { orderId: string; description: string };
-export type DisputeTransition = { toStatus: DisputeTarget; reason: string | null; expectedVersion: number };
+export type DisputeTransition = {
+  toStatus: DisputeTarget;
+  reason: string | null;
+  expectedVersion: number;
+  errandOutcome?: ErrandOutcome | null;
+};
 
 // N2F3.3.1: OPEN -> UNDER_REVIEW -> RESOLVED | REJECTED. Admin Service enforces this too.
 export const NEXT_STATUSES: Record<DisputeStatus, DisputeTarget[]> = {

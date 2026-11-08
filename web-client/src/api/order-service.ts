@@ -12,6 +12,9 @@ export const failureReasons = {
   OTHER: "Other",
 } as const;
 export type FailureReason = keyof typeof failureReasons;
+// Recorded only when an administrator decides a disputed errand (N2F3.7); never a participant option.
+export const recordedFailureReasons = { ...failureReasons, ADMIN_DECISION: "Decided by an administrator" } as const;
+export type RecordedFailureReason = keyof typeof recordedFailureReasons;
 export type OrderFailureInput = { reason: FailureReason; details?: string | null };
 
 export type OrderInput = {
@@ -51,8 +54,12 @@ export type OrderParticipant = OrderAssessment & {
   overdueAt?: string | null;
   failedAt?: string | null;
   failedBy?: string | null;
-  failureReason?: FailureReason | null;
+  failureReason?: RecordedFailureReason | null;
   failureDetails?: string | null;
+  // N2F3.7: participants learn that an administrator decided, never which one.
+  decidedByAdministrator?: boolean;
+  decisionDisputeId?: string | null;
+  decidedBy?: string | null;
 };
 
 export type OrderDetail = OrderAssessment | OrderParticipant;
@@ -71,10 +78,11 @@ export type OrderHistoryEntry = {
   previousState: OrderState | null;
   newState: OrderState;
   actorId: string | null;
-  actorType: "USER" | "SYSTEM";
+  actorType: "USER" | "SYSTEM" | "ADMIN";
   occurredAt: string;
-  failureReason?: FailureReason | null;
+  failureReason?: RecordedFailureReason | null;
   failureDetails?: string | null;
+  disputeId?: string | null;
 };
 
 export type OrderPage<T> = { items: T[]; page: number; pageSize: number; total: number };
