@@ -54,6 +54,8 @@ orders = Table(
     Column("failed_by", UUID),
     Column("failure_reason", Text),
     Column("failure_details", Text),
+    Column("decided_by", UUID),
+    Column("decision_dispute_id", UUID),
     Column("supplier_id", UUID, nullable=False),
     Column("supplier_snapshot", JSONB, nullable=False),
     Column("item_description", Text, nullable=False),
@@ -79,6 +81,7 @@ history = Table(
     Column("occurred_at", DateTime(timezone=True), nullable=False),
     Column("failure_reason", Text),
     Column("failure_details", Text),
+    Column("dispute_id", UUID),
 )
 
 outbox = Table(

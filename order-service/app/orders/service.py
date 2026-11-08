@@ -26,7 +26,7 @@ def is_participant(order, actor):
     return actor in (order["requester_id"], order["courier_id"])
 
 
-def project_order(order, *, participant=False):
+def project_order(order, *, participant=False, admin=False):
     result = {
         "orderId": order["id"],
         "supplierId": order["supplier_id"],
@@ -56,6 +56,14 @@ def project_order(order, *, participant=False):
             failureReason=order.get("failure_reason"),
             failureDetails=order.get("failure_details"),
         )
+        if order.get("decided_by") is not None:
+            # N2F3.7: participants see that an administrator decided, not who did.
+            result.update(
+                decidedByAdministrator=True,
+                decisionDisputeId=order["decision_dispute_id"],
+                failedBy=order.get("failed_by") if admin else None,
+                decidedBy=order["decided_by"] if admin else None,
+            )
     return result
 
 
