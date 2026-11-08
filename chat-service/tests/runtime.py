@@ -16,6 +16,11 @@ directory = Directory()
 identity_app = FastAPI()
 
 
+@identity_app.get("/health/ready")
+async def ready():
+    return {"status": "ready"}
+
+
 @identity_app.post("/test/users")
 async def user():
     uid = directory.user()

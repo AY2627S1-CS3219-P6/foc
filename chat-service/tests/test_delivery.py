@@ -95,6 +95,8 @@ async def processes(database, broker_url):
             async with asyncio.timeout(30):
                 while True:
                     try:
+                        identity_ready = await client.get("http://127.0.0.1:17430/health/ready")
+                        assert identity_ready.status_code == 200
                         for port in (17431, 17432):
                             r = await client.get(f"http://127.0.0.1:{port}/health/ready")
                             assert r.status_code == 200 and r.json()["delivery"] == "ready"
