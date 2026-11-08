@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-11-08
+# Scope: Added tests for applying errand outcomes when closing disputes.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """N2F3.7: closing a dispute may fail or complete the errand through Order, safely."""
 
 from uuid import uuid4

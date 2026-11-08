@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13
+# Scope: Added tests for wallet, history and admin lookup endpoints.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 from datetime import UTC, datetime
 from uuid import uuid4
 

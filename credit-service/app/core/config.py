@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13
+# Scope: Implemented typed service settings for the database, broker, User and Order
+# integrations.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Typed configuration; no credentials are embedded in the application."""
 
 from functools import lru_cache

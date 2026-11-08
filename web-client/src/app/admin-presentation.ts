@@ -1,3 +1,9 @@
+// AI Assistance Disclosure:
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
+// Scope: Implemented Admin Dashboard labels, formatting, errors and drafts; added report and
+// errand outcome helpers.
+// Author review: I validated correctness and supplied additional boundary checks.
+
 import { isApiRequestError } from "../api/client";
 import type { AuditEntry, DisputeStatus, DisputeSummary, ErrandOutcome, ReporterRole } from "../api/admin-service";
 import type { OrderState } from "../api/order-service";

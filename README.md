@@ -701,3 +701,17 @@ This implementation record covers the two services and is separate from a projec
 - **Verification** included author review, boundary checks, and existing unit, integration, and smoke tests as recorded in the implementation history.
 
 The [AI usage log](ai/usage-log.md) records the prompts, key responses, and affected files in chronological order.
+
+### Credit Service and Admin Dashboard (fjxfong)
+
+**Scope** covers fjxfong’s (Fong Jing Xiang) implementation work in `credit-service/` and `admin-service/`, the wallet and Admin Dashboard pages in `web-client/`, and the administrator additions to `order-service/`, Compose, the edge proxy and CI.
+
+**Tools** include Claude Code (model: Claude Opus 5.5).
+
+Prohibited phases avoided: requirements elicitation; architecture/design decisions.
+
+- **Credit Service** used AI to implement and debug the service foundation, the wallet ledger and its migrations, the Order-facing reservation endpoints, the event consumer and its retries, the wallet and history API, the dead-letter replay and integrity check commands, and the wallet page.
+- **Admin Dashboard** used AI to implement and debug the Admin Service dispute workflow, participant problem reports and audit log, the administrator errand, analytics and decision endpoints in Order Service, the administrator credit views in Credit Service, and the dashboard pages.
+- **Verification** included author review, boundary checks, and the existing unit, integration, component and browser tests, as recorded in the implementation history.
+
+The [AI usage log](ai/usage-log.md) records the prompts, key responses, and affected files in chronological order.

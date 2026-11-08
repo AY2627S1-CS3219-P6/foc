@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-11-08
+# Scope: Added PostgreSQL tests for administrator decisions, retries and races.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """N2F3.7 on PostgreSQL: administrator decisions reuse the locked terminal path and outbox."""
 
 import asyncio

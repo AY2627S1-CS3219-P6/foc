@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
+# Scope: Added tests for dispute workflow rules and request fingerprints.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """N2F3.3.1-N2F3.3.3 workflow rules and N2NFR3.3 request fingerprints."""
 
 from uuid import uuid4

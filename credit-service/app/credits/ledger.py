@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13, 2026-10-28
+# Scope: Implemented atomic reserve, release and transfer operations with row locking; added
+# admin settlement and credit totals queries.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Atomic credit operations: one transaction per call, no network I/O while locked."""
 
 from uuid import UUID, uuid4

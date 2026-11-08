@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13
+// Scope: Added wallet client unit tests.
+// Author review: I validated correctness and supplied additional boundary checks.
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { creditService } from "../../src/api/credit-service";
 

@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
+# Scope: Generated test doubles for identity, Order and dispute storage; extended them for
+# reports and errand outcomes.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Test doubles shared by ASGI tests. They never touch a real database or User Service."""
 
 from datetime import UTC, datetime

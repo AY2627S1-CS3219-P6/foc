@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13, 2026-10-15
+# Scope: Implemented the RabbitMQ event consumer with deduplication, delayed retries and dead-
+# lettering; kept retrying while the database is unreachable.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """RabbitMQ consumer: inbox dedupe, delayed retries and a dead-letter queue."""
 
 import asyncio

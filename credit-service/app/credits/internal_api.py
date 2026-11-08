@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13
+# Scope: Implemented the Order-facing reservation, release and creation-abort endpoints.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Order-only reservation contract (order-service/API.md, accepted as-is)."""
 
 import hmac

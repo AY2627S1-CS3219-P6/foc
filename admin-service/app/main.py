@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29
+# Scope: Implemented the application factory, health checks, error handling and route wiring.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Admin application factory and operational endpoints."""
 
 import re

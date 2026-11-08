@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
+# Scope: Implemented dispute recording, listing, status-change and audit-log endpoints; added
+# errand outcomes when closing disputes.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Dispute workflow and dashboard audit log (N2F3).
 
 A decision changes an errand only when the administrator chooses an errand outcome (N2F3.7);

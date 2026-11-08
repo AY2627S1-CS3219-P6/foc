@@ -1,3 +1,9 @@
+/* AI Assistance Disclosure:
+   Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-11-08
+   Scope: Implemented Admin Dashboard page styles; added errand outcome choice and confirmation
+   styles.
+   Author review: I validated correctness and supplied additional boundary checks. */
+
 /* Admin Dashboard page content only; shell, topbar and navigation stay in workspace.css. */
 .admin-period, .admin-inline-form { align-items: end; display: flex; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
 .admin-period .order-label, .admin-inline-form .order-label { margin: 0; min-width: min(100%, 180px); }

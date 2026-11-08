@@ -1,3 +1,8 @@
+/* AI Assistance Disclosure:
+   Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13
+   Scope: Implemented wallet page styles matching the Figma design.
+   Author review: I validated correctness and supplied additional boundary checks. */
+
 .wallet-shell { --wallet-title: #14283d; --wallet-label: #8a98a9; --wallet-card-shadow: 0 4px 7px rgb(20 41 61 / 6%); }
 .wallet-balances { display: grid; gap: 1.25rem; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 2.6rem; }
 .wallet-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--wallet-card-shadow); display: grid; gap: .62rem; align-content: start; min-height: 133px; padding: 1.5rem; }

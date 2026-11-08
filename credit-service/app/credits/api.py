@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13, 2026-10-28
+# Scope: Implemented wallet, transaction-history and admin wallet lookup endpoints; added
+# read-only admin settlement and credit analytics endpoints.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Authenticated wallet, transaction-history and administrator lookups."""
 
 from datetime import UTC, datetime, time, timedelta, timezone

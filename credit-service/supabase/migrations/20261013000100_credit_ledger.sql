@@ -1,3 +1,8 @@
+-- AI Assistance Disclosure:
+-- Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13
+-- Scope: Wrote the migration for wallets, reservations, transactions, processed events and
+-- event failures.
+-- Author review: I validated correctness and supplied additional boundary checks.
 
 -- Wallet balances, one reservation per order, append-only ledger, event inbox and failure log.
 BEGIN;

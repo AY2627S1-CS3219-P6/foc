@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-11-08
+# Scope: Added tests for administrator decision rules, access and validation.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """N2F3.7: administrators deciding a dispute may fail or complete an errand, nothing more."""
 
 from unittest.mock import AsyncMock

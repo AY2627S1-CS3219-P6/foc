@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13, 2026-10-15
+# Scope: Added RabbitMQ and PostgreSQL consumer integration tests, including dead-letter
+# replay.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Real RabbitMQ + PostgreSQL consumer checks. Needs CREDIT_TEST_DATABASE_URL (disposable)
 and CREDIT_TEST_RABBITMQ_URL; uses a throwaway exchange and queues, never foc.events."""
 

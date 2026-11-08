@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-15
+# Scope: Implemented the credit-replay-dlq command for replaying dead-lettered events.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Operator command: replay dead-lettered events once their cause has been fixed.
 
 A dead-lettered event is never lost: it waits in credit-service.events.dlq and is recorded in

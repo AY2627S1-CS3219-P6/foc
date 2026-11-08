@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
+// Scope: Implemented independent loading, error, retry and refresh state for dashboard panels.
+// Author review: I validated correctness and supplied additional boundary checks.
+
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./use-auth";
 

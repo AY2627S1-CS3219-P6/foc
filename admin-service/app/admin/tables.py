@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
+# Scope: Implemented query-only table definitions for disputes, their history and the audit
+# log.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Query-only table definitions. supabase/migrations/ owns the schema."""
 
 from sqlalchemy import Column, DateTime, Integer, MetaData, Table, Text

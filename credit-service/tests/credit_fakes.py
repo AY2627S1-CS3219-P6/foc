@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13, 2026-10-28
+# Scope: Generated test doubles for identity and ledger dependencies; extended them for admin
+# credit views.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Explicit test doubles. Never imported by application code."""
 
 from datetime import UTC, datetime

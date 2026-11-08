@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
+# Scope: Added PostgreSQL tests for idempotency, workflow guards, concurrency, append-only
+# history, participant reports and errand outcomes.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Requires ADMIN_TEST_DATABASE_URL: a DISPOSABLE migrated Admin database (admin URL).
 
 Covers the PostgreSQL guarantees behind N2F3.2-N2F3.6 and N2NFR3.1-N2NFR3.5.

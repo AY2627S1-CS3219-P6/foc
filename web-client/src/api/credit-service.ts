@@ -1,3 +1,9 @@
+// AI Assistance Disclosure:
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13, 2026-10-28, 2026-10-29
+// Scope: Implemented the wallet client; added admin settlement, analytics and wallet lookup
+// calls.
+// Author review: I validated correctness and supplied additional boundary checks.
+
 import { requestJson } from "./client";
 
 export type Wallet = { userId: string; available: number; reserved: number; total: number; updatedAt: string };

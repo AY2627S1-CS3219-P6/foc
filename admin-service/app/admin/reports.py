@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-29, 2026-11-08
+# Scope: Implemented participant dispute report endpoints and their visibility rules; added
+# errand outcomes to reports.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Participant dispute reports (N2F3.2): requesters and couriers flag problems; admins decide.
 
 These routes serve ordinary users. They confirm participation through Order's own participant

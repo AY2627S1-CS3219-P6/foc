@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-15
+# Scope: Implemented the read-only credit-verify integrity check.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Operator command: read-only integrity check of the Credit ledger (M4NFR5.2, M4NFR1).
 
 Run it after a restart or recovery: every check counts violations, 0 means PASS, and the

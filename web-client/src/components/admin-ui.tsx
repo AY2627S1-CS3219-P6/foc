@@ -1,3 +1,9 @@
+// AI Assistance Disclosure:
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
+// Scope: Implemented shared Admin Dashboard panels, badges, facts and lists; added the pending
+// settlement notice.
+// Author review: I validated correctness and supplied additional boundary checks.
+
 import type { PropsWithChildren, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { DisputeStatus, DisputeSummary } from "../api/admin-service";

@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29
+// Scope: Implemented the Admin Dashboard analytics, platform credit and user activity panels.
+// Author review: I validated correctness and supplied additional boundary checks.
+
 import { type FormEvent, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { isApiRequestError } from "../api/client";

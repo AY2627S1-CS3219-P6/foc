@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13, 2026-10-15
+# Scope: Generated package, lint and test settings; added the credit-replay-dlq and credit-
+# verify commands.
+# Author review: I validated correctness and supplied additional boundary checks.
 
 [build-system]
 requires = ["setuptools>=75"]

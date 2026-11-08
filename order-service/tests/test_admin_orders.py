@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
+# Scope: Added tests for administrator errand oversight and analytics endpoints.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """N2F2 and N2F4: read-only administrator errand oversight and analytics."""
 
 from datetime import UTC, datetime, timedelta

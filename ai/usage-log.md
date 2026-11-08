@@ -687,3 +687,417 @@ This log carries the attribution for JSON files and the empty migration director
 
 - [`chat-service/compose.yaml`](../chat-service/compose.yaml)
 - [`chat-service/scripts/container_smoke.py`](../chat-service/scripts/container_smoke.py)
+
+---
+
+The entries below record implementation assistance for fjxfong’s (Fong Jing Xiang) changes in `credit-service/` and `admin-service/`, and the related wallet and Admin Dashboard changes in `web-client/`, `order-service/`, Compose, the edge proxy and CI, on `main`. Times are Singapore time (UTC+08:00). Prompt excerpts preserve the relevant wording, and a summary identifies the exchange when a prompt refers to earlier options. Key responses are summarized. The referenced commits identify the changes supported by each exchange.
+
+These entries carry the attribution for the JSON files they list.
+
+## 2026-10-13 20:19:17 SGT — Credit Service implementation
+
+**Tool and mode** — Claude Code (model: Claude Opus 5.5), generate.
+
+**Prompt excerpts**
+
+> ok proceed with implementing credit service
+
+> make sure everything is good, have their test following how other service is doing,
+
+**Key response** — Generated the Credit Service foundation and CI job, the ledger migration and atomic reserve, release and transfer operations, the Order-facing reservation endpoints, the RabbitMQ consumer for registration and terminal order events, the wallet, history and admin lookup API, the Compose, edge proxy and Order wiring, a wallet page, and unit and integration tests.
+
+**Commits** — [`0701eec`](https://github.com/AY2627S1-CS3219-P6/foc/commit/0701eec), [`8b63bfb`](https://github.com/AY2627S1-CS3219-P6/foc/commit/8b63bfb), [`c8d0ea8`](https://github.com/AY2627S1-CS3219-P6/foc/commit/c8d0ea8), [`68d20a4`](https://github.com/AY2627S1-CS3219-P6/foc/commit/68d20a4), [`8b74cb1`](https://github.com/AY2627S1-CS3219-P6/foc/commit/8b74cb1), [`ca86691`](https://github.com/AY2627S1-CS3219-P6/foc/commit/ca86691), [`057d941`](https://github.com/AY2627S1-CS3219-P6/foc/commit/057d941), [`a65add7`](https://github.com/AY2627S1-CS3219-P6/foc/commit/a65add7).
+
+**Affected files**
+
+- [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+- [`compose.yaml`](../compose.yaml)
+- [`credit-service/.dockerignore`](../credit-service/.dockerignore)
+- [`credit-service/.env.docker.example`](../credit-service/.env.docker.example)
+- [`credit-service/.env.example`](../credit-service/.env.example)
+- [`credit-service/.gitignore`](../credit-service/.gitignore)
+- [`credit-service/Dockerfile`](../credit-service/Dockerfile)
+- [`credit-service/app/__init__.py`](../credit-service/app/__init__.py)
+- [`credit-service/app/core/__init__.py`](../credit-service/app/core/__init__.py)
+- [`credit-service/app/core/config.py`](../credit-service/app/core/config.py)
+- [`credit-service/app/credits/__init__.py`](../credit-service/app/credits/__init__.py)
+- [`credit-service/app/credits/api.py`](../credit-service/app/credits/api.py)
+- [`credit-service/app/credits/consumer.py`](../credit-service/app/credits/consumer.py)
+- [`credit-service/app/credits/errors.py`](../credit-service/app/credits/errors.py)
+- [`credit-service/app/credits/identity.py`](../credit-service/app/credits/identity.py)
+- [`credit-service/app/credits/internal_api.py`](../credit-service/app/credits/internal_api.py)
+- [`credit-service/app/credits/ledger.py`](../credit-service/app/credits/ledger.py)
+- [`credit-service/app/credits/schemas.py`](../credit-service/app/credits/schemas.py)
+- [`credit-service/app/credits/tables.py`](../credit-service/app/credits/tables.py)
+- [`credit-service/app/db.py`](../credit-service/app/db.py)
+- [`credit-service/app/main.py`](../credit-service/app/main.py)
+- [`credit-service/package-lock.json`](../credit-service/package-lock.json)
+- [`credit-service/package.json`](../credit-service/package.json)
+- [`credit-service/pyproject.toml`](../credit-service/pyproject.toml)
+- [`credit-service/supabase/config.toml`](../credit-service/supabase/config.toml)
+- [`credit-service/supabase/migrations/20261013000000_credit_foundation.sql`](../credit-service/supabase/migrations/20261013000000_credit_foundation.sql)
+- [`credit-service/supabase/migrations/20261013000100_credit_ledger.sql`](../credit-service/supabase/migrations/20261013000100_credit_ledger.sql)
+- [`credit-service/tests/__init__.py`](../credit-service/tests/__init__.py)
+- [`credit-service/tests/credit_fakes.py`](../credit-service/tests/credit_fakes.py)
+- [`credit-service/tests/integration/__init__.py`](../credit-service/tests/integration/__init__.py)
+- [`credit-service/tests/integration/test_consumer_broker.py`](../credit-service/tests/integration/test_consumer_broker.py)
+- [`credit-service/tests/integration/test_foundation.py`](../credit-service/tests/integration/test_foundation.py)
+- [`credit-service/tests/integration/test_ledger.py`](../credit-service/tests/integration/test_ledger.py)
+- [`credit-service/tests/test_config.py`](../credit-service/tests/test_config.py)
+- [`credit-service/tests/test_consumer.py`](../credit-service/tests/test_consumer.py)
+- [`credit-service/tests/test_health.py`](../credit-service/tests/test_health.py)
+- [`credit-service/tests/test_identity.py`](../credit-service/tests/test_identity.py)
+- [`credit-service/tests/test_internal_api.py`](../credit-service/tests/test_internal_api.py)
+- [`credit-service/tests/test_user_api.py`](../credit-service/tests/test_user_api.py)
+- [`order-service/.env.docker.example`](../order-service/.env.docker.example)
+- [`web-client/nginx/default.conf`](../web-client/nginx/default.conf)
+- [`web-client/src/api/credit-service.ts`](../web-client/src/api/credit-service.ts)
+- [`web-client/src/app/routes.tsx`](../web-client/src/app/routes.tsx)
+- [`web-client/src/components/app-navigation.tsx`](../web-client/src/components/app-navigation.tsx)
+- [`web-client/src/pages/wallet-page.tsx`](../web-client/src/pages/wallet-page.tsx)
+- [`web-client/tests/component/wallet-page.test.tsx`](../web-client/tests/component/wallet-page.test.tsx)
+- [`web-client/tests/e2e/workspace-modes.spec.ts`](../web-client/tests/e2e/workspace-modes.spec.ts)
+- [`web-client/tests/unit/credit-service.test.ts`](../web-client/tests/unit/credit-service.test.ts)
+- [`web-client/tests/unit/order-proxy.test.ts`](../web-client/tests/unit/order-proxy.test.ts)
+- [`web-client/vite.config.ts`](../web-client/vite.config.ts)
+
+## 2026-10-13 22:46:55 SGT — Credit wallet page styling
+
+**Tool and mode** — Claude Code (model: Claude Opus 5.5), generate.
+
+**Prompt excerpts**
+
+> this is my figma diagram for my app https://www.figma.com/design/1QaorStohl4p1T8PoC9YG5/CS3219---Project-6
+
+> my credit service should follow how this looks
+
+**Key response** — Restyled the Credits wallet page, its navigation icon and its component and browser tests to match the Figma design.
+
+**Commits** — [`d1c8169`](https://github.com/AY2627S1-CS3219-P6/foc/commit/d1c8169).
+
+**Affected files**
+
+- [`web-client/src/components/app-navigation.tsx`](../web-client/src/components/app-navigation.tsx)
+- [`web-client/src/components/navigation-icons.tsx`](../web-client/src/components/navigation-icons.tsx)
+- [`web-client/src/main.tsx`](../web-client/src/main.tsx)
+- [`web-client/src/pages/wallet-page.tsx`](../web-client/src/pages/wallet-page.tsx)
+- [`web-client/src/styles/wallet.css`](../web-client/src/styles/wallet.css)
+- [`web-client/tests/component/wallet-page.test.tsx`](../web-client/tests/component/wallet-page.test.tsx)
+- [`web-client/tests/e2e/wallet.spec.ts`](../web-client/tests/e2e/wallet.spec.ts)
+- [`web-client/tests/e2e/workspace-modes.spec.ts`](../web-client/tests/e2e/workspace-modes.spec.ts)
+
+## 2026-10-15 22:49:54 SGT — Credit dead-letter replay and database retries
+
+**Tool and mode** — Claude Code (model: Claude Opus 5.5), generate and debug.
+
+**Prompt**
+
+> do B + C but only revert/ work on those portions. should only solve this gap and not the whole reverted prototype
+
+**Prompt summary** — B and C referred to a dead-letter replay command and continued event retries while the database is unreachable.
+
+**Key response** — Added the `credit-replay-dlq` command to replay dead-lettered events and kept the consumer retrying while the database is unreachable, with unit and broker integration tests.
+
+**Commits** — [`4b4cde2`](https://github.com/AY2627S1-CS3219-P6/foc/commit/4b4cde2), [`e0795c4`](https://github.com/AY2627S1-CS3219-P6/foc/commit/e0795c4).
+
+**Affected files**
+
+- [`credit-service/app/credits/consumer.py`](../credit-service/app/credits/consumer.py)
+- [`credit-service/app/credits/replay.py`](../credit-service/app/credits/replay.py)
+- [`credit-service/pyproject.toml`](../credit-service/pyproject.toml)
+- [`credit-service/tests/integration/test_consumer_broker.py`](../credit-service/tests/integration/test_consumer_broker.py)
+- [`credit-service/tests/test_consumer.py`](../credit-service/tests/test_consumer.py)
+- [`credit-service/tests/test_replay.py`](../credit-service/tests/test_replay.py)
+
+## 2026-10-15 23:08:30 SGT — Credit integrity check and restart policy
+
+**Tool and mode** — Claude Code (model: Claude Opus 5.5), generate.
+
+**Prompt**
+
+> ok fix 2 and 4
+
+**Prompt summary** — Items 2 and 4 referred to a ledger integrity check command and an automatic restart for the Credit API.
+
+**Key response** — Added the read-only `credit-verify` integrity check with tests, and an automatic restart policy for the Credit API container.
+
+**Commits** — [`8fcbb0e`](https://github.com/AY2627S1-CS3219-P6/foc/commit/8fcbb0e), [`71fbed3`](https://github.com/AY2627S1-CS3219-P6/foc/commit/71fbed3).
+
+**Affected files**
+
+- [`compose.yaml`](../compose.yaml)
+- [`credit-service/app/credits/verify.py`](../credit-service/app/credits/verify.py)
+- [`credit-service/pyproject.toml`](../credit-service/pyproject.toml)
+- [`credit-service/tests/integration/test_ledger.py`](../credit-service/tests/integration/test_ledger.py)
+
+## 2026-10-28 21:46:57 SGT — Admin Dashboard implementation
+
+**Tool and mode** — Claude Code (model: Claude Opus 5.5), generate.
+
+**Prompt excerpts**
+
+> proceed with implementing admin dashboard
+
+> there is no figma, reuse existing layouts
+
+> so proceed with implementing admin dashboard
+
+> make sure there is proper commits and commit messages
+
+**Key response** — Generated the Admin Service foundation, the dispute workflow and audit log, read-only administrator errand and analytics endpoints in Order Service, administrator settlement and credit analytics endpoints in Credit Service, and the Admin Dashboard pages, with unit, integration and component tests.
+
+**Commits** — [`9c64f19`](https://github.com/AY2627S1-CS3219-P6/foc/commit/9c64f19), [`2159b45`](https://github.com/AY2627S1-CS3219-P6/foc/commit/2159b45), [`ae479f2`](https://github.com/AY2627S1-CS3219-P6/foc/commit/ae479f2), [`66a3097`](https://github.com/AY2627S1-CS3219-P6/foc/commit/66a3097), [`316564b`](https://github.com/AY2627S1-CS3219-P6/foc/commit/316564b).
+
+**Affected files**
+
+- [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+- [`admin-service/.dockerignore`](../admin-service/.dockerignore)
+- [`admin-service/.env.docker.example`](../admin-service/.env.docker.example)
+- [`admin-service/.env.example`](../admin-service/.env.example)
+- [`admin-service/.gitignore`](../admin-service/.gitignore)
+- [`admin-service/Dockerfile`](../admin-service/Dockerfile)
+- [`admin-service/app/__init__.py`](../admin-service/app/__init__.py)
+- [`admin-service/app/admin/__init__.py`](../admin-service/app/admin/__init__.py)
+- [`admin-service/app/admin/api.py`](../admin-service/app/admin/api.py)
+- [`admin-service/app/admin/auth.py`](../admin-service/app/admin/auth.py)
+- [`admin-service/app/admin/disputes.py`](../admin-service/app/admin/disputes.py)
+- [`admin-service/app/admin/errors.py`](../admin-service/app/admin/errors.py)
+- [`admin-service/app/admin/identity.py`](../admin-service/app/admin/identity.py)
+- [`admin-service/app/admin/orders.py`](../admin-service/app/admin/orders.py)
+- [`admin-service/app/admin/repository.py`](../admin-service/app/admin/repository.py)
+- [`admin-service/app/admin/schemas.py`](../admin-service/app/admin/schemas.py)
+- [`admin-service/app/admin/tables.py`](../admin-service/app/admin/tables.py)
+- [`admin-service/app/core/__init__.py`](../admin-service/app/core/__init__.py)
+- [`admin-service/app/core/config.py`](../admin-service/app/core/config.py)
+- [`admin-service/app/db.py`](../admin-service/app/db.py)
+- [`admin-service/app/main.py`](../admin-service/app/main.py)
+- [`admin-service/package-lock.json`](../admin-service/package-lock.json)
+- [`admin-service/package.json`](../admin-service/package.json)
+- [`admin-service/pyproject.toml`](../admin-service/pyproject.toml)
+- [`admin-service/supabase/config.toml`](../admin-service/supabase/config.toml)
+- [`admin-service/supabase/migrations/20261028000000_admin_foundation.sql`](../admin-service/supabase/migrations/20261028000000_admin_foundation.sql)
+- [`admin-service/supabase/migrations/20261028000100_admin_disputes.sql`](../admin-service/supabase/migrations/20261028000100_admin_disputes.sql)
+- [`admin-service/tests/__init__.py`](../admin-service/tests/__init__.py)
+- [`admin-service/tests/admin_fakes.py`](../admin-service/tests/admin_fakes.py)
+- [`admin-service/tests/integration/__init__.py`](../admin-service/tests/integration/__init__.py)
+- [`admin-service/tests/integration/test_disputes.py`](../admin-service/tests/integration/test_disputes.py)
+- [`admin-service/tests/integration/test_foundation.py`](../admin-service/tests/integration/test_foundation.py)
+- [`admin-service/tests/test_auth.py`](../admin-service/tests/test_auth.py)
+- [`admin-service/tests/test_config.py`](../admin-service/tests/test_config.py)
+- [`admin-service/tests/test_dispute_rules.py`](../admin-service/tests/test_dispute_rules.py)
+- [`admin-service/tests/test_disputes_api.py`](../admin-service/tests/test_disputes_api.py)
+- [`admin-service/tests/test_health.py`](../admin-service/tests/test_health.py)
+- [`admin-service/tests/test_identity.py`](../admin-service/tests/test_identity.py)
+- [`admin-service/tests/test_orders_client.py`](../admin-service/tests/test_orders_client.py)
+- [`compose.yaml`](../compose.yaml)
+- [`credit-service/app/credits/api.py`](../credit-service/app/credits/api.py)
+- [`credit-service/app/credits/ledger.py`](../credit-service/app/credits/ledger.py)
+- [`credit-service/app/credits/schemas.py`](../credit-service/app/credits/schemas.py)
+- [`credit-service/tests/credit_fakes.py`](../credit-service/tests/credit_fakes.py)
+- [`credit-service/tests/test_admin_credit.py`](../credit-service/tests/test_admin_credit.py)
+- [`order-service/app/orders/analytics.py`](../order-service/app/orders/analytics.py)
+- [`order-service/app/orders/api.py`](../order-service/app/orders/api.py)
+- [`order-service/app/orders/repository.py`](../order-service/app/orders/repository.py)
+- [`order-service/app/orders/schemas.py`](../order-service/app/orders/schemas.py)
+- [`order-service/supabase/migrations/20261028000000_admin_order_indexes.sql`](../order-service/supabase/migrations/20261028000000_admin_order_indexes.sql)
+- [`order-service/tests/order_fakes.py`](../order-service/tests/order_fakes.py)
+- [`order-service/tests/test_admin_orders.py`](../order-service/tests/test_admin_orders.py)
+- [`order-service/tests/test_analytics.py`](../order-service/tests/test_analytics.py)
+- [`web-client/nginx/default.conf`](../web-client/nginx/default.conf)
+- [`web-client/src/api/admin-service.ts`](../web-client/src/api/admin-service.ts)
+- [`web-client/src/api/credit-service.ts`](../web-client/src/api/credit-service.ts)
+- [`web-client/src/api/order-service.ts`](../web-client/src/api/order-service.ts)
+- [`web-client/src/app/admin-presentation.ts`](../web-client/src/app/admin-presentation.ts)
+- [`web-client/src/app/routes.tsx`](../web-client/src/app/routes.tsx)
+- [`web-client/src/app/use-admin-resource.ts`](../web-client/src/app/use-admin-resource.ts)
+- [`web-client/src/components/admin-ui.tsx`](../web-client/src/components/admin-ui.tsx)
+- [`web-client/src/components/app-navigation.tsx`](../web-client/src/components/app-navigation.tsx)
+- [`web-client/src/components/navigation-icons.tsx`](../web-client/src/components/navigation-icons.tsx)
+- [`web-client/src/main.tsx`](../web-client/src/main.tsx)
+- [`web-client/src/pages/admin-dashboard-page.tsx`](../web-client/src/pages/admin-dashboard-page.tsx)
+- [`web-client/src/pages/admin-dispute-detail-page.tsx`](../web-client/src/pages/admin-dispute-detail-page.tsx)
+- [`web-client/src/pages/admin-disputes-page.tsx`](../web-client/src/pages/admin-disputes-page.tsx)
+- [`web-client/src/pages/admin-order-detail-page.tsx`](../web-client/src/pages/admin-order-detail-page.tsx)
+- [`web-client/src/pages/admin-orders-page.tsx`](../web-client/src/pages/admin-orders-page.tsx)
+- [`web-client/src/styles/admin.css`](../web-client/src/styles/admin.css)
+- [`web-client/tests/component/admin-dashboard-page.test.tsx`](../web-client/tests/component/admin-dashboard-page.test.tsx)
+- [`web-client/tests/component/admin-dispute-detail-page.test.tsx`](../web-client/tests/component/admin-dispute-detail-page.test.tsx)
+- [`web-client/tests/component/admin-orders-page.test.tsx`](../web-client/tests/component/admin-orders-page.test.tsx)
+- [`web-client/tests/unit/order-proxy.test.ts`](../web-client/tests/unit/order-proxy.test.ts)
+- [`web-client/vite.config.ts`](../web-client/vite.config.ts)
+
+## 2026-10-29 16:09:44 SGT — Admin Dashboard credit and analytics panels
+
+**Tool and mode** — Claude Code (model: Claude Opus 5.5), refactor.
+
+**Prompt excerpts**
+
+> much better to be able to see credit of a specific user, view their wallet etc
+
+> for errands per day, currently the latest day is the last, the latest should be first and the oldest the last
+
+> the total credit flow is still useful along with the each user credit wallet search … can still have it on the dashboard
+
+**Key response** — Added a user wallet and credit transaction lookup alongside the platform credit totals, and listed daily errand counts newest first, with updated component tests.
+
+**Commits** — [`316564b`](https://github.com/AY2627S1-CS3219-P6/foc/commit/316564b).
+
+**Affected files**
+
+- [`web-client/src/api/credit-service.ts`](../web-client/src/api/credit-service.ts)
+- [`web-client/src/pages/admin-dashboard-page.tsx`](../web-client/src/pages/admin-dashboard-page.tsx)
+- [`web-client/tests/component/admin-dashboard-page.test.tsx`](../web-client/tests/component/admin-dashboard-page.test.tsx)
+
+## 2026-10-29 16:34:56 SGT — Errand problem reports
+
+**Tool and mode** — Claude Code (model: Claude Opus 5.5), generate.
+
+**Prompt excerpts**
+
+> for a user to report a dispute just have a dispute and a description. no need evidence note. as it can be in description
+
+> next go ahead with the rest of the implementation
+
+**Key response** — Added participant report endpoints that confirm participation through Order Service, a migration allowing one open report per participant, edge and development proxy routes, a report panel on the errand page, the reporter's role in the admin views, and tests.
+
+**Commits** — [`497078b`](https://github.com/AY2627S1-CS3219-P6/foc/commit/497078b), [`12e736e`](https://github.com/AY2627S1-CS3219-P6/foc/commit/12e736e).
+
+**Affected files**
+
+- [`admin-service/app/admin/api.py`](../admin-service/app/admin/api.py)
+- [`admin-service/app/admin/disputes.py`](../admin-service/app/admin/disputes.py)
+- [`admin-service/app/admin/orders.py`](../admin-service/app/admin/orders.py)
+- [`admin-service/app/admin/reports.py`](../admin-service/app/admin/reports.py)
+- [`admin-service/app/admin/repository.py`](../admin-service/app/admin/repository.py)
+- [`admin-service/app/admin/schemas.py`](../admin-service/app/admin/schemas.py)
+- [`admin-service/app/admin/tables.py`](../admin-service/app/admin/tables.py)
+- [`admin-service/app/main.py`](../admin-service/app/main.py)
+- [`admin-service/supabase/migrations/20261029000000_participant_reports.sql`](../admin-service/supabase/migrations/20261029000000_participant_reports.sql)
+- [`admin-service/tests/admin_fakes.py`](../admin-service/tests/admin_fakes.py)
+- [`admin-service/tests/integration/test_disputes.py`](../admin-service/tests/integration/test_disputes.py)
+- [`admin-service/tests/test_orders_client.py`](../admin-service/tests/test_orders_client.py)
+- [`admin-service/tests/test_reports_api.py`](../admin-service/tests/test_reports_api.py)
+- [`web-client/nginx/default.conf`](../web-client/nginx/default.conf)
+- [`web-client/src/api/admin-service.ts`](../web-client/src/api/admin-service.ts)
+- [`web-client/src/app/admin-presentation.ts`](../web-client/src/app/admin-presentation.ts)
+- [`web-client/src/components/admin-ui.tsx`](../web-client/src/components/admin-ui.tsx)
+- [`web-client/src/components/errand-report.tsx`](../web-client/src/components/errand-report.tsx)
+- [`web-client/src/pages/admin-dispute-detail-page.tsx`](../web-client/src/pages/admin-dispute-detail-page.tsx)
+- [`web-client/src/pages/admin-disputes-page.tsx`](../web-client/src/pages/admin-disputes-page.tsx)
+- [`web-client/src/pages/order-detail-page.tsx`](../web-client/src/pages/order-detail-page.tsx)
+- [`web-client/tests/component/admin-dispute-detail-page.test.tsx`](../web-client/tests/component/admin-dispute-detail-page.test.tsx)
+- [`web-client/tests/component/errand-report.test.tsx`](../web-client/tests/component/errand-report.test.tsx)
+- [`web-client/tests/unit/order-proxy.test.ts`](../web-client/tests/unit/order-proxy.test.ts)
+- [`web-client/vite.config.ts`](../web-client/vite.config.ts)
+
+## 2026-10-29 17:07:31 SGT — Problem reports for both participants
+
+**Tool and mode** — Claude Code (model: Claude Opus 5.5), generate.
+
+**Prompt**
+
+> yes implement then prepare to PR
+
+**Prompt summary** — Continuation of the report feature: show each problem report and its status to both participants of the errand.
+
+**Key response** — Listed every report about an errand to both participants with its status and decision reason, returned the description only to its author, and updated the errand page and tests.
+
+**Commits** — [`9821e80`](https://github.com/AY2627S1-CS3219-P6/foc/commit/9821e80), [`693fa58`](https://github.com/AY2627S1-CS3219-P6/foc/commit/693fa58).
+
+**Affected files**
+
+- [`admin-service/app/admin/reports.py`](../admin-service/app/admin/reports.py)
+- [`admin-service/app/admin/repository.py`](../admin-service/app/admin/repository.py)
+- [`admin-service/app/admin/schemas.py`](../admin-service/app/admin/schemas.py)
+- [`admin-service/tests/admin_fakes.py`](../admin-service/tests/admin_fakes.py)
+- [`admin-service/tests/integration/test_disputes.py`](../admin-service/tests/integration/test_disputes.py)
+- [`admin-service/tests/test_reports_api.py`](../admin-service/tests/test_reports_api.py)
+- [`web-client/src/api/admin-service.ts`](../web-client/src/api/admin-service.ts)
+- [`web-client/src/components/errand-report.tsx`](../web-client/src/components/errand-report.tsx)
+- [`web-client/src/pages/admin-dispute-detail-page.tsx`](../web-client/src/pages/admin-dispute-detail-page.tsx)
+- [`web-client/tests/component/admin-dispute-detail-page.test.tsx`](../web-client/tests/component/admin-dispute-detail-page.test.tsx)
+- [`web-client/tests/component/errand-report.test.tsx`](../web-client/tests/component/errand-report.test.tsx)
+
+## 2026-10-29 17:59:05 SGT — Admin Dashboard browser test fix
+
+**Tool and mode** — Claude Code (model: Claude Opus 5.5), debug.
+
+**Prompt**
+
+> in PR 5, some CI checks fail
+
+**Key response** — Kept the report panel's load failure out of the page alerts and kept the existing Admin mode landing page, so the existing browser tests pass, and updated the navigation test.
+
+**Commits** — [`32e3952`](https://github.com/AY2627S1-CS3219-P6/foc/commit/32e3952).
+
+**Affected files**
+
+- [`web-client/src/components/errand-report.tsx`](../web-client/src/components/errand-report.tsx)
+- [`web-client/tests/e2e/workspace-modes.spec.ts`](../web-client/tests/e2e/workspace-modes.spec.ts)
+
+## 2026-11-08 15:58:21 SGT — Dispute errand outcomes
+
+**Tool and mode** — Claude Code (model: Claude Opus 5.5), generate.
+
+**Prompt excerpts**
+
+> yes do 1 to 4, make sure everything flows, work correctly, have proper commits, messages, proper UI and etc
+
+> continue where you stopped.
+
+**Prompt summary** — Items 1 to 4 covered implementing the errand outcome choice on the dispute page, its credit preview and confirmation, and recording the decision in the errand history.
+
+**Key response** — Added administrator fail and complete actions for disputed errands in Order Service, applied the chosen outcome when closing a dispute in Admin Service, and added the outcome choice, credit preview, confirmation and decision history to the web client, with unit, integration and component tests.
+
+**Commits** — [`0da391f`](https://github.com/AY2627S1-CS3219-P6/foc/commit/0da391f), [`1728250`](https://github.com/AY2627S1-CS3219-P6/foc/commit/1728250), [`7059f3a`](https://github.com/AY2627S1-CS3219-P6/foc/commit/7059f3a).
+
+**Affected files**
+
+- [`admin-service/app/admin/api.py`](../admin-service/app/admin/api.py)
+- [`admin-service/app/admin/disputes.py`](../admin-service/app/admin/disputes.py)
+- [`admin-service/app/admin/orders.py`](../admin-service/app/admin/orders.py)
+- [`admin-service/app/admin/reports.py`](../admin-service/app/admin/reports.py)
+- [`admin-service/app/admin/repository.py`](../admin-service/app/admin/repository.py)
+- [`admin-service/app/admin/schemas.py`](../admin-service/app/admin/schemas.py)
+- [`admin-service/app/admin/tables.py`](../admin-service/app/admin/tables.py)
+- [`admin-service/supabase/migrations/20261108000100_dispute_errand_outcomes.sql`](../admin-service/supabase/migrations/20261108000100_dispute_errand_outcomes.sql)
+- [`admin-service/tests/admin_fakes.py`](../admin-service/tests/admin_fakes.py)
+- [`admin-service/tests/integration/test_disputes.py`](../admin-service/tests/integration/test_disputes.py)
+- [`admin-service/tests/test_dispute_outcomes.py`](../admin-service/tests/test_dispute_outcomes.py)
+- [`order-service/app/orders/api.py`](../order-service/app/orders/api.py)
+- [`order-service/app/orders/lifecycle.py`](../order-service/app/orders/lifecycle.py)
+- [`order-service/app/orders/lifecycle_repository.py`](../order-service/app/orders/lifecycle_repository.py)
+- [`order-service/app/orders/schemas.py`](../order-service/app/orders/schemas.py)
+- [`order-service/app/orders/service.py`](../order-service/app/orders/service.py)
+- [`order-service/app/orders/tables.py`](../order-service/app/orders/tables.py)
+- [`order-service/supabase/migrations/20261108000000_admin_errand_decisions.sql`](../order-service/supabase/migrations/20261108000000_admin_errand_decisions.sql)
+- [`order-service/tests/integration/test_admin_decisions.py`](../order-service/tests/integration/test_admin_decisions.py)
+- [`order-service/tests/test_admin_decisions.py`](../order-service/tests/test_admin_decisions.py)
+- [`web-client/src/api/admin-service.ts`](../web-client/src/api/admin-service.ts)
+- [`web-client/src/api/order-service.ts`](../web-client/src/api/order-service.ts)
+- [`web-client/src/app/admin-presentation.ts`](../web-client/src/app/admin-presentation.ts)
+- [`web-client/src/components/admin-ui.tsx`](../web-client/src/components/admin-ui.tsx)
+- [`web-client/src/components/errand-report.tsx`](../web-client/src/components/errand-report.tsx)
+- [`web-client/src/components/order-lifecycle.tsx`](../web-client/src/components/order-lifecycle.tsx)
+- [`web-client/src/pages/admin-dispute-detail-page.tsx`](../web-client/src/pages/admin-dispute-detail-page.tsx)
+- [`web-client/src/pages/admin-order-detail-page.tsx`](../web-client/src/pages/admin-order-detail-page.tsx)
+- [`web-client/src/pages/order-detail-page.tsx`](../web-client/src/pages/order-detail-page.tsx)
+- [`web-client/src/styles/admin.css`](../web-client/src/styles/admin.css)
+- [`web-client/tests/component/admin-dispute-detail-page.test.tsx`](../web-client/tests/component/admin-dispute-detail-page.test.tsx)
+- [`web-client/tests/component/errand-report.test.tsx`](../web-client/tests/component/errand-report.test.tsx)
+
+## 2026-11-08 19:22:38 SGT — Order Service lint fix
+
+**Tool and mode** — Claude Code (model: Claude Opus 5.5), debug.
+
+**Prompt**
+
+> the first github PR fails the CI checks
+
+**Key response** — Sorted the imports and wrapped a long line in the administrator decision integration tests so the Order Service lint step passes.
+
+**Commits** — [`867f519`](https://github.com/AY2627S1-CS3219-P6/foc/commit/867f519).
+
+**Affected files**
+
+- [`order-service/tests/integration/test_admin_decisions.py`](../order-service/tests/integration/test_admin_decisions.py)

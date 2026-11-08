@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13
+# Scope: Added schema and runtime-role integration tests.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Requires CREDIT_TEST_DATABASE_URL: a DISPOSABLE migrated Credit database (admin URL)."""
 
 import os
