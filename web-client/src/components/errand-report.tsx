@@ -89,6 +89,9 @@ export function ErrandReportPanel({ orderId, state }: { orderId: string; state: 
           <time dateTime={report.createdAt}>{report.ownReport ? "You reported" : `The ${reporterNames[report.reporterRole]} reported a problem`} {orderTime(report.createdAt)} SGT</time>
           {report.ownReport ? <p>{report.description}</p> : null}
           {report.resolutionReason ? <p><strong>Decision:</strong> {report.resolutionReason}</p> : null}
+          {report.errandOutcome ? <p>{report.errandOutcome === "FAILED"
+            ? "The errand was marked as failed, so the reward returns to the requester."
+            : "The errand was marked as completed, so the reward is paid to the courier."}</p> : null}
         </li>)}</ol> : null}
         {ownOpen ? <p className="order-muted">An administrator is reviewing your report. You can report again after a decision.</p>
           : canReport ? <>

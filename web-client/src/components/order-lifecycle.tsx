@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { isApiRequestError } from "../api/client";
-import { failureReasons, orderService, type FailureReason, type OrderAction, type OrderDetail, type OrderFailureInput, type OrderParticipant } from "../api/order-service";
+import { failureReasons, orderService, recordedFailureReasons, type FailureReason, type OrderAction, type OrderDetail, type OrderFailureInput, type OrderParticipant } from "../api/order-service";
 import { orderError, orderTime } from "../app/order-presentation";
 import { useAuth } from "../app/use-auth";
 
@@ -93,12 +93,13 @@ export function OrderLifecycle({ order, onChanged, onRefresh }: {
     {error ? <p role="alert">{error}</p> : null}
     {"overdueAt" in order && order.overdueAt ? <p role="status">{order.state === "FAILED" ? "Was overdue" : order.state === "ACCEPTED" || order.state === "PICKED_UP" ? "Delivery overdue" : "Delivered late"} since {orderTime(order.overdueAt)} SGT.{order.state === "ACCEPTED" || order.state === "PICKED_UP" ? " Late delivery is still allowed." : ""}</p> : null}
     {order.state === "FAILED" && "failureReason" in order && order.failureReason ? <div>
-      <p>Failure reason: {failureReasons[order.failureReason]}.</p>
+      <p>Failure reason: {recordedFailureReasons[order.failureReason]}.</p>
       {order.failureDetails ? <p>{order.failureDetails}</p> : null}
-      <p>Recorded by the {order.failedBy === order.requesterId ? "requester" : "courier"}{order.failedAt ? ` on ${orderTime(order.failedAt)} SGT` : ""}.</p>
+      <p>{order.decidedByAdministrator ? "Decided by an administrator after a reported problem" : `Recorded by the ${order.failedBy === order.requesterId ? "requester" : "courier"}`}{order.failedAt ? ` on ${orderTime(order.failedAt)} SGT` : ""}.</p>
       {!notice ? <p>Reserved credits will be returned to the requester.</p> : null}
     </div> : null}
     {order.state === "COMPLETED" && !notice ? <p>{notices.complete}</p> : null}
+    {order.state === "COMPLETED" && "decidedByAdministrator" in order && order.decidedByAdministrator ? <p>An administrator completed this errand after a reported problem.</p> : null}
     {!action ? order.state === "ACCEPTED" || order.state === "PICKED_UP" ? <p>Waiting for the assigned courier to update the errand.</p> : order.state === "DELIVERED" ? <p>Waiting for the requester to confirm receipt.</p> : order.state === "EXPIRED" ? <p>No one accepted this errand in time.</p> : null
       : deadlinePassed && !uncertain ? <p>The acceptance deadline has passed. Refresh to check the errand.</p>
       : <>

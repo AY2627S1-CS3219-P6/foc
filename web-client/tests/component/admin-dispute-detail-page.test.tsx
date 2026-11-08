@@ -31,13 +31,13 @@ const settlement = { orderId: ORDER_ID, state: "TRANSFERRED", amount: 3, updated
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-function routeFetch(transition: () => Response, current: object = dispute) {
+function routeFetch(transition: () => Response, current: object = dispute, related: { errand?: object; settlement?: object } = {}) {
   const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async (input) => {
     const url = String(input);
     if (url.endsWith("/transitions")) return transition();
     if (url.includes("/admin/disputes/")) return json(current);
-    if (url.includes("/admin/orders/")) return json(errand);
-    if (url.includes("/admin/credit/reservations/")) return json(settlement);
+    if (url.includes("/admin/orders/")) return json(related.errand ?? errand);
+    if (url.includes("/admin/credit/reservations/")) return json(related.settlement ?? settlement);
     return json({ error: { code: "NOT_FOUND", message: "Not found", correlationId: "c", fieldErrors: [] } }, 404);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -112,5 +112,68 @@ describe("Admin dispute detail", () => {
     const [, init] = posts(fetchMock)[0];
     expect(JSON.parse(String(init?.body))).toEqual({ toStatus: "REJECTED", reason: "Duplicate report.", expectedVersion: 2 });
     expect(sessionStorage.getItem(`admin-dispute-reason:${DISPUTE_ID}`)).toBe(JSON.stringify("Duplicate report."));
+  });
+
+  describe("deciding the errand outcome", () => {
+    const delivered = { ...errand, state: "DELIVERED" };
+    const reserved = { ...settlement, state: "RESERVED" };
+
+    async function chooseFailure() {
+      fireEvent.click(screen.getByRole("radio", { name: /Mark the errand as failed/ }));
+      fireEvent.change(screen.getByLabelText(/Reason \(required/), { target: { value: "Nothing arrived." } });
+      await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Review decision" })); });
+    }
+
+    it("offers only the outcomes the errand allows, with their credit effect", async () => {
+      routeFetch(() => json(dispute), dispute, { errand: delivered, settlement: reserved });
+      await renderDispute();
+      expect(await screen.findByRole("radio", { name: /Mark the errand as failed\s*3 credits return to the requester/ })).toBeVisible();
+      expect(screen.getByRole("radio", { name: /Mark the errand as completed\s*3 credits are paid to the courier/ })).toBeVisible();
+      expect(screen.getByRole("radio", { name: /Leave the errand as it is/ })).toBeChecked();
+    });
+
+    it("hides outcomes for an errand that can no longer change", async () => {
+      routeFetch(() => json(dispute));
+      await renderDispute();
+      expect(await screen.findByText(/This errand is completed, so its outcome can no longer be changed here/)).toBeVisible();
+      expect(screen.queryByRole("radio", { name: /Mark the errand as failed/ })).toBeNull();
+    });
+
+    it("confirms before applying and sends the outcome with the decision", async () => {
+      const fetchMock = routeFetch(() => json({ ...dispute, status: "RESOLVED", version: 3, errandOutcome: "FAILED" }), dispute, { errand: delivered, settlement: reserved });
+      await renderDispute();
+      await screen.findByRole("radio", { name: /Mark the errand as failed/ });
+      await chooseFailure();
+      const confirm = screen.getByRole("group", { name: "Confirm your decision" });
+      expect(within(confirm).getByText(/3 credits return to the requester\. This cannot be undone\./)).toBeVisible();
+      expect(posts(fetchMock)).toHaveLength(0);
+      await act(async () => { fireEvent.click(within(confirm).getByRole("button", { name: "Confirm and apply" })); });
+      const [, init] = posts(fetchMock)[0];
+      expect(JSON.parse(String(init?.body))).toEqual({ toStatus: "RESOLVED", reason: "Nothing arrived.", expectedVersion: 2, errandOutcome: "FAILED" });
+    });
+
+    it("goes back without sending anything", async () => {
+      const fetchMock = routeFetch(() => json(dispute), dispute, { errand: delivered, settlement: reserved });
+      await renderDispute();
+      await screen.findByRole("radio", { name: /Mark the errand as failed/ });
+      await chooseFailure();
+      fireEvent.click(screen.getByRole("button", { name: "Back" }));
+      expect(screen.getByRole("radio", { name: /Mark the errand as failed/ })).toBeChecked();
+      expect(posts(fetchMock)).toHaveLength(0);
+    });
+
+    it("asks for a refresh when the errand changed first", async () => {
+      routeFetch(
+        () => json({ error: { code: "ERRAND_CHANGED", message: "changed", correlationId: "c", fieldErrors: [] } }, 409),
+        dispute,
+        { errand: delivered, settlement: reserved },
+      );
+      await renderDispute();
+      await screen.findByRole("radio", { name: /Mark the errand as failed/ });
+      await chooseFailure();
+      await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Confirm and apply" })); });
+      expect(screen.getByRole("alert")).toHaveTextContent("The errand changed, so this outcome is no longer possible.");
+      expect(screen.getByRole("button", { name: "Refresh dispute" })).toBeVisible();
+    });
   });
 });

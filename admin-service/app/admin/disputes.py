@@ -35,6 +35,25 @@ class OrderNotFound(ApiError):
         super().__init__(422, "ORDER_NOT_FOUND", "The errand does not exist.")
 
 
+class ErrandChanged(ApiError):
+    def __init__(self):
+        super().__init__(
+            409,
+            "ERRAND_CHANGED",
+            "The errand changed, so this outcome is no longer possible. Refresh and decide again.",
+        )
+
+
+class DecisionIncomplete(ApiError):
+    def __init__(self):
+        super().__init__(
+            409,
+            "DECISION_INCOMPLETE",
+            "The errand outcome was applied, but the dispute was not closed. "
+            "Refresh and close it with the same outcome.",
+        )
+
+
 class InvalidTransition(ApiError):
     def __init__(self):
         super().__init__(

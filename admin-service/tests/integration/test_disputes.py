@@ -190,6 +190,31 @@ async def test_one_open_report_per_participant_until_it_is_decided(repository):
     assert sorted(row["reporter_role"] for row in rows) == ["COURIER", "REQUESTER", "REQUESTER"]
 
 
+async def test_closing_with_an_errand_outcome_records_and_audits_it(repository):
+    dispute_id, _, actor, _, order_id = await record(repository)
+    await change(repository, dispute_id, "UNDER_REVIEW", 1)
+    admin = uuid4()
+    await repository.transition(
+        dispute_id,
+        to_status="RESOLVED",
+        reason="Requester showed nothing arrived.",
+        expected_version=2,
+        actor=admin,
+        correlation_id="integration",
+        errand_outcome="FAILED",
+    )
+    row, events = await repository.dispute(dispute_id)
+    assert (row["status"], row["errand_outcome"]) == ("RESOLVED", "FAILED")
+    assert events[-1]["errand_outcome"] == "FAILED"
+    entries, _ = await repository.audit_page(
+        actor_id=admin, target_id=None, outcome=None, page=1, page_size=10
+    )
+    assert {(entry["action"], entry["target_id"]) for entry in entries} == {
+        ("DISPUTE_TRANSITION", dispute_id),
+        ("ERRAND_DECISION", order_id),
+    }
+
+
 async def test_runtime_role_has_only_the_needed_privileges(database):
     checks = {
         "has_table_privilege('admin_service_app', 'admin_service.disputes', 'DELETE')": False,

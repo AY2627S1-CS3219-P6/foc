@@ -2,7 +2,7 @@ import { type FormEvent, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { adminService, type Dispute } from "../api/admin-service";
 import { adminCreditService } from "../api/credit-service";
-import { adminOrderService, failureReasons, type OrderParticipant } from "../api/order-service";
+import { adminOrderService, recordedFailureReasons, type OrderParticipant } from "../api/order-service";
 import { adminError, clearDraft, noReservation, readDraft, shortId, stateLabel, writeDraft } from "../app/admin-presentation";
 import { orderTime } from "../app/order-presentation";
 import { useAdminResource } from "../app/use-admin-resource";
@@ -97,7 +97,7 @@ export function AdminOrderDetailPage() {
             <AdminFact label="Requester ID"><span className="order-id">{errand.requesterId}</span></AdminFact>
             <AdminFact label="Courier ID"><span className="order-id">{errand.courierId ?? "Not assigned"}</span></AdminFact>
             {TIMESTAMPS.filter(([key]) => errand[key]).map(([key, label]) => <AdminFact key={key} label={label}>{orderTime(String(errand[key]))} SGT</AdminFact>)}
-            {errand.failureReason ? <AdminFact label="Failure reason">{failureReasons[errand.failureReason]}{errand.failureDetails ? <small>{errand.failureDetails}</small> : null}</AdminFact> : null}
+            {errand.failureReason ? <AdminFact label="Failure reason">{recordedFailureReasons[errand.failureReason]}{errand.failureDetails ? <small>{errand.failureDetails}</small> : null}</AdminFact> : null}
           </dl>
         </> : null}
       </AdminPanel>
@@ -106,14 +106,15 @@ export function AdminOrderDetailPage() {
         {history.data ? <ol className="order-history">
           {history.data.items.map((entry) => <li key={entry.sequence}>
             <strong>{entry.previousState ? `${stateLabel(entry.previousState)} → ` : ""}{stateLabel(entry.newState)}</strong>
-            <small>{entry.actorType === "SYSTEM" ? "System" : `User ${shortId(entry.actorId)}`}{entry.failureReason ? ` · ${failureReasons[entry.failureReason]}` : ""}</small>
+            <small>{entry.actorType === "SYSTEM" ? "System" : entry.actorType === "ADMIN" ? `Admin ${shortId(entry.actorId)}` : `User ${shortId(entry.actorId)}`}{entry.failureReason ? ` · ${recordedFailureReasons[entry.failureReason]}` : ""}</small>
+            {entry.disputeId ? <Link to={`/admin/disputes/${entry.disputeId}`}>Decided for dispute #{shortId(entry.disputeId)}</Link> : null}
             <time dateTime={entry.occurredAt}>{orderTime(entry.occurredAt)} SGT</time>
           </li>)}
         </ol> : null}
       </AdminPanel>
 
       <AdminPanel resource={settlement} title="Credit settlement">
-        <SettlementFacts settlement={settlement.data} />
+        <SettlementFacts errandState={errand?.state} settlement={settlement.data} />
       </AdminPanel>
 
       <AdminPanel resource={disputes} title="Disputes about this errand">

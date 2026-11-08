@@ -4,7 +4,15 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictInt,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 from pydantic.alias_generators import to_camel
 
 
@@ -40,15 +48,30 @@ class CreateDispute(ApiModel):
         return trimmed(value)
 
 
+ErrandOutcome = Literal["FAILED", "COMPLETED"]
+
+
 class Transition(ApiModel):
     to_status: Literal["UNDER_REVIEW", "RESOLVED", "REJECTED"]
     reason: str | None = Field(default=None, max_length=1000)
     expected_version: StrictInt = Field(ge=1)
+    # N2F3.7: closing a dispute may also fail or complete the errand through Order.
+    errand_outcome: ErrandOutcome | None = None
 
     @field_validator("reason", mode="before")
     @classmethod
     def blank_reason_is_missing(cls, value):
         return trimmed(value) or None
+
+    @model_validator(mode="after")
+    def outcome_closes_the_dispute(self):
+        if self.errand_outcome is not None:
+            if self.to_status == "UNDER_REVIEW":
+                raise ValueError("An errand outcome is decided only when closing a dispute")
+            # Order keeps at most 500 characters of an administrator's failure reason.
+            if self.reason is not None and len(self.reason) > 500:
+                raise ValueError("Keep the reason within 500 characters with an errand outcome")
+        return self
 
 
 class PageQuery(ApiModel):
@@ -73,6 +96,7 @@ class HistoryEntry(ApiModel):
     to_status: DisputeStatus
     actor_id: UUID
     reason: str | None
+    errand_outcome: ErrandOutcome | None = None
     occurred_at: datetime
 
 
@@ -103,6 +127,7 @@ class ReportView(ApiModel):
     description: str | None
     status: DisputeStatus
     resolution_reason: str | None
+    errand_outcome: ErrandOutcome | None = None
     reporter_role: ReporterRole
     created_at: datetime
     updated_at: datetime
@@ -114,6 +139,7 @@ class DisputeSummary(ApiModel):
     description: str
     status: DisputeStatus
     resolution_reason: str | None
+    errand_outcome: ErrandOutcome | None = None
     # None when an administrator recorded the dispute; created_by is then that administrator.
     reporter_role: ReporterRole | None
     created_by: UUID
@@ -130,7 +156,7 @@ class DisputeView(DisputeSummary):
 class AuditEntry(ApiModel):
     audit_id: UUID
     actor_id: UUID
-    action: Literal["DISPUTE_CREATE", "DISPUTE_REPORT", "DISPUTE_TRANSITION"]
+    action: Literal["DISPUTE_CREATE", "DISPUTE_REPORT", "DISPUTE_TRANSITION", "ERRAND_DECISION"]
     target_type: Literal["DISPUTE", "ORDER"]
     target_id: UUID
     outcome: Literal["SUCCESS", "REJECTED"]

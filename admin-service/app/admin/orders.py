@@ -1,10 +1,11 @@
-"""Order Service read used to confirm that a disputed errand exists (N2F3.2.2)."""
+"""Order Service calls: errand checks (N2F3.2.2) and dispute errand outcomes (N2F3.7)."""
 
 import asyncio
 from uuid import UUID
 
 import httpx
 
+from app.admin.disputes import ErrandChanged, OrderNotFound
 from app.admin.errors import ApiError, unavailable
 from app.core.config import Settings
 
@@ -41,20 +42,45 @@ class OrderDirectory:
             return "COURIER", state
         return None
 
+    async def decide(
+        self, order_id: UUID, outcome: str, dispute_id: UUID, reason: str, token: str
+    ) -> None:
+        """Fail or complete the errand for this dispute; Order re-checks the role and state.
+
+        Order treats a repeat of the same decision for the same dispute as success, so a retry
+        after an ambiguous failure is safe.
+        """
+        action = "fail" if outcome == "FAILED" else "complete"
+        body = {"disputeId": str(dispute_id)}
+        if action == "fail":
+            body["reason"] = reason
+        response = await self._send(
+            "POST", f"/v1/admin/orders/{order_id}/{action}", token, json=body
+        )
+        if response.status_code == 404:
+            raise OrderNotFound()
+
     async def _get(self, path: str, token: str) -> httpx.Response:
+        return await self._send("GET", path, token)
+
+    async def _send(self, method: str, path: str, token: str, json=None) -> httpx.Response:
         base = self.settings.order_service_base_url
         if not base:
             raise unavailable("ORDER_UNAVAILABLE")
         try:
             async with asyncio.timeout(self.settings.dependency_timeout_seconds):
-                response = await self.http.get(
+                response = await self.http.request(
+                    method,
                     base + path,
                     headers={"Authorization": f"Bearer {token}"},
+                    json=json,
                     follow_redirects=False,
                     timeout=self.settings.dependency_timeout_seconds,
                 )
         except (httpx.HTTPError, TimeoutError):
             raise unavailable("ORDER_UNAVAILABLE") from None
+        if response.status_code == 409 and method == "POST":
+            raise ErrandChanged()
         if response.status_code in (200, 404):
             return response
         if response.status_code == 401:

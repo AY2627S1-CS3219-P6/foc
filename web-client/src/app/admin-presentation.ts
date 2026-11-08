@@ -1,5 +1,5 @@
 import { isApiRequestError } from "../api/client";
-import type { AuditEntry, DisputeStatus, DisputeSummary, ReporterRole } from "../api/admin-service";
+import type { AuditEntry, DisputeStatus, DisputeSummary, ErrandOutcome, ReporterRole } from "../api/admin-service";
 import type { OrderState } from "../api/order-service";
 import { orderError } from "./order-presentation";
 
@@ -18,7 +18,26 @@ export const auditActionLabels: Record<AuditEntry["action"], string> = {
   DISPUTE_CREATE: "Record dispute",
   DISPUTE_REPORT: "Report problem",
   DISPUTE_TRANSITION: "Change dispute status",
+  ERRAND_DECISION: "Decide errand outcome",
 };
+
+export const errandOutcomeLabels: Record<ErrandOutcome, string> = {
+  FAILED: "Errand marked as failed",
+  COMPLETED: "Errand marked as completed",
+};
+
+// N2F3.7: the outcomes Order accepts from each errand state. COMPLETED has already paid the courier.
+export function allowedOutcomes(state: OrderState): ErrandOutcome[] {
+  if (state === "DELIVERED") return ["FAILED", "COMPLETED"];
+  if (state === "ACCEPTED" || state === "PICKED_UP") return ["FAILED"];
+  return [];
+}
+
+export function creditEffect(outcome: ErrandOutcome, amount: number): string {
+  return outcome === "FAILED"
+    ? `${amount} credits return to the requester.`
+    : `${amount} credits are paid to the courier.`;
+}
 
 const reporterLabels: Record<ReporterRole, string> = { REQUESTER: "Requester", COURIER: "Courier" };
 
@@ -76,6 +95,8 @@ const messages: Record<string, string> = {
   INVALID_TRANSITION: "This status change is no longer allowed. Refresh to see the current status.",
   REASON_REQUIRED: "Give a reason to resolve or reject this dispute.",
   ORDER_NOT_FOUND: "No errand has this ID.",
+  ERRAND_CHANGED: "The errand changed, so this outcome is no longer possible. Refresh and decide again.",
+  DECISION_INCOMPLETE: "The errand outcome was applied, but the dispute was not closed. Refresh and close it with the same outcome.",
   ORDER_UNAVAILABLE: "Errand records are unavailable, so nothing was saved. Try again.",
   IDEMPOTENCY_KEY_REUSED: "This form was already used for a different dispute. Reload the page and try again.",
   DISPUTE_NOT_FOUND: "This dispute does not exist.",
@@ -93,6 +114,11 @@ export function adminError(failure: unknown): string {
 
 export const isVersionConflict = (failure: unknown) =>
   isApiRequestError(failure) && failure.code === "VERSION_CONFLICT";
+
+// Errors after which the administrator must see the current dispute and errand before retrying.
+export const needsRefresh = (failure: unknown) =>
+  isApiRequestError(failure)
+  && ["VERSION_CONFLICT", "ERRAND_CHANGED", "DECISION_INCOMPLETE"].includes(failure.code);
 
 // A missing credit reservation is a valid outcome to show, not a failure.
 export function noReservation(failure: unknown): null {
