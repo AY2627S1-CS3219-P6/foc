@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
+# Scope: Added administrator authentication and authorization tests.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """N2F1.1, N2F1.1.1 and N2NFR1.1-1.3: every administrative request re-checks User."""
 
 import pytest

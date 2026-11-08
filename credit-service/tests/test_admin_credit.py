@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
+# Scope: Added tests for read-only admin settlement and credit analytics.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """N2F3.4.2 and N2F4.5: read-only administrator credit views for the Admin Dashboard."""
 
 from datetime import UTC, datetime

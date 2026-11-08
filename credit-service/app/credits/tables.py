@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13
+# Scope: Implemented query-only table definitions for the Credit ledger.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Query metadata only. Supabase SQL migrations exclusively own the schema."""
 
 from sqlalchemy import (

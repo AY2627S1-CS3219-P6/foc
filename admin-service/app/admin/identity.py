@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
+# Scope: Implemented current-session identity checks through User Service.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Current-session identity from User, exactly as Order and Credit verify it."""
 
 import asyncio

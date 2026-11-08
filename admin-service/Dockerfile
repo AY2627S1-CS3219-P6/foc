@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
+# Scope: Generated the Admin Service container build and runtime command.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

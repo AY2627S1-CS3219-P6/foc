@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
+# Scope: Added liveness and readiness tests.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 from httpx import ASGITransport, AsyncClient
 
 from app.core.config import Settings

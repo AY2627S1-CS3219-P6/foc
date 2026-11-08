@@ -1,3 +1,8 @@
+-- AI Assistance Disclosure:
+-- Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
+-- Scope: Wrote the migration establishing the Admin schema and runtime role.
+-- Author review: I validated correctness and supplied additional boundary checks.
+
 -- Foundation establishes ownership only. Dispute and audit tables and their grants
 -- belong to later migrations.
 BEGIN;

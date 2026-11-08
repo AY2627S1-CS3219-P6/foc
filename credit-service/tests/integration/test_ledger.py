@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13, 2026-10-15
+# Scope: Added ledger concurrency and conservation integration tests and credit-verify checks.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """WRITES DATA. Point CREDIT_TEST_DATABASE_URL only at a disposable migrated Credit database."""
 
 import asyncio

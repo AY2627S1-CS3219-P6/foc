@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
+# Scope: Added dispute API tests for retries, conflicts and rejected attempts.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """N2F3.2-N2F3.6 dispute API; N2NFR3.3-N2NFR3.5 retries, conflicts and rejected attempts."""
 
 from uuid import UUID, uuid4

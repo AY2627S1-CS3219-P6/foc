@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
+# Scope: Added tests for administrator analytics formulas.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """N2F4 analytics formulas over errands created in a Singapore-day period."""
 
 from datetime import UTC, date, datetime, timedelta

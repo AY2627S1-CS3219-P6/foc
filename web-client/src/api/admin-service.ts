@@ -1,3 +1,9 @@
+// AI Assistance Disclosure:
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
+// Scope: Implemented the Admin Service client for disputes, reports, status changes and the
+// audit log; added errand outcomes.
+// Author review: I validated correctness and supplied additional boundary checks.
+
 import { requestJson } from "./client";
 
 export type DisputeStatus = "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "REJECTED";

@@ -1,3 +1,8 @@
+-- AI Assistance Disclosure:
+-- Tool: Claude Code (model: Claude Opus 5.5), date: 2026-11-08
+-- Scope: Wrote the migration for administrator errand decisions and their constraints.
+-- Author review: I validated correctness and supplied additional boundary checks.
+
 -- N2F3.7: an administrator deciding a dispute may fail an ACCEPTED, PICKED_UP or DELIVERED
 -- errand, or complete a DELIVERED one. The decision reuses the existing terminal path, so the
 -- state change, history entry and Credit release/transfer intent still commit together.

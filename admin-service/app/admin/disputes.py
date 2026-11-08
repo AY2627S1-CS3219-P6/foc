@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
+# Scope: Implemented dispute workflow rules, request fingerprints and safe rejections; added
+# participant report and errand outcome errors.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Dispute workflow rules (N2F3.3) and safe rejections. Messages never echo input."""
 
 import hashlib

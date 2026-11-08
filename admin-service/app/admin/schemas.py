@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
+# Scope: Implemented dispute, report, status-change and audit-log API models; added errand
+# outcome fields.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Versioned API models. JSON uses camelCase; Python uses snake_case."""
 
 from datetime import datetime

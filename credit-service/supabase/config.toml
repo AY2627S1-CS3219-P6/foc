@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13
+# Scope: Prepared the separate local Supabase project for Credit Service.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 # Separate local PostgreSQL project. Only PostgreSQL and Studio are needed in F0.
 project_id = "credit-service"
 

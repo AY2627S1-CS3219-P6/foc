@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13
+# Scope: Implemented async PostgreSQL connectivity and readiness checks.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Async PostgreSQL connectivity. Schema changes belong only in SQL migrations."""
 
 import asyncio

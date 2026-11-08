@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13
+// Scope: Added wallet page browser tests.
+// Author review: I validated correctness and supplied additional boundary checks.
+
 import { expect, test, type Page } from "@playwright/test";
 
 const now = new Date();

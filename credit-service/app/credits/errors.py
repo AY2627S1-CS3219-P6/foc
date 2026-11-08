@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13
+# Scope: Implemented safe API errors and credit rejection types.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Safe API errors and definitive credit rejections. Messages never echo inputs."""
 
 

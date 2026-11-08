@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-29, 2026-11-08
+// Scope: Added problem report panel component tests.
+// Author review: I validated correctness and supplied additional boundary checks.
+
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OrderState } from "../../src/api/order-service";

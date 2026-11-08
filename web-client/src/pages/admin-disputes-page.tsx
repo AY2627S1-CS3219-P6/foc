@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29
+// Scope: Implemented the dispute list, filters and activity log page.
+// Author review: I validated correctness and supplied additional boundary checks.
+
 import { type FormEvent, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { adminService, type AuditEntry, type DisputeStatus } from "../api/admin-service";

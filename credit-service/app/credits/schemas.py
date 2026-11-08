@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13, 2026-10-28
+# Scope: Implemented HTTP and event payload schemas; added admin settlement and analytics
+# schemas.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Versioned HTTP schemas and consumed event payloads (camelCase on the wire)."""
 
 from collections.abc import Mapping

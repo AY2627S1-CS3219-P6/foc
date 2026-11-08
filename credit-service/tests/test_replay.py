@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-15
+# Scope: Added tests for the dead-letter replay command.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 from app.credits.consumer import ATTEMPT_HEADER
 from app.credits.replay import ERROR_HEADER, describe, replay_copy
 from tests.credit_fakes import FakeMessage

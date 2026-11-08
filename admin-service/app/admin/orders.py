@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
+# Scope: Implemented the Order client for errand checks, participation and errand outcome
+# calls.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Order Service calls: errand checks (N2F3.2.2) and dispute errand outcomes (N2F3.7)."""
 
 import asyncio

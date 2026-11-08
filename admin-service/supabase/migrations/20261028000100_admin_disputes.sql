@@ -1,3 +1,9 @@
+-- AI Assistance Disclosure:
+-- Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
+-- Scope: Wrote the migration for disputes, their status history, the audit log and their
+-- guards.
+-- Author review: I validated correctness and supplied additional boundary checks.
+
 -- N2F3 / N2NFR3: dispute cases, their append-only status history and the dashboard audit log.
 -- order_id is an Order Service identifier only; there is no cross-service foreign key.
 BEGIN;

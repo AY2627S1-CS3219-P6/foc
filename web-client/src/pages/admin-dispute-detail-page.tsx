@@ -1,3 +1,9 @@
+// AI Assistance Disclosure:
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
+// Scope: Implemented the dispute detail page and status form; added reporter origin and errand
+// outcome decisions with a credit preview.
+// Author review: I validated correctness and supplied additional boundary checks.
+
 import { type FormEvent, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { adminService, NEXT_STATUSES, type Dispute, type DisputeTarget, type ErrandOutcome } from "../api/admin-service";

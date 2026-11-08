@@ -1,3 +1,9 @@
+-- AI Assistance Disclosure:
+-- Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-29
+-- Scope: Wrote the migration for participant reporter roles and one open report per
+-- participant.
+-- Author review: I validated correctness and supplied additional boundary checks.
+
 -- N2F3.2: errand participants report disputes; administrators handle them as before.
 BEGIN;
 

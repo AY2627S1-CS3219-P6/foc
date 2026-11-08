@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
+# Scope: Implemented bearer-token parsing and current-role administrator checks.
+# Author review: I validated correctness and supplied additional boundary checks.
+
 """Every dashboard request re-checks the caller's current session and role (N2NFR1.1-1.3)."""
 
 from typing import Annotated

@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-13
+// Scope: Implemented the Credits wallet page matching the Figma design.
+// Author review: I validated correctness and supplied additional boundary checks.
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
