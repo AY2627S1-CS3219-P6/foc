@@ -35,6 +35,8 @@ publication. Real Credit consumes these events; publishing alone does not confir
 | `POST /v1/orders/{orderId}/deliver` | Assigned courier advances PICKED_UP to DELIVERED; no reward transfer yet. |
 | `POST /v1/orders/{orderId}/complete` | Requester confirms DELIVERED to COMPLETED; atomically records transfer-event intent. |
 | `POST /v1/orders/{orderId}/fail` | Either participant marks ACCEPTED/PICKED_UP as FAILED with a reason; atomically records release-event intent. |
+| `POST /v1/admin/orders/{orderId}/fail` | Administrator deciding a dispute marks ACCEPTED/PICKED_UP/DELIVERED as FAILED; atomically records release-event intent. See [Administrator decisions](#administrator-decisions-admin-dashboard-n2f37). |
+| `POST /v1/admin/orders/{orderId}/complete` | Administrator deciding a dispute marks DELIVERED as COMPLETED; atomically records transfer-event intent. |
 | `GET /v1/order-creations/{operationId}` | Creator-only progress; no mutation/finalization. 404 for other users. |
 | `GET /v1/orders` | Available OPEN assessment list; excludes reached acceptance deadlines even before an expiry worker exists. Optional `supplierId`. |
 | `GET /v1/orders/mine?relationship=requester` | Current user's requested orders across states. `courier` selects their assigned orders. |
@@ -101,8 +103,10 @@ retain their authenticated UUID. History ordering remains per-order sequence.
 ## Administrator oversight and analytics (Admin Dashboard N2)
 
 These read-only routes re-check the caller's current ADMIN/SUPER_ADMIN role with User on every
-request (403 otherwise) and never change errands. Administrators still cannot accept, fulfil,
-complete, cancel or fail errands, and the participant routes keep their rules for every caller.
+request (403 otherwise) and never change errands. Apart from the two
+[dispute decisions](#administrator-decisions-admin-dashboard-n2f37), administrators cannot
+accept, fulfil, complete, cancel or fail errands, and the participant routes keep their rules
+for every caller.
 
 - Creation-date filters and analytics periods are Asia/Singapore (UTC+8) calendar days:
   `createdFrom`/`from` starts at 00:00 SGT and `createdTo`/`to` includes that whole day. A
@@ -117,6 +121,30 @@ complete, cancel or fail errands, and the participant routes keep their rules fo
   pickup snapshot.
 - Analytics is computed on request from Order's own records and states its period, time zone and
   generation time.
+
+## Administrator decisions (Admin Dashboard N2F3.7)
+
+When a requester or courier reports a problem, an administrator reviewing that dispute may
+decide the errand's outcome. Admin Service calls these routes only for a dispute that is
+`UNDER_REVIEW`, forwarding the administrator's token; Order re-checks the current
+ADMIN/SUPER_ADMIN role with User on every request.
+
+| Route | Body | Allowed from | Result |
+| --- | --- | --- | --- |
+| `POST /v1/admin/orders/{orderId}/fail` | `{"disputeId": uuid, "reason": string}` (1-500 characters after trimming) | ACCEPTED, PICKED_UP, DELIVERED | FAILED with `failureReason` `ADMIN_DECISION` and the reason as `failureDetails`; `order.failed.v1` releases the reserved reward to the requester. |
+| `POST /v1/admin/orders/{orderId}/complete` | `{"disputeId": uuid}` | DELIVERED | COMPLETED; `order.completed.v1` transfers the reward to the courier. |
+
+- Decisions take the same row lock and terminal path as participant actions, so the state
+  change, the history entry and the Credit event intent commit together, and a requester's
+  confirmation racing an administrator's failure settles exactly once.
+- COMPLETED errands have already paid the courier and are never reversed. Any other source state,
+  or an errand already decided for another dispute, returns `409 INVALID_TRANSITION`.
+- Repeating the same decision for the same dispute returns `200` and changes nothing.
+- History records `actorType` `ADMIN` and the `disputeId`. Participants see
+  `decidedByAdministrator: true`, the dispute ID and the reason, but never which administrator:
+  `actorId`, `failedBy` and `decidedBy` are `null` in participant views and present in admin
+  views.
+- Participants cannot submit `ADMIN_DECISION` as their own failure reason.
 
 ## Fulfilment, completion and overdue
 
@@ -153,8 +181,9 @@ A failure before deliveryDeadline never becomes overdue afterward.
 Either the requester or assigned courier can mark ACCEPTED/PICKED_UP as FAILED
 without second-party approval, allowing an unfulfillable errand to close without
 admin intervention.
-There is no failure from OPEN, DELIVERED or any terminal state, no admin bypass,
-automatic penalty or fault determination. Physical return/compensation and
+Participants cannot fail from OPEN, DELIVERED or any terminal state. Only an administrator
+deciding a dispute may fail a DELIVERED errand (see below). There is no automatic penalty or
+fault determination. Physical return/compensation and
 post-delivery complaints are outside this implementation.
 
 ```http

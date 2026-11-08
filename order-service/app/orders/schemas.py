@@ -20,7 +20,7 @@ class ApiModel(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, extra="forbid")
 
 
-FailureReason = Literal[
+ParticipantFailureReason = Literal[
     "ITEM_UNAVAILABLE",
     "ITEM_DAMAGED",
     "UNABLE_TO_PICK_UP",
@@ -28,10 +28,12 @@ FailureReason = Literal[
     "PARTICIPANT_UNREACHABLE",
     "OTHER",
 ]
+# ADMIN_DECISION is recorded only by an administrator deciding a dispute (N2F3.7).
+FailureReason = ParticipantFailureReason | Literal["ADMIN_DECISION"]
 
 
 class FailOrder(ApiModel):
-    reason: FailureReason
+    reason: ParticipantFailureReason
     details: str | None = Field(default=None, min_length=1, max_length=500)
 
     @field_validator("details", mode="before")
@@ -44,6 +46,20 @@ class FailOrder(ApiModel):
         if self.reason == "OTHER" and not self.details:
             raise ValueError("Provide details when selecting Other")
         return self
+
+
+class AdminDecision(ApiModel):
+    # N2F3.7: every administrator errand decision belongs to a dispute under review.
+    dispute_id: UUID
+
+
+class AdminFailOrder(AdminDecision):
+    reason: str = Field(min_length=1, max_length=500)
+
+    @field_validator("reason", mode="before")
+    @classmethod
+    def trim_reason(cls, value):
+        return value.strip() if isinstance(value, str) else value
 
 
 class CreateOrder(ApiModel):
@@ -212,6 +228,10 @@ class OrderParticipant(OrderAssessment):
     failed_by: UUID | None = None
     failure_reason: FailureReason | None = None
     failure_details: str | None = None
+    # Participants learn that an administrator decided the outcome, never which one.
+    decided_by_administrator: bool = False
+    decision_dispute_id: UUID | None = None
+    decided_by: UUID | None = None
 
 
 class CreationResponse(ApiModel):
@@ -230,10 +250,11 @@ class HistoryEntry(ApiModel):
     previous_state: OrderState | None
     new_state: OrderState
     actor_id: UUID | None
-    actor_type: Literal["USER", "SYSTEM"]
+    actor_type: Literal["USER", "SYSTEM", "ADMIN"]
     occurred_at: AwareDatetime
     failure_reason: FailureReason | None = None
     failure_details: str | None = None
+    dispute_id: UUID | None = None
 
 
 class Page[T](ApiModel):

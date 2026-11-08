@@ -11,6 +11,8 @@ from fastapi.responses import JSONResponse
 from app.orders.analytics import period_bounds, summarize, summarize_user
 from app.orders.errors import ApiError, not_found
 from app.orders.schemas import (
+    AdminDecision,
+    AdminFailOrder,
     AdminQuery,
     AnalyticsQuery,
     CreateOrder,
@@ -52,16 +54,18 @@ def require_admin(principal):
         raise ApiError(403, "FORBIDDEN", "Current administrator permission is required.")
 
 
-def history_entry(row):
+def history_entry(row, *, admin=False):
     return {
         "sequence": row["sequence"],
         "previousState": row["previous_state"],
         "newState": row["new_state"],
-        "actorId": row["actor_id"],
+        # Participants see that an administrator acted, never which administrator.
+        "actorId": None if row["actor_type"] == "ADMIN" and not admin else row["actor_id"],
         "actorType": row["actor_type"],
         "occurredAt": row["occurred_at"],
         "failureReason": row.get("failure_reason"),
         "failureDetails": row.get("failure_details"),
+        "disputeId": row.get("dispute_id"),
     }
 
 
@@ -186,7 +190,8 @@ async def admin_orders(request: Request, auth: Auth, query: Annotated[AdminQuery
     rows, total = await request.app.state.repository.list_orders(
         query, requester=query.requester_id
     )
-    return page_result([project_order(row, participant=True) for row in rows], total, query)
+    items = [project_order(row, participant=True, admin=True) for row in rows]
+    return page_result(items, total, query)
 
 
 # Declared before /admin/orders/{order_id} so "analytics" is never parsed as an order ID.
@@ -214,12 +219,35 @@ async def admin_user_analytics(
 
 @router.get("/admin/orders/{order_id}", response_model=OrderParticipant)
 async def admin_order_detail(order_id: UUID, request: Request, auth: Auth):
-    # Read-only: administrators still cannot perform any lifecycle action.
     require_admin(auth[0])
     row = await request.app.state.repository.order(order_id)
     if row is None:
         raise not_found()
-    return project_order(row, participant=True)
+    return project_order(row, participant=True, admin=True)
+
+
+# N2F3.7: the only lifecycle actions open to administrators, each tied to a dispute. Admin
+# Service checks that the dispute is under review before calling these.
+@router.post("/admin/orders/{order_id}/fail", response_model=OrderParticipant)
+async def admin_fail_order(order_id: UUID, request: Request, body: AdminFailOrder, auth: Auth):
+    require_admin(auth[0])
+    if request.query_params:
+        raise ApiError(422, "VALIDATION_ERROR", "This action accepts no query fields.")
+    row = await request.app.state.lifecycle.decide(
+        order_id, auth[0].user_id, "fail", dispute_id=body.dispute_id, reason=body.reason
+    )
+    return project_order(row, participant=True, admin=True)
+
+
+@router.post("/admin/orders/{order_id}/complete", response_model=OrderParticipant)
+async def admin_complete_order(order_id: UUID, request: Request, body: AdminDecision, auth: Auth):
+    require_admin(auth[0])
+    if request.query_params:
+        raise ApiError(422, "VALIDATION_ERROR", "This action accepts no query fields.")
+    row = await request.app.state.lifecycle.decide(
+        order_id, auth[0].user_id, "complete", dispute_id=body.dispute_id
+    )
+    return project_order(row, participant=True, admin=True)
 
 
 @router.get("/admin/orders/{order_id}/history", response_model=Page[HistoryEntry])
@@ -233,7 +261,7 @@ async def admin_order_history(
     if await request.app.state.repository.order(order_id) is None:
         raise not_found()
     rows, total = await request.app.state.repository.order_history(order_id, query)
-    return page_result([history_entry(row) for row in rows], total, query)
+    return page_result([history_entry(row, admin=True) for row in rows], total, query)
 
 
 @router.get("/orders/{order_id}", response_model=OrderParticipant | OrderAssessment)

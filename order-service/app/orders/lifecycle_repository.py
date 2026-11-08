@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import func, insert, select, update
 
 from app.orders.errors import not_found
-from app.orders.lifecycle import Action, transition_values
+from app.orders.lifecycle import Action, AdminAction, admin_decision_values, transition_values
 from app.orders.tables import history, orders, outbox
 
 
@@ -28,6 +28,23 @@ class LifecycleRepository:
                 return row
             return await self._record(session, row, values, actor, now)
 
+    async def decide(
+        self, order_id: UUID, admin: UUID, action: AdminAction, *, dispute_id: UUID, reason=None
+    ):
+        """N2F3.7: an administrator's decision takes the same lock and terminal path."""
+        async with self.sessions() as session, session.begin():
+            result = await session.execute(
+                select(orders).where(orders.c.id == order_id).with_for_update()
+            )
+            row = result.mappings().one_or_none()
+            if row is None:
+                raise not_found()
+            now = await session.scalar(select(func.clock_timestamp()))
+            values = admin_decision_values(row, admin, action, now, dispute_id, reason)
+            if not values:
+                return row
+            return await self._record(session, row, values, admin, now, actor_type="ADMIN")
+
     async def expire_batch(self, limit: int) -> int:
         async with self.sessions() as session, session.begin():
             result = await session.execute(
@@ -43,7 +60,7 @@ class LifecycleRepository:
                 await self._record(session, row, {"state": "EXPIRED", "expired_at": now}, None, now)
             return len(rows)
 
-    async def _record(self, session, row, values, actor, now):
+    async def _record(self, session, row, values, actor, now, *, actor_type="USER"):
         updated = await session.execute(
             update(orders)
             .where(orders.c.id == row["id"])
@@ -62,10 +79,11 @@ class LifecycleRepository:
                 previous_state=row["state"],
                 new_state=values["state"],
                 actor_id=actor,
-                actor_type="SYSTEM" if actor is None else "USER",
+                actor_type="SYSTEM" if actor is None else actor_type,
                 occurred_at=now,
                 failure_reason=values.get("failure_reason"),
                 failure_details=values.get("failure_details"),
+                dispute_id=values.get("decision_dispute_id"),
             )
         )
         if values["state"] in ("CANCELLED", "EXPIRED", "COMPLETED", "FAILED"):
