@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-02
+# Scope: Implemented and debugged private/public ingress behavior tests.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Opt-in checks against a disposable Nginx proxy and echo upstream, never real APIs."""
 
 from __future__ import annotations

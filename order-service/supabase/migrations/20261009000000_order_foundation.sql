@@ -1,3 +1,8 @@
+-- AI Assistance Disclosure:
+-- Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+-- Scope: Implemented the Order foundation SQL migration and runtime grants.
+-- Author review: I validated correctness and added boundary checks where needed.
+
 -- F0 establishes ownership only. Business tables and their grants belong to F1.
 BEGIN;
 

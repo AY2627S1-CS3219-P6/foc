@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-06
+# Scope: Implemented release manifest validation and canonical file fingerprinting.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Validate immutable application releases without reading environment files or secrets."""
 
 from __future__ import annotations

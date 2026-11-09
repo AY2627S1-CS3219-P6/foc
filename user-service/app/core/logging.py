@@ -1,4 +1,9 @@
 # AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-03
+# Scope: Added redaction for email-provider diagnostic output.
+# Author review: I validated correctness and added boundary checks where needed.
+
+# AI Assistance Disclosure:
 # Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20, 2026-09-21
 # Tool: GitHub Copilot, date: 2026-09-20
 # Scope: Implemented structured logs, secret redaction, and logging updates for event

@@ -15,7 +15,7 @@ flowchart LR
 ```
 
 The browser-to-CloudFront leg uses TLS; the CloudFront-to-EC2 leg uses **HTTP**.
-This is a course-demo compromise, not end-to-end TLS. The EC2 security group
+This setup does not provide end-to-end TLS. The EC2 security group
 restricts TCP 8080 to AWS's CloudFront origin-facing prefix list. That identifies
 the CloudFront network, **not a particular distribution**. Application identity
 and role/participant decisions remain in the services. Nginx owns no service

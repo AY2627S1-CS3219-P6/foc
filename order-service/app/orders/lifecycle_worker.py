@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-11
+# Scope: Implemented expiry and outbox publisher worker entry points.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Run expiry and publication separately, so broker outages never block expiry."""
 
 import asyncio

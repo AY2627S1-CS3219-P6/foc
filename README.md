@@ -15,7 +15,7 @@ withdrawn, or exchanged for money, and only circulate within the platform.
 | Name | Role |
 | ----- | ----- |
 | Chen Feng | User & Chat Service |
-| Your Name | Your ownership |
+| Xie YingWen | Order & Cloud deployment and DevOps |
 | Your Name | Your ownership |
 | Your Name | Your ownership |
 | Your Name | Your ownership |
@@ -31,15 +31,20 @@ top-level folder.
 
 ```text
 .
+├── .github/workflows/       # CI and cloud release workflows
+├── ai/                      # Shared AI usage log
+├── data/                    # Supplier seed data and images
+├── deploy/aws/              # AWS deployment and monitoring configuration
 ├── user-service/
 ├── supplier-service/
-├── web-client/
 ├── order-service/
 ├── credit-service/
 ├── chat-service/
 ├── admin-service/
 ├── voice-assist-service/
-├── <n2h-service>/
+├── web-client/
+├── compose.yaml             # Local application stack
+├── system-architecture.md
 └── README.md
 ```
 
@@ -679,7 +684,7 @@ For service-specific APIs, development commands and test requirements, see
 [Chat](chat-service/README.md).
 The root instructions above describe the combined real-service Docker workflow.
 
-For the separate AWS course sandbox, see [the EC2 foundation runbook](deploy/aws/README.md).
+For the separate AWS sandbox, see [the EC2 foundation runbook](deploy/aws/README.md).
 It uses its own Compose project, cloud-only secrets, six separately owned Supabase
 PostgreSQL databases and initially private access. Public HTTPS and automated cloud
 releases are separate rollout steps; the local setup above is unchanged.
@@ -713,5 +718,18 @@ Prohibited phases avoided: requirements elicitation; architecture/design decisio
 - **Credit Service** used AI to implement and debug the service foundation, the wallet ledger and its migrations, the Order-facing reservation endpoints, the event consumer and its retries, the wallet and history API, the dead-letter replay and integrity check commands, and the wallet page.
 - **Admin Dashboard** used AI to implement and debug the Admin Service dispute workflow, participant problem reports and audit log, the administrator errand, analytics and decision endpoints in Order Service, the administrator credit views in Credit Service, and the dashboard pages.
 - **Verification** included author review, boundary checks, and the existing unit, integration, component and browser tests, as recorded in the implementation history.
+
+The [AI usage log](ai/usage-log.md) records the prompts, key responses, and affected files in chronological order.
+
+
+### Order Service and cloud deployment (YingWen178)
+
+**Scope** covers YingWen178’s implementation work in `order-service/`, the Order screens and integration code in `web-client/`, `deploy/aws/`, shared Order/deployment CI configuration, and the optional SES email additions to `user-service/`.
+
+**Tools** include ChatGPT through Codex (`gpt-6-astra` and `gpt-6.1-sol`).
+
+- **Order Service** used AI to implement and debug service startup, creation/read operations, retry recovery, participant lifecycle actions, event publishing, Order screens, and the corresponding tests.
+- **Cloud deployment** used AI to implement and debug deployment configuration, provisioning helpers, HTTPS ingress, optional SES delivery, automated image release/rollback, monitoring collection, and the corresponding tests.
+- **Verification** included author review, boundary checks, and existing unit, integration, and smoke tests as recorded in the implementation history.
 
 The [AI usage log](ai/usage-log.md) records the prompts, key responses, and affected files in chronological order.

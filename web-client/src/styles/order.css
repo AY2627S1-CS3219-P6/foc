@@ -1,3 +1,10 @@
+/*
+ * AI Assistance Disclosure:
+ * Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09, 2026-10-10
+ * Scope: Implemented Order page, form, list and action styling.
+ * Author review: I validated correctness and added boundary checks where needed.
+ */
+
 .order-shell a { text-decoration: none; }
 .order-heading { align-items: start; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; margin: .1rem 0 1.5rem; }
 .order-heading h1 { color: var(--ink); font-size: clamp(1.55rem, 2.5vw, 2rem); letter-spacing: -.035em; line-height: 1.15; margin: 0; }

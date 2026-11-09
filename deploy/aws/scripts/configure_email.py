@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-03
+# Scope: Implemented optional SES email configuration updates.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Select SMTP/Mailpit or SES in the existing EC2 environment without changing secrets."""
 
 from __future__ import annotations

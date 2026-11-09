@@ -1103,6 +1103,713 @@ These entries carry the attribution for the JSON files they list.
 - [`order-service/tests/integration/test_admin_decisions.py`](../order-service/tests/integration/test_admin_decisions.py)
 
 
+## YingWen178 — Order and cloud implementation
+
+This section records implementation assistance for YingWen178’s changes in `order-service/` and cloud-related code on `main`, including Order integration in `web-client/`, `deploy/aws/`, shared deployment/CI configuration and optional SES email delivery in `user-service/`. Times are Singapore time (UTC+08:00). Prompt excerpts preserve the relevant wording, and summaries identify the exchange when the raw prompt contains credentials or a continuation has no separate user message. Key responses are summarized. The referenced commits identify the changes supported by each exchange.
+
+This section carries the attribution for the JSON files listed below.
+
+## 2026-10-09 02:00:55 SGT — Order foundation
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6-astra), generate.
+
+**Prompt excerpt**
+
+> i have used bash to create this branch
+
+**Key response** — Implemented Order configuration, database readiness, FastAPI health endpoints, packaging, container setup, migration SQL and foundation tests.
+
+**Commits** — [`c12b816`](https://github.com/AY2627S1-CS3219-P6/foc/commit/c12b816).
+
+**Affected files**
+
+- [`.gitignore`](../.gitignore)
+- [`order-service/.dockerignore`](../order-service/.dockerignore)
+- [`order-service/.env.example`](../order-service/.env.example)
+- [`order-service/.gitignore`](../order-service/.gitignore)
+- [`order-service/Dockerfile`](../order-service/Dockerfile)
+- [`order-service/app/__init__.py`](../order-service/app/__init__.py)
+- [`order-service/app/core/__init__.py`](../order-service/app/core/__init__.py)
+- [`order-service/app/core/config.py`](../order-service/app/core/config.py)
+- [`order-service/app/db.py`](../order-service/app/db.py)
+- [`order-service/app/main.py`](../order-service/app/main.py)
+- [`order-service/package-lock.json`](../order-service/package-lock.json)
+- [`order-service/package.json`](../order-service/package.json)
+- [`order-service/pyproject.toml`](../order-service/pyproject.toml)
+- [`order-service/supabase/config.toml`](../order-service/supabase/config.toml)
+- [`order-service/supabase/migrations/20261009000000_order_foundation.sql`](../order-service/supabase/migrations/20261009000000_order_foundation.sql)
+- [`order-service/tests/integration/test_foundation.py`](../order-service/tests/integration/test_foundation.py)
+- [`order-service/tests/test_config.py`](../order-service/tests/test_config.py)
+- [`order-service/tests/test_database.py`](../order-service/tests/test_database.py)
+- [`order-service/tests/test_health.py`](../order-service/tests/test_health.py)
+
+## 2026-10-09 17:00:14 SGT — Order CI validation
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6-astra), generate.
+
+**Prompt excerpts**
+
+> also shld we wire into shared CI soon?
+
+> ok, created the branch
+
+**Key response** — Added Order lint, test and image validation to the existing shared CI workflow.
+
+**Commits** — [`6c5549c`](https://github.com/AY2627S1-CS3219-P6/foc/commit/6c5549c).
+
+**Affected files**
+
+- [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+
+## 2026-10-09 17:31:09 SGT — Order creation and read implementation
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6-astra), generate.
+
+**Prompt excerpts**
+
+> ok, `feature/order-service-create-read`   created, start
+
+> go
+
+**Key response** — Implemented participant create/list/detail/history handlers, input validation, HTTP dependency clients, persistence, creation retry/recovery handling and tests.
+
+**Commits** — [`c08071c`](https://github.com/AY2627S1-CS3219-P6/foc/commit/c08071c).
+
+**Affected files**
+
+- [`order-service/.env.example`](../order-service/.env.example)
+- [`order-service/app/core/config.py`](../order-service/app/core/config.py)
+- [`order-service/app/db.py`](../order-service/app/db.py)
+- [`order-service/app/main.py`](../order-service/app/main.py)
+- [`order-service/app/orders/__init__.py`](../order-service/app/orders/__init__.py)
+- [`order-service/app/orders/api.py`](../order-service/app/orders/api.py)
+- [`order-service/app/orders/clients.py`](../order-service/app/orders/clients.py)
+- [`order-service/app/orders/errors.py`](../order-service/app/orders/errors.py)
+- [`order-service/app/orders/repository.py`](../order-service/app/orders/repository.py)
+- [`order-service/app/orders/schemas.py`](../order-service/app/orders/schemas.py)
+- [`order-service/app/orders/service.py`](../order-service/app/orders/service.py)
+- [`order-service/app/orders/tables.py`](../order-service/app/orders/tables.py)
+- [`order-service/app/orders/worker.py`](../order-service/app/orders/worker.py)
+- [`order-service/pyproject.toml`](../order-service/pyproject.toml)
+- [`order-service/supabase/migrations/20261009000100_order_creation.sql`](../order-service/supabase/migrations/20261009000100_order_creation.sql)
+- [`order-service/tests/__init__.py`](../order-service/tests/__init__.py)
+- [`order-service/tests/integration/test_creation.py`](../order-service/tests/integration/test_creation.py)
+- [`order-service/tests/integration/test_foundation.py`](../order-service/tests/integration/test_foundation.py)
+- [`order-service/tests/order_fakes.py`](../order-service/tests/order_fakes.py)
+- [`order-service/tests/test_config.py`](../order-service/tests/test_config.py)
+- [`order-service/tests/test_creation_recovery.py`](../order-service/tests/test_creation_recovery.py)
+- [`order-service/tests/test_order_api.py`](../order-service/tests/test_order_api.py)
+- [`order-service/tests/test_order_contracts.py`](../order-service/tests/test_order_contracts.py)
+
+## 2026-10-09 20:55:51 SGT — Order create and browse screens
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6-astra), generate.
+
+**Prompt excerpts**
+
+> created the branch, continue
+
+> but stick to the design or style or format the team is using, the figma was created logn time ago, just as a ref
+
+**Key response** — Implemented Order HTTP/draft helpers, create/list/detail screens, shared shell integration, proxy wiring and browser/unit tests.
+
+**Commits** — [`5e22cbf`](https://github.com/AY2627S1-CS3219-P6/foc/commit/5e22cbf).
+
+**Affected files**
+
+- [`compose.yaml`](../compose.yaml)
+- [`order-service/.env.docker.example`](../order-service/.env.docker.example)
+- [`web-client/nginx/default.conf`](../web-client/nginx/default.conf)
+- [`web-client/src/api/order-draft.ts`](../web-client/src/api/order-draft.ts)
+- [`web-client/src/api/order-service.ts`](../web-client/src/api/order-service.ts)
+- [`web-client/src/app/order-presentation.ts`](../web-client/src/app/order-presentation.ts)
+- [`web-client/src/app/routes.tsx`](../web-client/src/app/routes.tsx)
+- [`web-client/src/components/app-navigation.tsx`](../web-client/src/components/app-navigation.tsx)
+- [`web-client/src/components/navigation-icons.tsx`](../web-client/src/components/navigation-icons.tsx)
+- [`web-client/src/components/order-supplier-picker.tsx`](../web-client/src/components/order-supplier-picker.tsx)
+- [`web-client/src/components/order-ui.tsx`](../web-client/src/components/order-ui.tsx)
+- [`web-client/src/components/supplier-shell.tsx`](../web-client/src/components/supplier-shell.tsx)
+- [`web-client/src/components/workspace-shell.tsx`](../web-client/src/components/workspace-shell.tsx)
+- [`web-client/src/main.tsx`](../web-client/src/main.tsx)
+- [`web-client/src/pages/order-create-page.tsx`](../web-client/src/pages/order-create-page.tsx)
+- [`web-client/src/pages/order-detail-page.tsx`](../web-client/src/pages/order-detail-page.tsx)
+- [`web-client/src/pages/order-list-page.tsx`](../web-client/src/pages/order-list-page.tsx)
+- [`web-client/src/styles/order.css`](../web-client/src/styles/order.css)
+- [`web-client/src/styles/supplier.css`](../web-client/src/styles/supplier.css)
+- [`web-client/src/styles/workspace.css`](../web-client/src/styles/workspace.css)
+- [`web-client/tests/e2e/orders.spec.ts`](../web-client/tests/e2e/orders.spec.ts)
+- [`web-client/tests/e2e/workspace-modes.spec.ts`](../web-client/tests/e2e/workspace-modes.spec.ts)
+- [`web-client/tests/unit/order-draft.test.ts`](../web-client/tests/unit/order-draft.test.ts)
+- [`web-client/tests/unit/order-proxy.test.ts`](../web-client/tests/unit/order-proxy.test.ts)
+- [`web-client/tests/unit/order-service.test.ts`](../web-client/tests/unit/order-service.test.ts)
+- [`web-client/vite.config.ts`](../web-client/vite.config.ts)
+
+## 2026-10-10 00:42:50 SGT — Order supplier picker correction
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6-astra), refactor.
+
+**Prompt excerpt**
+
+> where we have a dropdown and we can also type to search in one box, not seperate
+
+**Key response** — Replaced the separate search/select controls with the searchable supplier picker and updated its existing tests.
+
+**Commits** — [`5e22cbf`](https://github.com/AY2627S1-CS3219-P6/foc/commit/5e22cbf).
+
+**Affected files**
+
+- [`compose.yaml`](../compose.yaml)
+- [`order-service/.env.docker.example`](../order-service/.env.docker.example)
+- [`web-client/nginx/default.conf`](../web-client/nginx/default.conf)
+- [`web-client/src/api/order-draft.ts`](../web-client/src/api/order-draft.ts)
+- [`web-client/src/api/order-service.ts`](../web-client/src/api/order-service.ts)
+- [`web-client/src/app/order-presentation.ts`](../web-client/src/app/order-presentation.ts)
+- [`web-client/src/app/routes.tsx`](../web-client/src/app/routes.tsx)
+- [`web-client/src/components/app-navigation.tsx`](../web-client/src/components/app-navigation.tsx)
+- [`web-client/src/components/navigation-icons.tsx`](../web-client/src/components/navigation-icons.tsx)
+- [`web-client/src/components/order-supplier-picker.tsx`](../web-client/src/components/order-supplier-picker.tsx)
+- [`web-client/src/components/order-ui.tsx`](../web-client/src/components/order-ui.tsx)
+- [`web-client/src/components/supplier-shell.tsx`](../web-client/src/components/supplier-shell.tsx)
+- [`web-client/src/components/workspace-shell.tsx`](../web-client/src/components/workspace-shell.tsx)
+- [`web-client/src/main.tsx`](../web-client/src/main.tsx)
+- [`web-client/src/pages/order-create-page.tsx`](../web-client/src/pages/order-create-page.tsx)
+- [`web-client/src/pages/order-detail-page.tsx`](../web-client/src/pages/order-detail-page.tsx)
+- [`web-client/src/pages/order-list-page.tsx`](../web-client/src/pages/order-list-page.tsx)
+- [`web-client/src/styles/order.css`](../web-client/src/styles/order.css)
+- [`web-client/src/styles/supplier.css`](../web-client/src/styles/supplier.css)
+- [`web-client/src/styles/workspace.css`](../web-client/src/styles/workspace.css)
+- [`web-client/tests/e2e/orders.spec.ts`](../web-client/tests/e2e/orders.spec.ts)
+- [`web-client/tests/e2e/workspace-modes.spec.ts`](../web-client/tests/e2e/workspace-modes.spec.ts)
+- [`web-client/tests/unit/order-draft.test.ts`](../web-client/tests/unit/order-draft.test.ts)
+- [`web-client/tests/unit/order-proxy.test.ts`](../web-client/tests/unit/order-proxy.test.ts)
+- [`web-client/tests/unit/order-service.test.ts`](../web-client/tests/unit/order-service.test.ts)
+- [`web-client/vite.config.ts`](../web-client/vite.config.ts)
+
+## 2026-10-11 16:33:16 SGT — Order acceptance, cancellation and expiry
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6-astra), generate.
+
+**Prompt excerpt**
+
+> yes go
+
+**Key response** — Implemented participant endpoint handlers, conditional lifecycle updates, expiry processing, history/event writes, event publishing and tests.
+
+**Commits** — [`d86f8c9`](https://github.com/AY2627S1-CS3219-P6/foc/commit/d86f8c9).
+
+**Affected files**
+
+- [`compose.yaml`](../compose.yaml)
+- [`order-service/.dockerignore`](../order-service/.dockerignore)
+- [`order-service/.env.docker.example`](../order-service/.env.docker.example)
+- [`order-service/.env.example`](../order-service/.env.example)
+- [`order-service/app/core/config.py`](../order-service/app/core/config.py)
+- [`order-service/app/db.py`](../order-service/app/db.py)
+- [`order-service/app/main.py`](../order-service/app/main.py)
+- [`order-service/app/orders/api.py`](../order-service/app/orders/api.py)
+- [`order-service/app/orders/lifecycle.py`](../order-service/app/orders/lifecycle.py)
+- [`order-service/app/orders/lifecycle_repository.py`](../order-service/app/orders/lifecycle_repository.py)
+- [`order-service/app/orders/lifecycle_worker.py`](../order-service/app/orders/lifecycle_worker.py)
+- [`order-service/app/orders/outbox.py`](../order-service/app/orders/outbox.py)
+- [`order-service/app/orders/schemas.py`](../order-service/app/orders/schemas.py)
+- [`order-service/app/orders/service.py`](../order-service/app/orders/service.py)
+- [`order-service/app/orders/tables.py`](../order-service/app/orders/tables.py)
+- [`order-service/demo/.dockerignore`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/.dockerignore) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/.env.example`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/.env.example) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/Dockerfile`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/Dockerfile) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/bootstrap.sql`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/bootstrap.sql) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/compose.yaml`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/compose.yaml) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/credit_stub.py`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/credit_stub.py) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/nginx.conf`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/nginx.conf) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/provision.py`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/provision.py) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/setup.ps1`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/setup.ps1) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/smoke.py`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/smoke.py) (historical demo source; removed in `fb715d7`)
+- [`order-service/pyproject.toml`](../order-service/pyproject.toml)
+- [`order-service/supabase/migrations/20261011000000_order_accept_cancel_expire.sql`](../order-service/supabase/migrations/20261011000000_order_accept_cancel_expire.sql)
+- [`order-service/tests/integration/test_foundation.py`](../order-service/tests/integration/test_foundation.py)
+- [`order-service/tests/integration/test_lifecycle.py`](../order-service/tests/integration/test_lifecycle.py)
+- [`order-service/tests/integration/test_lifecycle_migration.py`](../order-service/tests/integration/test_lifecycle_migration.py)
+- [`order-service/tests/integration/test_order_events.py`](../order-service/tests/integration/test_order_events.py)
+- [`order-service/tests/test_credit_simulator.py`](../order-service/tests/test_credit_simulator.py)
+- [`order-service/tests/test_lifecycle.py`](../order-service/tests/test_lifecycle.py)
+- [`order-service/tests/test_outbox.py`](../order-service/tests/test_outbox.py)
+- [`web-client/Dockerfile`](../web-client/Dockerfile)
+- [`web-client/src/api/order-service.ts`](../web-client/src/api/order-service.ts)
+- [`web-client/src/components/order-lifecycle.tsx`](../web-client/src/components/order-lifecycle.tsx)
+- [`web-client/src/components/order-ui.tsx`](../web-client/src/components/order-ui.tsx)
+- [`web-client/src/pages/order-detail-page.tsx`](../web-client/src/pages/order-detail-page.tsx)
+- [`web-client/tests/e2e/orders.spec.ts`](../web-client/tests/e2e/orders.spec.ts)
+- [`web-client/tests/unit/order-service.test.ts`](../web-client/tests/unit/order-service.test.ts)
+
+## 2026-10-11 17:44:55 SGT — Order acceptance/cancellation UI and Credit test double
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6-astra), generate.
+
+**Prompt excerpt**
+
+> implement  **Accept/Cancel UI plus the isolated Credit test setup** now in this branch
+
+**Key response** — Implemented participant action buttons, HTTP client methods and isolated Credit simulation used to test Order. The separately runnable demo was later removed; the test double remains in tests.
+
+**Commits** — [`d86f8c9`](https://github.com/AY2627S1-CS3219-P6/foc/commit/d86f8c9).
+
+**Affected files**
+
+- [`compose.yaml`](../compose.yaml)
+- [`order-service/.dockerignore`](../order-service/.dockerignore)
+- [`order-service/.env.docker.example`](../order-service/.env.docker.example)
+- [`order-service/.env.example`](../order-service/.env.example)
+- [`order-service/app/core/config.py`](../order-service/app/core/config.py)
+- [`order-service/app/db.py`](../order-service/app/db.py)
+- [`order-service/app/main.py`](../order-service/app/main.py)
+- [`order-service/app/orders/api.py`](../order-service/app/orders/api.py)
+- [`order-service/app/orders/lifecycle.py`](../order-service/app/orders/lifecycle.py)
+- [`order-service/app/orders/lifecycle_repository.py`](../order-service/app/orders/lifecycle_repository.py)
+- [`order-service/app/orders/lifecycle_worker.py`](../order-service/app/orders/lifecycle_worker.py)
+- [`order-service/app/orders/outbox.py`](../order-service/app/orders/outbox.py)
+- [`order-service/app/orders/schemas.py`](../order-service/app/orders/schemas.py)
+- [`order-service/app/orders/service.py`](../order-service/app/orders/service.py)
+- [`order-service/app/orders/tables.py`](../order-service/app/orders/tables.py)
+- [`order-service/demo/.dockerignore`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/.dockerignore) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/.env.example`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/.env.example) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/Dockerfile`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/Dockerfile) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/bootstrap.sql`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/bootstrap.sql) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/compose.yaml`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/compose.yaml) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/credit_stub.py`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/credit_stub.py) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/nginx.conf`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/nginx.conf) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/provision.py`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/provision.py) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/setup.ps1`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/setup.ps1) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/smoke.py`](https://github.com/AY2627S1-CS3219-P6/foc/blob/d86f8c90bd159e90f5053309dcf6aede6c60a9a2/order-service/demo/smoke.py) (historical demo source; removed in `fb715d7`)
+- [`order-service/pyproject.toml`](../order-service/pyproject.toml)
+- [`order-service/supabase/migrations/20261011000000_order_accept_cancel_expire.sql`](../order-service/supabase/migrations/20261011000000_order_accept_cancel_expire.sql)
+- [`order-service/tests/integration/test_foundation.py`](../order-service/tests/integration/test_foundation.py)
+- [`order-service/tests/integration/test_lifecycle.py`](../order-service/tests/integration/test_lifecycle.py)
+- [`order-service/tests/integration/test_lifecycle_migration.py`](../order-service/tests/integration/test_lifecycle_migration.py)
+- [`order-service/tests/integration/test_order_events.py`](../order-service/tests/integration/test_order_events.py)
+- [`order-service/tests/test_credit_simulator.py`](../order-service/tests/test_credit_simulator.py)
+- [`order-service/tests/test_lifecycle.py`](../order-service/tests/test_lifecycle.py)
+- [`order-service/tests/test_outbox.py`](../order-service/tests/test_outbox.py)
+- [`web-client/Dockerfile`](../web-client/Dockerfile)
+- [`web-client/src/api/order-service.ts`](../web-client/src/api/order-service.ts)
+- [`web-client/src/components/order-lifecycle.tsx`](../web-client/src/components/order-lifecycle.tsx)
+- [`web-client/src/components/order-ui.tsx`](../web-client/src/components/order-ui.tsx)
+- [`web-client/src/pages/order-detail-page.tsx`](../web-client/src/pages/order-detail-page.tsx)
+- [`web-client/tests/e2e/orders.spec.ts`](../web-client/tests/e2e/orders.spec.ts)
+- [`web-client/tests/unit/order-service.test.ts`](../web-client/tests/unit/order-service.test.ts)
+
+## 2026-10-11 18:31:55 SGT — Order fulfilment and completion
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6-astra), generate.
+
+**Prompt excerpt**
+
+> created branch, go
+
+**Key response** — Implemented pickup/delivery/completion handlers, timestamp updates, participant checks, completion-event writes and fulfilment tests.
+
+**Commits** — [`b0b7bde`](https://github.com/AY2627S1-CS3219-P6/foc/commit/b0b7bde).
+
+**Affected files**
+
+- [`order-service/app/db.py`](../order-service/app/db.py)
+- [`order-service/app/orders/api.py`](../order-service/app/orders/api.py)
+- [`order-service/app/orders/lifecycle.py`](../order-service/app/orders/lifecycle.py)
+- [`order-service/app/orders/lifecycle_repository.py`](../order-service/app/orders/lifecycle_repository.py)
+- [`order-service/app/orders/lifecycle_worker.py`](../order-service/app/orders/lifecycle_worker.py)
+- [`order-service/app/orders/outbox.py`](../order-service/app/orders/outbox.py)
+- [`order-service/app/orders/schemas.py`](../order-service/app/orders/schemas.py)
+- [`order-service/app/orders/service.py`](../order-service/app/orders/service.py)
+- [`order-service/app/orders/tables.py`](../order-service/app/orders/tables.py)
+- [`order-service/demo/compose.yaml`](https://github.com/AY2627S1-CS3219-P6/foc/blob/b0b7bdef7f88f75cb7885677cfda2aead8e34d8e/order-service/demo/compose.yaml) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/credit_stub.py`](https://github.com/AY2627S1-CS3219-P6/foc/blob/b0b7bdef7f88f75cb7885677cfda2aead8e34d8e/order-service/demo/credit_stub.py) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/smoke.py`](https://github.com/AY2627S1-CS3219-P6/foc/blob/b0b7bdef7f88f75cb7885677cfda2aead8e34d8e/order-service/demo/smoke.py) (historical demo source; removed in `fb715d7`)
+- [`order-service/supabase/migrations/20261011000100_order_fulfilment_completion.sql`](../order-service/supabase/migrations/20261011000100_order_fulfilment_completion.sql)
+- [`order-service/supabase/migrations/20261011000200_order_participant_failure.sql`](../order-service/supabase/migrations/20261011000200_order_participant_failure.sql)
+- [`order-service/tests/integration/test_failure.py`](../order-service/tests/integration/test_failure.py)
+- [`order-service/tests/integration/test_fulfilment.py`](../order-service/tests/integration/test_fulfilment.py)
+- [`order-service/tests/integration/test_lifecycle_migration.py`](../order-service/tests/integration/test_lifecycle_migration.py)
+- [`order-service/tests/integration/test_order_events.py`](../order-service/tests/integration/test_order_events.py)
+- [`order-service/tests/test_credit_simulator.py`](../order-service/tests/test_credit_simulator.py)
+- [`order-service/tests/test_failure.py`](../order-service/tests/test_failure.py)
+- [`order-service/tests/test_fulfilment.py`](../order-service/tests/test_fulfilment.py)
+- [`order-service/tests/test_lifecycle.py`](../order-service/tests/test_lifecycle.py)
+- [`web-client/src/api/order-service.ts`](../web-client/src/api/order-service.ts)
+- [`web-client/src/app/order-presentation.ts`](../web-client/src/app/order-presentation.ts)
+- [`web-client/src/components/order-lifecycle.tsx`](../web-client/src/components/order-lifecycle.tsx)
+- [`web-client/src/components/order-ui.tsx`](../web-client/src/components/order-ui.tsx)
+- [`web-client/src/pages/order-create-page.tsx`](../web-client/src/pages/order-create-page.tsx)
+- [`web-client/src/pages/order-detail-page.tsx`](../web-client/src/pages/order-detail-page.tsx)
+- [`web-client/src/pages/order-list-page.tsx`](../web-client/src/pages/order-list-page.tsx)
+- [`web-client/tests/e2e/orders.spec.ts`](../web-client/tests/e2e/orders.spec.ts)
+- [`web-client/tests/unit/order-presentation.test.ts`](../web-client/tests/unit/order-presentation.test.ts)
+- [`web-client/tests/unit/order-service.test.ts`](../web-client/tests/unit/order-service.test.ts)
+
+## 2026-10-11 19:50:06 SGT — Order participant failure implementation
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6.1-sol), generate.
+
+**Prompt excerpt**
+
+> we will stick to this
+
+**Key response** — Implemented participant failure endpoint handling, validation, actor/reason records, release-event writes, participant UI actions and failure tests.
+
+**Commits** — [`b0b7bde`](https://github.com/AY2627S1-CS3219-P6/foc/commit/b0b7bde).
+
+**Affected files**
+
+- [`order-service/app/db.py`](../order-service/app/db.py)
+- [`order-service/app/orders/api.py`](../order-service/app/orders/api.py)
+- [`order-service/app/orders/lifecycle.py`](../order-service/app/orders/lifecycle.py)
+- [`order-service/app/orders/lifecycle_repository.py`](../order-service/app/orders/lifecycle_repository.py)
+- [`order-service/app/orders/lifecycle_worker.py`](../order-service/app/orders/lifecycle_worker.py)
+- [`order-service/app/orders/outbox.py`](../order-service/app/orders/outbox.py)
+- [`order-service/app/orders/schemas.py`](../order-service/app/orders/schemas.py)
+- [`order-service/app/orders/service.py`](../order-service/app/orders/service.py)
+- [`order-service/app/orders/tables.py`](../order-service/app/orders/tables.py)
+- [`order-service/demo/compose.yaml`](https://github.com/AY2627S1-CS3219-P6/foc/blob/b0b7bdef7f88f75cb7885677cfda2aead8e34d8e/order-service/demo/compose.yaml) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/credit_stub.py`](https://github.com/AY2627S1-CS3219-P6/foc/blob/b0b7bdef7f88f75cb7885677cfda2aead8e34d8e/order-service/demo/credit_stub.py) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/smoke.py`](https://github.com/AY2627S1-CS3219-P6/foc/blob/b0b7bdef7f88f75cb7885677cfda2aead8e34d8e/order-service/demo/smoke.py) (historical demo source; removed in `fb715d7`)
+- [`order-service/supabase/migrations/20261011000100_order_fulfilment_completion.sql`](../order-service/supabase/migrations/20261011000100_order_fulfilment_completion.sql)
+- [`order-service/supabase/migrations/20261011000200_order_participant_failure.sql`](../order-service/supabase/migrations/20261011000200_order_participant_failure.sql)
+- [`order-service/tests/integration/test_failure.py`](../order-service/tests/integration/test_failure.py)
+- [`order-service/tests/integration/test_fulfilment.py`](../order-service/tests/integration/test_fulfilment.py)
+- [`order-service/tests/integration/test_lifecycle_migration.py`](../order-service/tests/integration/test_lifecycle_migration.py)
+- [`order-service/tests/integration/test_order_events.py`](../order-service/tests/integration/test_order_events.py)
+- [`order-service/tests/test_credit_simulator.py`](../order-service/tests/test_credit_simulator.py)
+- [`order-service/tests/test_failure.py`](../order-service/tests/test_failure.py)
+- [`order-service/tests/test_fulfilment.py`](../order-service/tests/test_fulfilment.py)
+- [`order-service/tests/test_lifecycle.py`](../order-service/tests/test_lifecycle.py)
+- [`web-client/src/api/order-service.ts`](../web-client/src/api/order-service.ts)
+- [`web-client/src/app/order-presentation.ts`](../web-client/src/app/order-presentation.ts)
+- [`web-client/src/components/order-lifecycle.tsx`](../web-client/src/components/order-lifecycle.tsx)
+- [`web-client/src/components/order-ui.tsx`](../web-client/src/components/order-ui.tsx)
+- [`web-client/src/pages/order-create-page.tsx`](../web-client/src/pages/order-create-page.tsx)
+- [`web-client/src/pages/order-detail-page.tsx`](../web-client/src/pages/order-detail-page.tsx)
+- [`web-client/src/pages/order-list-page.tsx`](../web-client/src/pages/order-list-page.tsx)
+- [`web-client/tests/e2e/orders.spec.ts`](../web-client/tests/e2e/orders.spec.ts)
+- [`web-client/tests/unit/order-presentation.test.ts`](../web-client/tests/unit/order-presentation.test.ts)
+- [`web-client/tests/unit/order-service.test.ts`](../web-client/tests/unit/order-service.test.ts)
+
+## 2026-10-11 21:27:36 SGT — Order screen copy cleanup
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6.1-sol), refactor.
+
+**Prompt excerpts**
+
+> tested, works, but we dont need user to know wat lifecycle and stuff, check alll repo and remove too in depth details only needed to know by developers
+
+> wait, i mean order screens only, revert user and supplier stuff
+
+**Key response** — Simplified Order screen copy and restored the unrelated User/Supplier screen changes. Only the Order changes were retained in the implementation commit.
+
+**Commits** — [`b0b7bde`](https://github.com/AY2627S1-CS3219-P6/foc/commit/b0b7bde).
+
+**Affected files**
+
+- [`order-service/app/db.py`](../order-service/app/db.py)
+- [`order-service/app/orders/api.py`](../order-service/app/orders/api.py)
+- [`order-service/app/orders/lifecycle.py`](../order-service/app/orders/lifecycle.py)
+- [`order-service/app/orders/lifecycle_repository.py`](../order-service/app/orders/lifecycle_repository.py)
+- [`order-service/app/orders/lifecycle_worker.py`](../order-service/app/orders/lifecycle_worker.py)
+- [`order-service/app/orders/outbox.py`](../order-service/app/orders/outbox.py)
+- [`order-service/app/orders/schemas.py`](../order-service/app/orders/schemas.py)
+- [`order-service/app/orders/service.py`](../order-service/app/orders/service.py)
+- [`order-service/app/orders/tables.py`](../order-service/app/orders/tables.py)
+- [`order-service/demo/compose.yaml`](https://github.com/AY2627S1-CS3219-P6/foc/blob/b0b7bdef7f88f75cb7885677cfda2aead8e34d8e/order-service/demo/compose.yaml) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/credit_stub.py`](https://github.com/AY2627S1-CS3219-P6/foc/blob/b0b7bdef7f88f75cb7885677cfda2aead8e34d8e/order-service/demo/credit_stub.py) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/smoke.py`](https://github.com/AY2627S1-CS3219-P6/foc/blob/b0b7bdef7f88f75cb7885677cfda2aead8e34d8e/order-service/demo/smoke.py) (historical demo source; removed in `fb715d7`)
+- [`order-service/supabase/migrations/20261011000100_order_fulfilment_completion.sql`](../order-service/supabase/migrations/20261011000100_order_fulfilment_completion.sql)
+- [`order-service/supabase/migrations/20261011000200_order_participant_failure.sql`](../order-service/supabase/migrations/20261011000200_order_participant_failure.sql)
+- [`order-service/tests/integration/test_failure.py`](../order-service/tests/integration/test_failure.py)
+- [`order-service/tests/integration/test_fulfilment.py`](../order-service/tests/integration/test_fulfilment.py)
+- [`order-service/tests/integration/test_lifecycle_migration.py`](../order-service/tests/integration/test_lifecycle_migration.py)
+- [`order-service/tests/integration/test_order_events.py`](../order-service/tests/integration/test_order_events.py)
+- [`order-service/tests/test_credit_simulator.py`](../order-service/tests/test_credit_simulator.py)
+- [`order-service/tests/test_failure.py`](../order-service/tests/test_failure.py)
+- [`order-service/tests/test_fulfilment.py`](../order-service/tests/test_fulfilment.py)
+- [`order-service/tests/test_lifecycle.py`](../order-service/tests/test_lifecycle.py)
+- [`web-client/src/api/order-service.ts`](../web-client/src/api/order-service.ts)
+- [`web-client/src/app/order-presentation.ts`](../web-client/src/app/order-presentation.ts)
+- [`web-client/src/components/order-lifecycle.tsx`](../web-client/src/components/order-lifecycle.tsx)
+- [`web-client/src/components/order-ui.tsx`](../web-client/src/components/order-ui.tsx)
+- [`web-client/src/pages/order-create-page.tsx`](../web-client/src/pages/order-create-page.tsx)
+- [`web-client/src/pages/order-detail-page.tsx`](../web-client/src/pages/order-detail-page.tsx)
+- [`web-client/src/pages/order-list-page.tsx`](../web-client/src/pages/order-list-page.tsx)
+- [`web-client/tests/e2e/orders.spec.ts`](../web-client/tests/e2e/orders.spec.ts)
+- [`web-client/tests/unit/order-presentation.test.ts`](../web-client/tests/unit/order-presentation.test.ts)
+- [`web-client/tests/unit/order-service.test.ts`](../web-client/tests/unit/order-service.test.ts)
+
+## 2026-10-16 00:34:37 SGT — Local Order configuration exclusions
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6.1-sol), refactor.
+
+**Prompt excerpt**
+
+> update the readme at root folder the local set up part for macOS, and create one for windows also
+
+**Key response** — Updated the Order ignore configuration accompanying the local setup changes. This entry attributes the configuration edit; the setup prose is outside this code-implementation inventory.
+
+**Commits** — [`a7061ef`](https://github.com/AY2627S1-CS3219-P6/foc/commit/a7061ef).
+
+**Affected files**
+
+- [`order-service/.gitignore`](../order-service/.gitignore)
+
+## 2026-10-16 22:52:56 SGT — Retire the standalone Order Credit demo
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6.1-sol), refactor.
+
+**Prompt excerpts**
+
+> also do we have any code/container/set up not in use/mocked, delete all those, and did we push anything mock onto github?
+
+> Yes—remove retired demo/setup; keep automated tests
+
+**Key response** — Removed the standalone Credit demo/deployment entry points and demo UI flag, retained Credit simulation as a test-only helper and updated the dependent tests.
+
+**Commits** — [`fb715d7`](https://github.com/AY2627S1-CS3219-P6/foc/commit/fb715d7).
+
+**Affected files**
+
+- [`order-service/.dockerignore`](../order-service/.dockerignore)
+- [`order-service/demo/.dockerignore`](https://github.com/AY2627S1-CS3219-P6/foc/blob/fb715d7e9a14fcee8a1f4c004f8efa1e339f0d72/order-service/demo/.dockerignore) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/.env.example`](https://github.com/AY2627S1-CS3219-P6/foc/blob/fb715d7e9a14fcee8a1f4c004f8efa1e339f0d72/order-service/demo/.env.example) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/Dockerfile`](https://github.com/AY2627S1-CS3219-P6/foc/blob/fb715d7e9a14fcee8a1f4c004f8efa1e339f0d72/order-service/demo/Dockerfile) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/bootstrap.sql`](https://github.com/AY2627S1-CS3219-P6/foc/blob/fb715d7e9a14fcee8a1f4c004f8efa1e339f0d72/order-service/demo/bootstrap.sql) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/compose.yaml`](https://github.com/AY2627S1-CS3219-P6/foc/blob/fb715d7e9a14fcee8a1f4c004f8efa1e339f0d72/order-service/demo/compose.yaml) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/nginx.conf`](https://github.com/AY2627S1-CS3219-P6/foc/blob/fb715d7e9a14fcee8a1f4c004f8efa1e339f0d72/order-service/demo/nginx.conf) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/provision.py`](https://github.com/AY2627S1-CS3219-P6/foc/blob/fb715d7e9a14fcee8a1f4c004f8efa1e339f0d72/order-service/demo/provision.py) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/setup.ps1`](https://github.com/AY2627S1-CS3219-P6/foc/blob/fb715d7e9a14fcee8a1f4c004f8efa1e339f0d72/order-service/demo/setup.ps1) (historical demo source; removed in `fb715d7`)
+- [`order-service/demo/smoke.py`](https://github.com/AY2627S1-CS3219-P6/foc/blob/fb715d7e9a14fcee8a1f4c004f8efa1e339f0d72/order-service/demo/smoke.py) (historical demo source; removed in `fb715d7`)
+- [`order-service/tests/credit_fake.py`](../order-service/tests/credit_fake.py)
+- [`order-service/tests/integration/test_order_events.py`](../order-service/tests/integration/test_order_events.py)
+- [`order-service/tests/test_credit_simulator.py`](../order-service/tests/test_credit_simulator.py)
+- [`web-client/Dockerfile`](../web-client/Dockerfile)
+- [`web-client/src/components/order-ui.tsx`](../web-client/src/components/order-ui.tsx)
+
+## 2026-11-02 18:37:17 SGT — AWS deployment foundation implementation
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6.1-sol), generate.
+
+**Prompt excerpt**
+
+> switched
+
+**Key response** — Implemented cloud Compose, generated private configuration, database provisioning/runtime-login scripts, ingress configuration and deployment helper tests. Added their shared CI validation steps.
+
+**Commits** — [`1cfd8f4`](https://github.com/AY2627S1-CS3219-P6/foc/commit/1cfd8f4).
+
+**Affected files**
+
+- [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+- [`.github/workflows/cloud-foundation.yml`](../.github/workflows/cloud-foundation.yml)
+- [`deploy/aws/.env.example`](../deploy/aws/.env.example)
+- [`deploy/aws/.gitignore`](../deploy/aws/.gitignore)
+- [`deploy/aws/compose.yaml`](../deploy/aws/compose.yaml)
+- [`deploy/aws/nginx/cloud.conf`](../deploy/aws/nginx/cloud.conf)
+- [`deploy/aws/scripts/cloud_config.py`](../deploy/aws/scripts/cloud_config.py)
+- [`deploy/aws/scripts/generate_env.py`](../deploy/aws/scripts/generate_env.py)
+- [`deploy/aws/scripts/prepare_databases.py`](../deploy/aws/scripts/prepare_databases.py)
+- [`deploy/aws/scripts/validate.py`](../deploy/aws/scripts/validate.py)
+- [`deploy/aws/tests/test_cloud_helpers.py`](../deploy/aws/tests/test_cloud_helpers.py)
+- [`deploy/aws/tests/test_database_live.py`](../deploy/aws/tests/test_database_live.py)
+- [`web-client/nginx/default.conf`](../web-client/nginx/default.conf)
+
+## 2026-11-02 21:42:21 SGT — Cloud database tooling CI fix
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6.1-sol), debug.
+
+**Prompt summary**
+
+Image-only prompt: screenshot of the cloud foundation CI failure at the database bootstrap step; no accompanying typed request.
+
+**Key response** — Added Docker CLI to the database tooling image and updated the provisioning helper and existing tests after the CI database-start failure.
+
+**Commits** — [`45ae5a4`](https://github.com/AY2627S1-CS3219-P6/foc/commit/45ae5a4).
+
+**Affected files**
+
+- [`deploy/aws/scripts/prepare_databases.py`](../deploy/aws/scripts/prepare_databases.py)
+- [`deploy/aws/tests/test_cloud_helpers.py`](../deploy/aws/tests/test_cloud_helpers.py)
+- [`deploy/aws/tooling/.dockerignore`](../deploy/aws/tooling/.dockerignore)
+- [`deploy/aws/tooling/Dockerfile`](../deploy/aws/tooling/Dockerfile)
+
+## 2026-11-02 23:07:32 SGT — Public HTTPS ingress implementation
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6.1-sol), generate.
+
+**Prompt excerpts**
+
+> ok, localhost works, shld we make it publice
+
+> aws cloudfront list-distributions --profile foc --query "DistributionList.Items[].{Id:Id,Domain:DomainName,Status:Status}" --output table --no-cli-pager
+
+**Key response** — Implemented CloudFront request-file generation, public-origin configuration, the additional listener/Compose binding and ingress/configuration tests.
+
+**Commits** — [`2741a8c`](https://github.com/AY2627S1-CS3219-P6/foc/commit/2741a8c).
+
+**Affected files**
+
+- [`.github/workflows/cloud-foundation.yml`](../.github/workflows/cloud-foundation.yml)
+- [`.gitignore`](../.gitignore)
+- [`deploy/aws/compose.public.yaml`](../deploy/aws/compose.public.yaml)
+- [`deploy/aws/nginx-public/listener.conf`](../deploy/aws/nginx-public/listener.conf)
+- [`deploy/aws/scripts/public_https.py`](../deploy/aws/scripts/public_https.py)
+- [`deploy/aws/scripts/validate.py`](../deploy/aws/scripts/validate.py)
+- [`deploy/aws/tests/ingress_upstream.conf`](../deploy/aws/tests/ingress_upstream.conf)
+- [`deploy/aws/tests/test_ingress_live.py`](../deploy/aws/tests/test_ingress_live.py)
+- [`deploy/aws/tests/test_public_https.py`](../deploy/aws/tests/test_public_https.py)
+- [`web-client/nginx/default.conf`](../web-client/nginx/default.conf)
+
+## 2026-11-03 00:28:57 SGT — Optional SES email implementation
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6.1-sol), generate.
+
+**Prompt excerpt**
+
+> ok, we will fix email first, we are allow to modify user service code, also does the email fix does it affect development testing with mailpit
+
+**Key response** — Implemented optional SES OTP delivery, provider configuration, redacted failure handling, deployment configuration and fake-provider tests while retaining SMTP/Mailpit support. Attribution in User files is limited to these cloud email changes.
+
+**Commits** — [`4d2c135`](https://github.com/AY2627S1-CS3219-P6/foc/commit/4d2c135).
+
+**Affected files**
+
+- [`.github/workflows/cloud-foundation.yml`](../.github/workflows/cloud-foundation.yml)
+- [`compose.yaml`](../compose.yaml)
+- [`deploy/aws/.env.example`](../deploy/aws/.env.example)
+- [`deploy/aws/compose.yaml`](../deploy/aws/compose.yaml)
+- [`deploy/aws/iam/ses-send-email.policy.example.json`](../deploy/aws/iam/ses-send-email.policy.example.json)
+- [`deploy/aws/scripts/configure_email.py`](../deploy/aws/scripts/configure_email.py)
+- [`deploy/aws/scripts/generate_env.py`](../deploy/aws/scripts/generate_env.py)
+- [`deploy/aws/scripts/validate.py`](../deploy/aws/scripts/validate.py)
+- [`deploy/aws/tests/test_email_configuration.py`](../deploy/aws/tests/test_email_configuration.py)
+- [`deploy/aws/tests/test_public_https.py`](../deploy/aws/tests/test_public_https.py)
+- [`user-service/.env.example`](../user-service/.env.example)
+- [`user-service/app/core/config.py`](../user-service/app/core/config.py)
+- [`user-service/app/core/logging.py`](../user-service/app/core/logging.py)
+- [`user-service/app/main.py`](../user-service/app/main.py)
+- [`user-service/app/registration/mailer.py`](../user-service/app/registration/mailer.py)
+- [`user-service/compose.yaml`](../user-service/compose.yaml)
+- [`user-service/pyproject.toml`](../user-service/pyproject.toml)
+- [`user-service/tests/integration/test_ses_registration.py`](../user-service/tests/integration/test_ses_registration.py)
+- [`user-service/tests/test_email_delivery.py`](../user-service/tests/test_email_delivery.py)
+
+## 2026-11-03 01:22:20 SGT — SES permission example corrections
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6.1-sol), debug.
+
+**Prompt excerpt and input summary**
+
+> AWS error: AccessDeniedException
+
+Attached input: AWS SES production-access approval email. The email and account identifiers are not reproduced.
+
+**Key response** — Corrected the sandbox policy example for the reported SES rejection and added the production policy example with sender/recipient conditions. No live credential values are reproduced.
+
+**Commits** — [`c93240a`](https://github.com/AY2627S1-CS3219-P6/foc/commit/c93240a).
+
+**Affected files**
+
+- [`deploy/aws/iam/ses-send-email.policy.example.json`](../deploy/aws/iam/ses-send-email.policy.example.json)
+- [`deploy/aws/iam/ses-send-email.production.policy.example.json`](../deploy/aws/iam/ses-send-email.production.policy.example.json)
+
+## 2026-11-06 18:58:06 SGT — Automatic cloud delivery implementation
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6.1-sol), generate.
+
+**Prompt excerpts**
+
+> ok, now we will do establishing CI/CD pipelines
+
+> Automatic deployment after main CI passes
+
+**Key response** — Implemented CI image artifacts, ECR publishing, release manifest validation, GitHub OIDC/SSM workflow steps, host deployment/readiness/rollback helpers and release tests.
+
+**Commits** — [`fc4b9df`](https://github.com/AY2627S1-CS3219-P6/foc/commit/fc4b9df).
+
+**Affected files**
+
+- [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+- [`.github/workflows/cloud-foundation.yml`](../.github/workflows/cloud-foundation.yml)
+- [`.github/workflows/cloud-release.yml`](../.github/workflows/cloud-release.yml)
+- [`.gitignore`](../.gitignore)
+- [`deploy/aws/.gitignore`](../deploy/aws/.gitignore)
+- [`deploy/aws/scripts/deploy_release.py`](../deploy/aws/scripts/deploy_release.py)
+- [`deploy/aws/scripts/prepare_delivery.py`](../deploy/aws/scripts/prepare_delivery.py)
+- [`deploy/aws/scripts/release_manifest.py`](../deploy/aws/scripts/release_manifest.py)
+- [`deploy/aws/scripts/release_workflow.py`](../deploy/aws/scripts/release_workflow.py)
+- [`deploy/aws/ssm/deploy-release.json`](../deploy/aws/ssm/deploy-release.json)
+- [`deploy/aws/tests/test_releases.py`](../deploy/aws/tests/test_releases.py)
+
+## 2026-11-06 21:38:43 SGT — SSM manifest parameter validation fix
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6.1-sol), debug.
+
+**Prompt excerpt**
+
+> shld i go to main first?
+
+**Key response** — Replaced the unsupported large regex repetition with explicit SSM parameter length limits and updated existing release tests. The diagnostic input was an attached AWS command-output transcript.
+
+**Commits** — [`05f5d88`](https://github.com/AY2627S1-CS3219-P6/foc/commit/05f5d88).
+
+**Affected files**
+
+- [`deploy/aws/ssm/deploy-release.json`](../deploy/aws/ssm/deploy-release.json)
+- [`deploy/aws/tests/test_releases.py`](../deploy/aws/tests/test_releases.py)
+
+## 2026-11-08 19:49:41 SGT — CloudWatch monitoring implementation
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6.1-sol), generate.
+
+**Prompt excerpt**
+
+> ok proceed with monitoring/alerts
+
+**Key response** — Implemented host/container/public-route collection, CloudWatch publishing, timer installation, systemd units, alarm/dashboard resource configuration and monitoring tests.
+
+**Commits** — [`1015d0c`](https://github.com/AY2627S1-CS3219-P6/foc/commit/1015d0c).
+
+**Affected files**
+
+- [`.github/workflows/cloud-foundation.yml`](../.github/workflows/cloud-foundation.yml)
+- [`deploy/aws/.gitignore`](../deploy/aws/.gitignore)
+- [`deploy/aws/monitoring/stack.json`](../deploy/aws/monitoring/stack.json)
+- [`deploy/aws/scripts/install_monitoring.py`](../deploy/aws/scripts/install_monitoring.py)
+- [`deploy/aws/scripts/monitor_runtime.py`](../deploy/aws/scripts/monitor_runtime.py)
+- [`deploy/aws/systemd/foc-monitoring.service`](../deploy/aws/systemd/foc-monitoring.service)
+- [`deploy/aws/systemd/foc-monitoring.timer`](../deploy/aws/systemd/foc-monitoring.timer)
+- [`deploy/aws/tests/test_monitoring.py`](../deploy/aws/tests/test_monitoring.py)
+
+## 2026-11-09 19:23:43 SGT — Monitoring Docker-readiness CI fix
+
+**Tool and mode** — ChatGPT (Codex, model: gpt-6.1-sol), debug.
+
+**Prompt excerpt**
+
+> AssertionError: 'starting' != 'healthy'
+
+**Key response** — Updated the existing Docker inspection smoke test to wait for health readiness and added readiness/timeout regression checks in that existing test module. Runtime monitoring behavior was unchanged.
+
+**Commits** — [`0197501`](https://github.com/AY2627S1-CS3219-P6/foc/commit/0197501).
+
+**Affected files**
+
+- [`deploy/aws/tests/test_monitoring.py`](../deploy/aws/tests/test_monitoring.py)
+
+### JSON attribution carried by this log
+
+JSON files remain unchanged because JSON does not permit header comments. The corresponding entries above provide the tool, exchange date, implementation scope and commit references for:
+
+- [`deploy/aws/iam/ses-send-email.policy.example.json`](../deploy/aws/iam/ses-send-email.policy.example.json) — commits `4d2c135`, `c93240a`.
+- [`deploy/aws/iam/ses-send-email.production.policy.example.json`](../deploy/aws/iam/ses-send-email.production.policy.example.json) — commits `c93240a`.
+- [`deploy/aws/monitoring/stack.json`](../deploy/aws/monitoring/stack.json) — commits `1015d0c`.
+- [`deploy/aws/ssm/deploy-release.json`](../deploy/aws/ssm/deploy-release.json) — commits `fc4b9df`, `05f5d88`.
+- [`order-service/package-lock.json`](../order-service/package-lock.json) — commits `c12b816`.
+- [`order-service/package.json`](../order-service/package.json) — commits `c12b816`.
+
 ## 2026-11-10 04:29:29 SGT — Disputed errand state
 
 **Tool and mode** — Claude Code (model: Claude Opus 5.5), generate.

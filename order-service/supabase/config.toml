@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+# Scope: Added the Order local Supabase project configuration.
+# Author review: I validated correctness and added boundary checks where needed.
+
 # Separate local PostgreSQL project. Only PostgreSQL and Studio are needed in F0.
 project_id = "order-service"
 

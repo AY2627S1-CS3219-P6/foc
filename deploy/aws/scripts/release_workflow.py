@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-06
+# Scope: Implemented release preflight, CI artifact checks and SSM invocation helpers.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """GitHub runner helpers: verify source CI, assemble releases and invoke a fixed SSM document."""
 
 from __future__ import annotations

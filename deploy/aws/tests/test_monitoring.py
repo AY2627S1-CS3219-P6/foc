@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-08, 2026-11-09
+# Scope: Implemented and debugged monitoring collection, alarms and Docker readiness tests.
+# Author review: I validated correctness and added boundary checks where needed.
+
 from __future__ import annotations
 
 import io

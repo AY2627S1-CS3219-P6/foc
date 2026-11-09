@@ -1,3 +1,9 @@
+// AI Assistance Disclosure:
+// Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09, 2026-10-11
+// Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11, 2026-10-16
+// Scope: Implemented shared Order display helpers and removed the retired demo banner.
+// Author review: I validated correctness and added boundary checks where needed.
+
 import type { PropsWithChildren } from "react";
 import { Link } from "react-router-dom";
 import { orderTime } from "../app/order-presentation";

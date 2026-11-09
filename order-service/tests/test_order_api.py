@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+# Scope: Implemented and debugged participant API handlers tests.
+# Author review: I validated correctness and added boundary checks where needed.
+
 from uuid import uuid4
 
 import pytest

@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09, 2026-10-10
+// Scope: Implemented the searchable supplier selector used by Order creation.
+// Author review: I validated correctness and added boundary checks where needed.
+
 import { useEffect, useId, useState } from "react";
 import { supplierService, type SupplierListItem } from "../api/supplier-service";
 import { useAuth } from "../app/use-auth";

@@ -1,3 +1,9 @@
+// AI Assistance Disclosure:
+// Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-11
+// Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+// Scope: Implemented participant Order action controls and error/result messages.
+// Author review: I validated correctness and added boundary checks where needed.
+
 import { useEffect, useRef, useState } from "react";
 import { isApiRequestError } from "../api/client";
 import { failureReasons, orderService, stateNames, type OrderAction, type OrderDetail, type OrderParticipant } from "../api/order-service";

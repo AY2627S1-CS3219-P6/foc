@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-11
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11, 2026-10-16
+# Scope: Implemented Credit test-double behavior and retained it only in automated tests.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Automated-test Credit double; not packaged or deployable as a FoC service."""
 
 import hmac

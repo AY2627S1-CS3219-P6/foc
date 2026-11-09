@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-06
+# Scope: Implemented release publishing, source checks and SSM deployment workflow steps.
+# Author review: I validated correctness and added boundary checks where needed.
+
 name: Cloud release
 
 on:
