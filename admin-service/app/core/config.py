@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     user_service_base_url: str | None = None
     order_service_base_url: str | None = None
+    # Must equal Order's ADMIN_SERVICE_SECRET: Order accepts dispute changes only from Admin.
+    order_service_secret: SecretStr | None = None
     dependency_timeout_seconds: float = Field(default=2, gt=0, le=10)
 
     @field_validator("user_service_base_url", "order_service_base_url")
@@ -46,7 +48,7 @@ class Settings(BaseSettings):
             raise ValueError("Service URLs must be HTTP(S) origins without credentials or paths")
         return value.rstrip("/")
 
-    @field_validator("database_url", mode="before")
+    @field_validator("database_url", "order_service_secret", mode="before")
     @classmethod
     def blank_is_unset(cls, value: object) -> object:
         if isinstance(value, str):

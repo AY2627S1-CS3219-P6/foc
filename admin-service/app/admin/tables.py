@@ -1,7 +1,8 @@
 # AI Assistance Disclosure:
-# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
-# Scope: Implemented query-only table definitions for disputes, their history and the audit
-# log.
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08,
+# 2026-11-10
+# Scope: Implemented query-only table definitions for disputes, their history, statements and
+# the audit log.
 # Author review: I validated correctness and supplied additional boundary checks.
 
 """Query-only table definitions. supabase/migrations/ owns the schema."""
@@ -16,12 +17,13 @@ disputes = Table(
     metadata,
     Column("id", UUID(as_uuid=True), primary_key=True),
     Column("order_id", UUID(as_uuid=True), nullable=False),
-    Column("description", Text, nullable=False),
+    Column("description", Text),
     Column("evidence_refs", ARRAY(Text), nullable=False),
     Column("status", Text, nullable=False),
     Column("resolution_reason", Text),
     Column("reporter_role", Text),
-    Column("errand_outcome", Text),
+    Column("problem", Text, nullable=False),
+    Column("problem_details", Text),
     Column("created_by", UUID(as_uuid=True), nullable=False),
     Column("idempotency_key", UUID(as_uuid=True), nullable=False),
     Column("request_hash", Text, nullable=False),
@@ -39,8 +41,20 @@ dispute_events = Table(
     Column("to_status", Text, nullable=False),
     Column("actor_id", UUID(as_uuid=True), nullable=False),
     Column("reason", Text),
-    Column("errand_outcome", Text),
     Column("occurred_at", DateTime(timezone=True), nullable=False),
+)
+
+dispute_statements = Table(
+    "dispute_statements",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("dispute_id", UUID(as_uuid=True), nullable=False),
+    Column("author_id", UUID(as_uuid=True), nullable=False),
+    Column("author_role", Text, nullable=False),
+    Column("body", Text, nullable=False),
+    Column("idempotency_key", UUID(as_uuid=True), nullable=False),
+    Column("request_hash", Text, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
 )
 
 audit_log = Table(
