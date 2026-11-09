@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-11
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+# Scope: Implemented transactional participant state updates and history/event persistence.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Serialize lifecycle decisions per order; no network calls while locks are held."""
 
 from uuid import UUID, uuid4

@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+// Scope: Updated workspace navigation checks for the Order entry points.
+// Author review: I validated correctness and added boundary checks where needed.
+
 import { expect, test, type Page } from "@playwright/test";
 
 type Role = "USER" | "ADMIN" | "SUPER_ADMIN";

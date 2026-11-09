@@ -1,3 +1,9 @@
+// AI Assistance Disclosure:
+// Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09, 2026-10-10, 2026-10-11
+// Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+// Scope: Implemented browser coverage for participant Order creation and lifecycle actions.
+// Author review: I validated correctness and added boundary checks where needed.
+
 import { expect, test, type Page } from "@playwright/test";
 
 const supplierId = "550e8400-e29b-41d4-a716-446655440000";

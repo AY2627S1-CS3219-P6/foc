@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-11
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+# Scope: Implemented and debugged lifecycle migration integrity tests.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Upgrade a generated scratch database, never reset the supplied database."""
 
 import os

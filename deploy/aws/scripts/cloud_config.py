@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-02
+# Scope: Implemented deployment metadata and configuration parsing/validation helpers.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Sandbox deployment metadata; no application business logic or schema history."""
 
 from __future__ import annotations

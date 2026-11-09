@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-11
+# Scope: Implemented and debugged acceptance, cancellation and expiry tests.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Real transactions/races; only opt-in disposable databases may be used."""
 
 import asyncio

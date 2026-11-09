@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-06
+# Scope: Implemented image deployment, readiness checks, release-state handling and rollback.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Apply digest-pinned application releases on the existing EC2 host; never migrate data."""
 
 from __future__ import annotations

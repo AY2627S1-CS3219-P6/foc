@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+// Scope: Implemented Order draft persistence, input and retry tests.
+// Author review: I validated correctness and added boundary checks where needed.
+
 import { afterEach, describe, expect, it } from "vitest";
 import { attemptStorageKey, formFromInput, readAttempt, saveAttempt, validateOrderForm, type OrderForm } from "../../src/api/order-draft";
 

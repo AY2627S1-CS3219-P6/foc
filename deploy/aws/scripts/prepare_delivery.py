@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-06
+# Scope: Implemented generation and validation of scoped delivery policy templates.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Prepare scoped IAM JSON locally for operator review; never create AWS resources."""
 
 from __future__ import annotations

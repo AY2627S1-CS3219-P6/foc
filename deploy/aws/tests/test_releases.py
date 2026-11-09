@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-06
+# Scope: Implemented and debugged release validation, deployment and rollback tests.
+# Author review: I validated correctness and added boundary checks where needed.
+
 from __future__ import annotations
 
 import copy

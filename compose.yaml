@@ -1,3 +1,10 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09, 2026-10-11
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-03
+# Scope: Added Order API/workers and optional cloud email settings to shared Compose
+# configuration.
+# Author review: I validated correctness and added boundary checks where needed.
+
 name: foc-dev
 
 services:

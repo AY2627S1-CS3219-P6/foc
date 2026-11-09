@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+// Scope: Implemented the workspace shell used by Order screens.
+// Author review: I validated correctness and added boundary checks where needed.
+
 import type { PropsWithChildren } from "react";
 import { useAuth } from "../app/use-auth";
 import { useWorkspaceMode } from "../app/use-workspace-mode";

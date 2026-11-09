@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+// Scope: Implemented saved Order draft/retry handling and date/input conversion.
+// Author review: I validated correctness and added boundary checks where needed.
+
 import type { OrderCreation, OrderInput } from "./order-service";
 
 export type OrderForm = { supplierId: string; itemDescription: string; deliveryLocation: string; reward: string; acceptanceDeadline: string; deliveryDeadline: string };

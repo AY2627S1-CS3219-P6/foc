@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09, 2026-10-11
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+# Scope: Implemented runtime SQLAlchemy mappings for Order-owned tables.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Query metadata only. Supabase SQL migrations exclusively own the schema."""
 
 from sqlalchemy import (

@@ -1,4 +1,9 @@
 # AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-03
+# Scope: Implemented optional SES OTP delivery and bounded email-provider error handling.
+# Author review: I validated correctness and added boundary checks where needed.
+
+# AI Assistance Disclosure:
 # Tool: ChatGPT (Codex, model: gpt-5.6-terra), date: 2026-09-20
 # Scope: Implemented SMTP delivery for verification codes.
 # Author review: I validated correctness and added boundary checks where needed.

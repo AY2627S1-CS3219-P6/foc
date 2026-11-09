@@ -1,3 +1,10 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-11
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+# Scope: Implemented participant acceptance, cancellation, expiry, fulfilment and failure
+# actions.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Lifecycle rules evaluated against a locked row and database time."""
 
 from collections.abc import Mapping

@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+# Scope: Implemented User, Supplier and Credit HTTP calls and response/error handling.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Fixed-origin HTTP contracts. Credit's interface is proposed, not integrated."""
 
 import asyncio

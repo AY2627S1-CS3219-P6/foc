@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-11
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11, 2026-10-16
+# Scope: Implemented and debugged event delivery and retry behavior tests.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Opt-in real RabbitMQ checks, not a production Credit consumer."""
 
 import json

@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-11
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-16
+# Scope: Added and later removed the retired Order demo build flag.
+# Author review: I validated correctness and added boundary checks where needed.
+
 FROM node:22-alpine AS build
 
 WORKDIR /app

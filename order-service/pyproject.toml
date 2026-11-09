@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09, 2026-10-11
+# Scope: Added Order packaging, dependencies, worker entry points and test/lint settings.
+# Author review: I validated correctness and added boundary checks where needed.
+
 [build-system]
 requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"

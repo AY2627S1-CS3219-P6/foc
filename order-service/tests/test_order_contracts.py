@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+# Scope: Implemented and debugged input and response validation tests.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """HTTP boundary tests use transports only; no fake client is installed at runtime."""
 
 from datetime import UTC, datetime, timedelta

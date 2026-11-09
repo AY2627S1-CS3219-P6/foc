@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-02, 2026-11-03
+# Scope: Implemented validation of rendered cloud deployment configuration.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Render and check private or CloudFront cloud Compose without printing secrets."""
 
 from __future__ import annotations
