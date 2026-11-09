@@ -98,10 +98,20 @@ python3 deploy/aws/scripts/generate_env.py
 
 This creates ignored `.env`, an RSA key pair and a separate operator-only
 database-admin secret file. It generates unique admin/runtime passwords for
-each database, separate OTP/Supplier/Chat/Order-to-Credit secrets and broker
-credentials. It never reads laptop environments and refuses to overwrite an
-existing environment or secret directory. Preserve this state across updates;
+each database, separate OTP/Supplier/Chat/Order-to-Credit/Order-to-Admin secrets
+and broker credentials. It never reads laptop environments and refuses to overwrite
+an existing environment or secret directory. Preserve this state across updates;
 do not rerun it to rotate keys or recover from a failed startup.
+
+An environment created before disputed errands has no `ORDER_ADMIN_SHARED_SECRET`,
+and Compose then refuses to start. Add one generated value without rotating
+anything else, then validate:
+
+```bash
+grep -q '^ORDER_ADMIN_SHARED_SECRET=' deploy/aws/.env || \
+  printf 'ORDER_ADMIN_SHARED_SECRET=%s\n' "$(python3 -c 'import secrets; print(secrets.token_hex(32))')" >> deploy/aws/.env
+python3 deploy/aws/scripts/validate.py
+```
 
 The initial exact browser origin is `http://localhost:3000` for private tunnel
 checks. Public CloudFront HTTPS must be configured before presenting this as a

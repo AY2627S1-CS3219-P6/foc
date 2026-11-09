@@ -61,10 +61,11 @@ class SecretGenerationTests(unittest.TestCase):
                 "SUPPLIER_SERVICE_SHARED_SECRET",
                 "CHAT_SERVICE_SHARED_SECRET",
                 "ORDER_CREDIT_SHARED_SECRET",
+                "ORDER_ADMIN_SHARED_SECRET",
                 "RABBITMQ_PASSWORD",
             )
         ]
-        self.assertEqual(len(set(values)), 5)
+        self.assertEqual(len(set(values)), 6)
         self.assertEqual(environment["OPENAI_API_KEY"], "")
 
     def test_existing_configuration_is_not_rotated(self):

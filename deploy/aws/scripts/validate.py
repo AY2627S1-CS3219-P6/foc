@@ -87,6 +87,11 @@ def validate(config: dict, *, public: bool = False) -> None:
         != (services["credit-service"]["environment"]["ORDER_SERVICE_SECRET"])
     ):
         raise ValueError("Order and Credit credentials must agree.")
+    if (
+        services["order-service"]["environment"]["ADMIN_SERVICE_SECRET"]
+        != services["admin-service"]["environment"]["ORDER_SERVICE_SECRET"]
+    ):
+        raise ValueError("Order and Admin credentials must agree.")
     for peer, key in (
         ("supplier-service", "SUPPLIER_SERVICE_SHARED_SECRET"),
         ("chat-service", "CHAT_SERVICE_SHARED_SECRET"),
@@ -103,6 +108,7 @@ def validate(config: dict, *, public: bool = False) -> None:
     ]
     secrets += [
         services["credit-service"]["environment"]["ORDER_SERVICE_SECRET"],
+        services["admin-service"]["environment"]["ORDER_SERVICE_SECRET"],
         services["rabbitmq"]["environment"]["RABBITMQ_DEFAULT_PASS"],
     ]
     if any(not value or value == "REPLACE" for value in secrets) or len(set(secrets)) != len(

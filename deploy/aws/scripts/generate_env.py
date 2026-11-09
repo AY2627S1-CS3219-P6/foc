@@ -65,6 +65,7 @@ def generate(root: Path, origin: str, uid: int, gid: int, key_generator=generate
         "SUPPLIER_SERVICE_SHARED_SECRET",
         "CHAT_SERVICE_SHARED_SECRET",
         "ORDER_CREDIT_SHARED_SECRET",
+        "ORDER_ADMIN_SHARED_SECRET",
         "RABBITMQ_PASSWORD",
     ):
         values[key] = secrets.token_hex(32)
