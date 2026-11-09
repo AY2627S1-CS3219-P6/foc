@@ -1,3 +1,8 @@
+-- AI Assistance Disclosure:
+-- Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+-- Scope: Implemented SQL definitions and integrity checks for Order creation and history.
+-- Author review: I validated correctness and added boundary checks where needed.
+
 BEGIN;
 
 CREATE TABLE order_service.creation_operations (

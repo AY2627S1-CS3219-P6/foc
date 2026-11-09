@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-03
+# Scope: Implemented registration checks with a fake SES provider.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Real registration transactions with the AWS SDK's isolated response stub."""
 
 from __future__ import annotations

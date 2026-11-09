@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-11
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11, 2026-10-16
+# Scope: Implemented and debugged Credit test-double behavior and test-only packaging tests.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Test-only simulator contract checks, never substituted into the production app."""
 
 import tomllib

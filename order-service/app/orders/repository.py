@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+# Scope: Implemented Order creation persistence, retries and read queries.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Short PostgreSQL transactions with durable leases and atomic finalization."""
 
 from datetime import timedelta

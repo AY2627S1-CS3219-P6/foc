@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-02
+# Scope: Implemented CloudFront request-file generation and public-origin configuration helpers.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Prepare CloudFront metadata or update its browser origin; never call AWS or rotate secrets."""
 
 from __future__ import annotations

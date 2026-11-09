@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+// Scope: Added Order navigation entries to the shared navigation.
+// Author review: I validated correctness and added boundary checks where needed.
+
 import type { ComponentType } from "react";
 import { Link, NavLink } from "react-router-dom";
 import type { CurrentUser } from "../api/user-service";

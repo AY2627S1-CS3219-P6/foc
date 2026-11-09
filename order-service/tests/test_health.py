@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+# Scope: Implemented and debugged health endpoints tests.
+# Author review: I validated correctness and added boundary checks where needed.
+
 from unittest.mock import AsyncMock
 from uuid import UUID
 

@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+# Scope: Implemented test doubles for Order creation, persistence and HTTP dependencies.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Test-only memory/HTTP doubles. Never imported by app modules."""
 
 from copy import deepcopy

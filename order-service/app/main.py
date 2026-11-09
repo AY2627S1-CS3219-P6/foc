@@ -1,3 +1,9 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09, 2026-10-11
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+# Scope: Implemented Order startup, health endpoints, error handling and API registration.
+# Author review: I validated correctness and added boundary checks where needed.
+
 """Order application factory, operational endpoints and versioned business API."""
 
 import re

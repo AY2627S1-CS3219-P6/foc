@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11
+// Scope: Implemented tests for Order status and deadline display helpers.
+// Author review: I validated correctness and added boundary checks where needed.
+
 import { describe, expect, it } from "vitest";
 import { ApiRequestError } from "../../src/api/client";
 import { orderError } from "../../src/app/order-presentation";

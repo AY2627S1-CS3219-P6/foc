@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-11-02
+# Scope: Added ignore rules for local Order notes and cloud-generated configuration.
+# Author review: I validated correctness and added boundary checks where needed.
+
 # Build output
 dist/
 build/

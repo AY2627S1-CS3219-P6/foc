@@ -9,7 +9,7 @@ The default stage is private: the website binds to `127.0.0.1:3000` and the demo
 mailbox to `127.0.0.1:8025`. Six independent Supabase PostgreSQL databases retain
 their existing project IDs, ports and migration directories. Supabase CLI is used
 in **database-only** mode: Auth, Data API, Studio and the other development
-services are not started. This is a self-hosted course sandbox, not managed
+services are not started. This is a self-hosted sandbox, not managed
 Supabase hosting or a high-availability production deployment.
 
 After private verification, follow [Public HTTPS with CloudFront](PUBLIC_HTTPS.md).

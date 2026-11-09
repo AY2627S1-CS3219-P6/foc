@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+// Scope: Updated shared shell integration for Order navigation.
+// Author review: I validated correctness and added boundary checks where needed.
+
 import type { PropsWithChildren } from "react";
 import { WorkspaceShell } from "./workspace-shell";
 

@@ -1,3 +1,8 @@
+# AI Assistance Disclosure:
+# Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-11
+# Scope: Implemented and debugged pickup, delivery and completion tests.
+# Author review: I validated correctness and added boundary checks where needed.
+
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 

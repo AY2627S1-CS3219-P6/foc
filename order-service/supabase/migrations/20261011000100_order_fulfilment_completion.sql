@@ -1,3 +1,8 @@
+-- AI Assistance Disclosure:
+-- Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-11
+-- Scope: Implemented SQL updates for fulfilment/completion fields and integrity checks.
+-- Author review: I validated correctness and added boundary checks where needed.
+
 BEGIN;
 
 ALTER TABLE order_service.orders

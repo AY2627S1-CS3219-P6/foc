@@ -1,3 +1,8 @@
+// AI Assistance Disclosure:
+// Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
+// Scope: Added icons used by the Order navigation entries.
+// Author review: I validated correctness and added boundary checks where needed.
+
 export function MessagesIcon() {
   return <svg aria-hidden="true" fill="none" height="20" viewBox="0 0 24 24" width="20"><path d="M20 11.5a8 8 0 0 1-8 8H5l-3 2v-10a9 9 0 0 1 18 0ZM7 10h10M7 14h6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" /></svg>;
 }
