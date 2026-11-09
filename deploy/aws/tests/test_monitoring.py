@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import urllib.error
 from pathlib import Path
@@ -56,7 +57,50 @@ def healthy_states():
     }
 
 
+def wait_for_container(name: str, timeout: float = 90) -> dict:
+    """SQL readiness can precede Docker's first successful health-check sample."""
+    expected_health = "healthy" if EXPECTED[name] in HEALTH_CHECKED else None
+    deadline = time.monotonic() + timeout
+    while True:
+        state = container_states().get(name)
+        if state and state["running"] and state["health"] == expected_health:
+            return state
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            details = (
+                f"running={state['running']}, health={state['health']}" if state else "missing"
+            )
+            raise AssertionError(f"{name} did not become ready within {timeout:g}s ({details}).")
+        time.sleep(min(2, remaining))
+
+
 class RuntimeMonitoringTests(unittest.TestCase):
+    def test_docker_readiness_waits_for_starting_to_become_healthy(self):
+        name = "supabase_db_user-service"
+        healthy = healthy_states()[name]
+        starting = {**healthy, "health": "starting"}
+        with (
+            patch(
+                "test_monitoring.container_states", side_effect=[{name: starting}, {name: healthy}]
+            ) as inspect,
+            patch("test_monitoring.time.sleep") as sleep,
+        ):
+            self.assertEqual(wait_for_container(name), healthy)
+        self.assertEqual(inspect.call_count, 2)
+        sleep.assert_called_once()
+
+    def test_docker_readiness_timeout_does_not_accept_a_still_starting_container(self):
+        name = "supabase_db_user-service"
+        starting = {**healthy_states()[name], "health": "starting"}
+        with (
+            patch("test_monitoring.container_states", return_value={name: starting}),
+            patch("test_monitoring.time.monotonic", side_effect=[0, 91]),
+            patch("test_monitoring.time.sleep") as sleep,
+        ):
+            with self.assertRaisesRegex(AssertionError, "within 90s.*health=starting"):
+                wait_for_container(name)
+        sleep.assert_not_called()
+
     @unittest.skipUnless(os.name == "posix", "real Linux memory/filesystem collection")
     def test_dry_run_reads_host_counters_without_publishing_or_writing_state(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -322,11 +366,9 @@ class MonitoringInfrastructureTests(unittest.TestCase):
 )
 class MonitoringDockerTests(unittest.TestCase):
     def test_real_inspector_reads_only_the_prepared_database_state(self):
-        states = container_states()
         name = os.environ.get("CLOUD_MONITORING_CONTAINER", "supabase_db_user-service")
         self.assertIn(name, EXPECTED)
-        self.assertIn(name, states)
-        state = states[name]
+        state = wait_for_container(name)
         self.assertTrue(state["running"])
         self.assertEqual(state["health"], "healthy" if EXPECTED[name] in HEALTH_CHECKED else None)
         self.assertEqual(set(state), {"name", "running", "health", "restarts"})
