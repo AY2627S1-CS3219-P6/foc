@@ -17,11 +17,15 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install deployment lint tool
-        run: python -m pip install ruff==0.14.3
+        run: python -m pip install ruff==0.14.3 cfn-lint==1.60.0
       - name: Check deployment script style
         run: |
           ruff check --select E,F,I,UP,B --ignore E501 --target-version py311 deploy/aws/scripts deploy/aws/tests
           ruff format --check --line-length 100 deploy/aws/scripts deploy/aws/tests
+      - name: Validate monitoring infrastructure and systemd units
+        run: |
+          cfn-lint deploy/aws/monitoring/stack.json
+          systemd-analyze verify deploy/aws/systemd/foc-monitoring.service deploy/aws/systemd/foc-monitoring.timer
       - name: Check deployment helpers
         run: python -m unittest discover -s deploy/aws/tests -v
       - name: Validate GitHub workflow definitions
@@ -58,6 +62,10 @@ jobs:
         env:
           CLOUD_DB_SMOKE: "1"
         run: python -m unittest discover -s deploy/aws/tests -p test_database_live.py -v
+      - name: Verify monitoring reads real disposable Docker metadata without credentials
+        env:
+          CLOUD_MONITORING_SMOKE: "1"
+        run: python -m unittest discover -s deploy/aws/tests -p test_monitoring.py -v
       - name: Check Nginx local, private and public configurations
         run: |
           docker run --rm \

@@ -5,4 +5,5 @@
 /.provision-*/
 /.release-state/
 /.ecr-*/
+/.monitoring-state/
 

@@ -1,0 +1,12 @@
+[Unit]
+Description=Collect FoC health once per minute
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=60s
+AccuracySec=5s
+Unit=foc-monitoring.service
+
+[Install]
+WantedBy=timers.target
+
