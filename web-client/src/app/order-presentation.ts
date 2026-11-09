@@ -6,7 +6,7 @@ const messages: Record<string, string> = {
   CREDIT_CONTRACT_ERROR: "We could not check your credits. Try again here to check your request.",
   SUPPLIER_CONTRACT_ERROR: "We could not load this supplier. Please try again.",
   INVALID_TRANSITION: "This errand has changed. Refresh to see what you can do next.",
-  FAILURE_CONFLICT: "A failure has already been reported. Refresh to see the latest update.",
+  ERRAND_DISPUTED: "This errand is on hold while a reported problem is reviewed. Refresh to see the latest update.",
   IDEMPOTENCY_CONFLICT: "This request was already submitted with different details. Check My errands before posting again.",
   INVALID_IDEMPOTENCY_KEY: "We could not prepare your request. Reload this page before posting again.",
   CREATION_ABORTED: "Your errand could not be posted. You can start a new request.",

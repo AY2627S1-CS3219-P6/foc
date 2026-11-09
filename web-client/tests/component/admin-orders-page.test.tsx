@@ -1,6 +1,6 @@
 // AI Assistance Disclosure:
-// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
-// Scope: Added admin errand list component tests.
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-11-10
+// Scope: Added admin errand list component tests; covered the disputed view.
 // Author review: I validated correctness and supplied additional boundary checks.
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -54,7 +54,10 @@ describe("Admin errands page", () => {
     await act(async () => { render(<MemoryRouter initialEntries={["/admin/orders"]}><AdminOrdersPage /></MemoryRouter>); });
     expect(await screen.findByText("Iced latte")).toBeVisible();
     expect(screen.getByText("Overdue", { selector: ".admin-flag" })).toBeVisible();
-    expect(adminCalls(fetchMock).at(-1)).toBe("/v1/admin/orders?page=1&pageSize=20&state=OPEN&state=ACCEPTED&state=PICKED_UP&state=DELIVERED");
+    expect(adminCalls(fetchMock).at(-1)).toBe("/v1/admin/orders?page=1&pageSize=20&state=OPEN&state=ACCEPTED&state=PICKED_UP&state=DELIVERED&state=DISPUTED");
+
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Disputed" })); });
+    await waitFor(() => expect(adminCalls(fetchMock).at(-1)).toBe("/v1/admin/orders?page=1&pageSize=20&state=DISPUTED"));
 
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Past" })); });
     await waitFor(() => expect(adminCalls(fetchMock).at(-1)).toBe("/v1/admin/orders?page=1&pageSize=20&state=COMPLETED&state=CANCELLED&state=EXPIRED&state=FAILED"));

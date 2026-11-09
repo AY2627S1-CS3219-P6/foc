@@ -30,6 +30,7 @@
 .order-badge-accepted, .order-badge-completed { background: var(--success-surface); color: var(--success); }
 .order-badge-delivered, .order-badge-picked_up { background: #f1effc; color: #56408f; }
 .order-badge-failed, .order-badge-cancelled, .order-badge-expired { background: #f1f3f6; color: #526477; }
+.order-badge-disputed { background: #fff4e6; color: #925008; }
 .order-pagination, .order-pagination > div { align-items: center; display: flex; flex-wrap: wrap; gap: .6rem; }
 .order-pagination { font-size: .8rem; justify-content: space-between; margin: 1rem 0; }
 .order-empty { padding: 2rem; text-align: center; }

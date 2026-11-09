@@ -1,6 +1,6 @@
 // AI Assistance Disclosure:
-// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28
-// Scope: Implemented the admin errand list with views and filters.
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-11-10
+// Scope: Implemented the admin errand list with views and filters; added the disputed view.
 // Author review: I validated correctness and supplied additional boundary checks.
 
 import { type FormEvent, useState } from "react";
@@ -18,11 +18,12 @@ const DESCRIPTION = "Oversee errands, disputes and platform analytics.";
 const PAGE_SIZE = 20;
 const FILTERS = ["orderId", "participantId", "supplierId", "createdFrom", "createdTo"] as const;
 type Filter = typeof FILTERS[number];
-type View = "live" | "past" | "failed" | "overdue";
+type View = "live" | "past" | "disputed" | "failed" | "overdue";
 
 const VIEWS: Record<View, { label: string; query: Pick<AdminOrderQuery, "state" | "overdue"> }> = {
   live: { label: "Live", query: { state: LIVE_STATES } },
   past: { label: "Past", query: { state: PAST_STATES } },
+  disputed: { label: "Disputed", query: { state: ["DISPUTED"] } },
   failed: { label: "Failed", query: { state: ["FAILED"] } },
   overdue: { label: "Overdue", query: { overdue: true } },
 };

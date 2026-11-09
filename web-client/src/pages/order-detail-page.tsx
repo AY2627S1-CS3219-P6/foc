@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
-import { orderService, recordedFailureReasons, type OrderDetail, type OrderHistoryEntry, type OrderPage } from "../api/order-service";
+import { failureReasons, orderService, type OrderDetail, type OrderHistoryEntry, type OrderPage } from "../api/order-service";
 import { useAuth } from "../app/use-auth";
 import { OrderBadge, OrderFailure, OrderPagination, OrderShell, OrderSummary } from "../components/order-ui";
 import { orderError, orderTime } from "../app/order-presentation";
@@ -41,7 +41,7 @@ export function OrderDetailPage() {
       </div><OrderSummary order={order} /><p className="order-muted">Posted {orderTime(order.createdAt)} SGT</p>{participant ? <p>You are the {"requesterId" in order && order.requesterId === user?.userId ? "requester" : "courier"}.</p> : null}</section>
         <aside><OrderLifecycle key={`${orderId}:${user?.userId}`} order={order} onChanged={(updated) => { setOrder(updated); setHistoryRevision((n) => n + 1); }} onRefresh={() => setReload((n) => n + 1)} />
           {participant ? <OrderHistory key={`${orderId}:${historyRevision}`} orderId={orderId} /> : null}
-          {participant && "courierId" in order && order.courierId ? <ErrandReportPanel key={`${orderId}:${user?.userId}`} orderId={orderId} state={order.state} /> : null}</aside>
+          {participant && "courierId" in order && order.courierId ? <ErrandReportPanel key={`${orderId}:${user?.userId}`} onErrandChanged={() => setReload((n) => n + 1)} orderId={orderId} state={order.state} /> : null}</aside>
       </div>
     </> : null}
   </OrderShell>;
@@ -63,7 +63,7 @@ function OrderHistory({ orderId }: { orderId: string }) {
   }, [orderId, page, reload, withCurrentAccess]);
   return <section className="order-panel"><h2>Errand history</h2>
     {error ? <p role="alert">{error} <button className="order-text-button" onClick={() => setReload((n) => n + 1)} type="button">Retry history</button></p> : !result ? <p role="status">Loading history…</p> : <>
-      <ol className="order-history">{result.items.map((entry) => <li key={entry.sequence}><OrderBadge state={entry.newState} /><time dateTime={entry.occurredAt}>{orderTime(entry.occurredAt)} SGT</time><small>{entry.actorType === "SYSTEM" ? "Updated automatically" : entry.actorType === "ADMIN" ? "Decided by an administrator" : "Updated by a participant"}</small>{entry.failureReason ? <p>{recordedFailureReasons[entry.failureReason]}{entry.failureDetails ? `: ${entry.failureDetails}` : ""}</p> : null}</li>)}</ol>
+      <ol className="order-history">{result.items.map((entry) => <li key={entry.sequence}><OrderBadge state={entry.newState} /><time dateTime={entry.occurredAt}>{orderTime(entry.occurredAt)} SGT</time><small>{entry.actorType === "SYSTEM" ? "Updated automatically" : entry.actorType === "ADMIN" ? "Updated by an administrator" : "Updated by a participant"}</small>{entry.failureReason ? <p>{failureReasons[entry.failureReason]}{entry.failureDetails ? `: ${entry.failureDetails}` : ""}</p> : null}</li>)}</ol>
       {!result.items.length ? <p>No history entries yet.</p> : null}
       {result.total > 20 ? <OrderPagination page={result.page} pageSize={result.pageSize} total={result.total} onPage={setPage} /> : null}
     </>}
