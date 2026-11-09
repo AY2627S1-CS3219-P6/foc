@@ -9,7 +9,15 @@ from collections import Counter
 from datetime import date, datetime, time, timedelta, timezone
 
 STATES = (
-    "OPEN", "ACCEPTED", "PICKED_UP", "DELIVERED", "COMPLETED", "CANCELLED", "EXPIRED", "FAILED"
+    "OPEN",
+    "ACCEPTED",
+    "PICKED_UP",
+    "DELIVERED",
+    "DISPUTED",
+    "COMPLETED",
+    "CANCELLED",
+    "EXPIRED",
+    "FAILED",
 )
 RATE_STATES = {
     "completed": "COMPLETED",

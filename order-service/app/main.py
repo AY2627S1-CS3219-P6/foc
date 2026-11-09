@@ -14,7 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings, get_settings
 from app.db import Database, DatabaseUnavailableError
-from app.orders.api import router
+from app.orders.api import internal_router, router
 from app.orders.clients import ServiceClients
 from app.orders.errors import ApiError
 from app.orders.lifecycle_repository import LifecycleRepository
@@ -55,6 +55,7 @@ def create_app(
         docs_url=None if service_settings.environment == "production" else "/docs",
         redoc_url=None,
     )
+    app.state.settings = service_settings
     app.state.database = service_database
     app.state.lifecycle = (
         lifecycle_repository if lifecycle_repository is not None
@@ -124,6 +125,7 @@ def create_app(
     ):
         app.add_exception_handler(error_type, database_error)
     app.include_router(router)
+    app.include_router(internal_router)
 
     @app.middleware("http")
     async def correlate_request(request: Request, call_next):

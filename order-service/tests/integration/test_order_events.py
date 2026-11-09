@@ -63,7 +63,11 @@ async def test_terminal_outcome_survives_unroutable_delivery_and_duplicate_consu
         await repo.transition(order_id, courier, "deliver")
         await repo.transition(order_id, owner, "complete")
     else:
-        await repo.transition(order_id, owner, "fail", failure={"reason": "ITEM_DAMAGED"})
+        dispute = uuid4()
+        await repo.open_dispute(order_id, owner, "USER", dispute_id=dispute)
+        await repo.accept_dispute(
+            order_id, uuid4(), dispute_id=dispute, failure={"reason": "ITEM_DAMAGED"}
+        )
     completed, _, events = await snapshot(database, order_id)
     assert completed["state"] == ("COMPLETED" if kind == "complete" else "FAILED")
     await due_first(database, order_id)

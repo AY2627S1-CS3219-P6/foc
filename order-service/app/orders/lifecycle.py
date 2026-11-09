@@ -7,15 +7,13 @@ from uuid import UUID
 
 from app.orders.errors import ApiError, not_found
 
-Action = Literal["accept", "cancel", "pickup", "deliver", "complete", "fail"]
-AdminAction = Literal["fail", "complete"]
+Action = Literal["accept", "cancel", "pickup", "deliver", "complete"]
+DisputeActor = Literal["USER", "ADMIN"]
 
-# N2F3.7: what an administrator deciding a dispute may do. COMPLETED errands have already paid
-# the courier, so they are never reversed here.
-ADMIN_SOURCES = {
-    "fail": ({"ACCEPTED", "PICKED_UP", "DELIVERED"}, "FAILED"),
-    "complete": ({"DELIVERED"}, "COMPLETED"),
-}
+# N2F3: a reported problem holds an accepted errand in DISPUTED until the dispute ends. Admin
+# Service owns the dispute; these rules only keep the errand's state consistent with it.
+DISPUTABLE = {"ACCEPTED", "PICKED_UP", "DELIVERED"}
+CLEARED_DISPUTE = {"dispute_id": None, "disputed_from_state": None, "disputed_at": None}
 
 FULFILMENT = {
     "pickup": ("ACCEPTED", "PICKED_UP", "picked_up_at", "courier_id"),
@@ -34,69 +32,71 @@ def overdue_values(order: Mapping, now: datetime) -> dict:
     return {}
 
 
-def admin_decision_values(
-    order: Mapping,
-    admin: UUID,
-    action: AdminAction,
-    now: datetime,
-    dispute_id: UUID,
-    reason: str | None = None,
+def check_dispute_actor(order: Mapping, actor: UUID, actor_type: DisputeActor) -> None:
+    # Administrators were already checked by role; participants only act on their own errand.
+    if actor_type == "USER" and actor not in (order["requester_id"], order["courier_id"]):
+        raise not_found()
+
+
+def open_dispute_values(
+    order: Mapping, actor: UUID, actor_type: DisputeActor, dispute_id: UUID, now: datetime
 ) -> dict:
-    """Return the decided change, or an empty mapping when the same decision is replayed."""
-    sources, target = ADMIN_SOURCES[action]
-    if order["state"] == target and order.get("decision_dispute_id") == dispute_id:
-        # A retry for the same dispute succeeds without recording anything again.
-        return {}
-    if order["state"] not in sources:
-        outcome = "failed" if action == "fail" else "completed"
-        raise ApiError(
-            409, "INVALID_TRANSITION", f"This errand has changed and can no longer be {outcome}."
-        )
-    decision = {"decided_by": admin, "decision_dispute_id": dispute_id}
-    if action == "complete":
-        return {"state": "COMPLETED", "completed_at": now, **decision}
-    if not reason:
-        raise ValueError("An administrator failure requires a validated reason")
+    """Hold the errand for a new dispute, or return {} when the same dispute is replayed."""
+    check_dispute_actor(order, actor, actor_type)
+    if order["state"] == "DISPUTED":
+        if order["dispute_id"] == dispute_id:
+            return {}
+        raise ApiError(409, "DISPUTE_OPEN", "A problem with this errand is already being reviewed.")
+    if order["state"] not in DISPUTABLE:
+        raise ApiError(409, "INVALID_TRANSITION", "This errand can no longer be disputed.")
     return {
-        "state": "FAILED",
-        "failed_at": now,
-        "failed_by": admin,
-        "failure_reason": "ADMIN_DECISION",
-        "failure_details": reason,
-        **decision,
+        "state": "DISPUTED",
+        "dispute_id": dispute_id,
+        "disputed_from_state": order["state"],
+        "disputed_at": now,
+        # The overdue marker is history: an errand already late when disputed keeps it.
         **overdue_values(order, now),
     }
 
 
-def transition_values(
-    order: Mapping, actor: UUID, action: Action, now: datetime, failure: Mapping | None = None
+def restore_values(
+    order: Mapping, actor: UUID, actor_type: DisputeActor, dispute_id: UUID, *, restored: bool
 ) -> dict:
+    """Return the errand to its pre-dispute state after a withdrawal or rejection.
+
+    ``restored`` says whether this dispute already returned the errand, so a retry succeeds
+    without recording anything again.
+    """
+    check_dispute_actor(order, actor, actor_type)
+    if order["state"] == "DISPUTED" and order["dispute_id"] == dispute_id:
+        return {"state": order["disputed_from_state"], **CLEARED_DISPUTE}
+    if restored:
+        return {}
+    raise ApiError(409, "INVALID_TRANSITION", "This dispute no longer holds the errand.")
+
+
+def accept_dispute_values(
+    order: Mapping, admin: UUID, dispute_id: UUID, now: datetime, failure: Mapping
+) -> dict:
+    """Fail the disputed errand with the reporter's selected reason; replays return {}."""
+    if order["state"] == "FAILED" and order.get("decision_dispute_id") == dispute_id:
+        return {}
+    if order["state"] != "DISPUTED" or order["dispute_id"] != dispute_id:
+        raise ApiError(409, "INVALID_TRANSITION", "This dispute no longer holds the errand.")
+    return {
+        "state": "FAILED",
+        "failed_at": now,
+        "failed_by": admin,
+        "failure_reason": failure["reason"],
+        "failure_details": failure.get("details"),
+        "decided_by": admin,
+        "decision_dispute_id": dispute_id,
+        **CLEARED_DISPUTE,
+    }
+
+
+def transition_values(order: Mapping, actor: UUID, action: Action, now: datetime) -> dict:
     """Return a change, or an empty mapping for an authorized successful replay."""
-    if action == "fail":
-        if actor not in (order["requester_id"], order["courier_id"]):
-            raise not_found()
-        if failure is None:
-            raise ValueError("Failure requires a validated reason")
-        if order["state"] == "FAILED":
-            if (
-                order["failed_by"] == actor
-                and order["failure_reason"] == failure["reason"]
-                and order["failure_details"] == failure.get("details")
-            ):
-                return {}
-            raise ApiError(409, "FAILURE_CONFLICT", "A different failure is already recorded.")
-        if order["state"] not in {"ACCEPTED", "PICKED_UP"}:
-            raise ApiError(
-                409, "INVALID_TRANSITION", "Failure requires ACCEPTED or PICKED_UP state."
-            )
-        return {
-            "state": "FAILED",
-            "failed_at": now,
-            "failed_by": actor,
-            "failure_reason": failure["reason"],
-            "failure_details": failure.get("details"),
-            **overdue_values(order, now),
-        }
     if action in FULFILMENT:
         source, target, timestamp, actor_column = FULFILMENT[action]
         if actor not in (order["requester_id"], order["courier_id"]):
@@ -106,6 +106,11 @@ def transition_values(
         if order.get(timestamp) is not None:
             # A prior successful action stays successful; replay never reverses state.
             return {}
+        if order["state"] == "DISPUTED":
+            # Nothing moves the errand on until its dispute is withdrawn or decided.
+            raise ApiError(
+                409, "ERRAND_DISPUTED", "This errand is on hold while a problem is reviewed."
+            )
         if order["state"] != source:
             raise ApiError(409, "INVALID_TRANSITION", f"This action requires {source} state.")
         return {"state": target, timestamp: now, **overdue_values(order, now)}
