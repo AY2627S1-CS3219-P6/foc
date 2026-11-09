@@ -282,6 +282,14 @@ rollout, readiness and rollback. It must be explicitly armed after setup. Databa
 migrations and deployment-configuration changes remain reviewed operator steps.
 After a release, manual container recreations must retain its active image overlay.
 
+## Runtime monitoring
+
+See [MONITORING.md](MONITORING.md) for the optional CloudWatch dashboard, host and
+container/public-route alarms, seven-day sanitized health records and SNS email
+notifications. Its separate collector timer uses the instance role and does not
+modify application containers or service-owned data. Install and verify it before
+enabling alert actions; application releases do not install monitoring resources.
+
 ## Stop, resume and protect data
 
 For a short pause, stop EC2 through its **Instance state → Stop instance** menu.
