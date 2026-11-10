@@ -384,7 +384,7 @@ async def test_dispute_detail_listing_and_audit_log():
 @pytest.mark.parametrize(
     "url",
     [
-        "/v1/admin/disputes?status=RESOLVED",
+        "/v1/admin/disputes?status=CLOSED",
         "/v1/admin/disputes?pageSize=51",
         "/v1/admin/disputes?sort=asc",
         "/v1/admin/audit-log?outcome=MAYBE",
@@ -397,3 +397,35 @@ async def test_invalid_list_filters_are_rejected(url):
 
 def test_reused_key_error_names_any_request():
     assert IdempotencyKeyReused().code == "IDEMPOTENCY_KEY_REUSED"
+
+
+async def test_deciding_a_legacy_dispute_records_the_decision_without_touching_the_errand():
+    disputes, orders = FakeDisputes(), FakeOrders()
+    disputes.row = dispute_row(
+        status="UNDER_REVIEW", legacy_record=True, problem=None, description="Arrived cold"
+    )
+    async with client_for(disputes, orders) as client:
+        response = await transition(
+            client, disputes.row["id"], toStatus="ACCEPTED", reason="Refund"
+        )
+        detail = (await client.get(f"/v1/admin/disputes/{disputes.row['id']}", headers=AUTH)).json()
+    assert response.status_code == 200 and response.json()["status"] == "ACCEPTED"
+    assert orders.changes() == []
+    assert (detail["legacy"], detail["problem"], detail["description"]) == (
+        True,
+        None,
+        "Arrived cold",
+    )
+
+
+async def test_legacy_resolved_disputes_are_listed_and_filterable():
+    disputes = FakeDisputes()
+    row = dispute_row(
+        status="RESOLVED", resolution_reason="Refund agreed", legacy_record=True, problem=None
+    )
+    disputes.page = ([row], 1)
+    async with client_for(disputes) as client:
+        listing = await client.get("/v1/admin/disputes?status=RESOLVED", headers=AUTH)
+    assert listing.status_code == 200
+    item = listing.json()["items"][0]
+    assert (item["status"], item["legacy"]) == ("RESOLVED", True)

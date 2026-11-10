@@ -35,7 +35,8 @@ class ApiModel(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, extra="forbid", populate_by_name=True)
 
 
-DisputeStatus = Literal["OPEN", "UNDER_REVIEW", "ACCEPTED", "REJECTED", "WITHDRAWN"]
+# RESOLVED appears only on legacy disputes decided before disputed errands.
+DisputeStatus = Literal["OPEN", "UNDER_REVIEW", "ACCEPTED", "REJECTED", "WITHDRAWN", "RESOLVED"]
 # The problem a reporter selects; an accepted dispute fails the errand with it (N2F3).
 Problem = Literal[
     "ITEM_UNAVAILABLE",
@@ -168,8 +169,11 @@ class ReportView(ApiModel):
     own_report: bool
     # None when an administrator raised the dispute.
     reporter_role: ReporterRole | None
-    problem: Problem
+    # None only on legacy disputes recorded before a problem had to be selected.
+    problem: Problem | None
     problem_details: str | None
+    # A legacy dispute never held its errand; deciding it changes no errand.
+    legacy: bool = False
     status: DisputeStatus
     resolution_reason: str | None
     statements: list[OwnStatement]
@@ -181,9 +185,12 @@ class ReportView(ApiModel):
 class DisputeSummary(ApiModel):
     dispute_id: UUID
     order_id: UUID
-    problem: Problem
+    # None only on legacy disputes recorded before a problem had to be selected.
+    problem: Problem | None
     problem_details: str | None
-    # Administrator case notes; None for participant reports.
+    # A legacy dispute never held its errand; deciding it changes no errand.
+    legacy: bool = False
+    # Administrator case notes; None for new participant reports.
     description: str | None
     status: DisputeStatus
     resolution_reason: str | None

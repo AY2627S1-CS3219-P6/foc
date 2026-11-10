@@ -1,36 +1,51 @@
 -- AI Assistance Disclosure:
 -- Tool: Claude Code (model: Claude Opus 5.5), date: 2026-11-10
--- Scope: Wrote the migration for the disputed-errand workflow, its statements and guards.
+-- Scope: Wrote the migration for the disputed-errand workflow, its statements and guards; kept
+-- disputes made under the earlier rules as legacy records.
 -- Author review: I validated correctness and supplied additional boundary checks.
 
 -- N2F3: a dispute now holds its errand in Order's DISPUTED state. The reporter selects the
 -- problem; both participants see it and may send private statements to administrators. The
 -- reporter may withdraw while the dispute is OPEN; an administrator reviews it and accepts
 -- (the errand fails) or rejects it (the errand returns to its earlier state). One dispute may
--- be open per errand. Earlier records are not migrated: the databases are reset for this
--- release, so this migration fails rather than guess a problem for an existing dispute.
+-- be open per errand.
+--
+-- Disputes recorded under the earlier rules stay exactly as recorded: they are marked
+-- legacy_record, keep their description and RESOLVED status, need no selected problem and never
+-- held their errand, so they do not count towards the one-open-dispute rule. Administrators may
+-- still close an open legacy dispute; that records a decision only and changes no errand.
 BEGIN;
+
+ALTER TABLE admin_service.disputes
+    ADD COLUMN legacy_record boolean NOT NULL DEFAULT false;
+-- Marking existing rows is not a status change, so the update guard is paused for this step.
+ALTER TABLE admin_service.disputes DISABLE TRIGGER disputes_guard_update;
+UPDATE admin_service.disputes SET legacy_record = true;
+ALTER TABLE admin_service.disputes ENABLE TRIGGER disputes_guard_update;
 
 ALTER TABLE admin_service.disputes
     DROP CONSTRAINT disputes_outcome_on_close,
     DROP COLUMN errand_outcome,
     DROP CONSTRAINT disputes_status_check,
-    ADD CONSTRAINT disputes_status_check CHECK (status IN (
-        'OPEN', 'UNDER_REVIEW', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'
-    )),
+    ADD CONSTRAINT disputes_status_check CHECK (
+        status IN ('OPEN', 'UNDER_REVIEW', 'ACCEPTED', 'REJECTED', 'WITHDRAWN')
+        OR (legacy_record AND status = 'RESOLVED')
+    ),
     DROP CONSTRAINT disputes_check,
     ADD CONSTRAINT disputes_closing_reason CHECK (
-        (status IN ('ACCEPTED', 'REJECTED', 'WITHDRAWN')) = (resolution_reason IS NOT NULL)
+        (status IN ('ACCEPTED', 'REJECTED', 'WITHDRAWN', 'RESOLVED'))
+            = (resolution_reason IS NOT NULL)
     ),
     -- Only a participant's own report can be withdrawn.
     ADD CONSTRAINT disputes_withdrawn_by_reporter CHECK (
         status <> 'WITHDRAWN' OR reporter_role IS NOT NULL
     ),
     -- The selected problem, shown to both participants. Other needs its explanation.
-    ADD COLUMN problem text NOT NULL CHECK (problem IN (
+    ADD COLUMN problem text CHECK (problem IN (
         'ITEM_UNAVAILABLE', 'ITEM_DAMAGED', 'UNABLE_TO_PICK_UP', 'UNABLE_TO_DELIVER',
         'PARTICIPANT_UNREACHABLE', 'OTHER'
     )),
+    ADD CONSTRAINT disputes_problem_selected CHECK (legacy_record OR problem IS NOT NULL),
     ADD COLUMN problem_details text
         CHECK (char_length(btrim(problem_details)) BETWEEN 1 AND 500),
     ADD CONSTRAINT disputes_other_explained CHECK (
@@ -39,27 +54,29 @@ ALTER TABLE admin_service.disputes
     -- Administrators keep private case notes and evidence; participants use statements.
     ALTER COLUMN description DROP NOT NULL,
     ADD CONSTRAINT disputes_admin_notes CHECK (
-        (reporter_role IS NULL) = (description IS NOT NULL)
-        AND (reporter_role IS NULL OR cardinality(evidence_refs) = 0)
+        legacy_record OR (
+            (reporter_role IS NULL) = (description IS NOT NULL)
+            AND (reporter_role IS NULL OR cardinality(evidence_refs) = 0))
     );
 
 DROP INDEX admin_service.disputes_one_open_report;
 CREATE UNIQUE INDEX disputes_one_open_per_errand
-    ON admin_service.disputes (order_id) WHERE status IN ('OPEN', 'UNDER_REVIEW');
+    ON admin_service.disputes (order_id)
+    WHERE status IN ('OPEN', 'UNDER_REVIEW') AND NOT legacy_record;
 
 ALTER TABLE admin_service.dispute_events
     DROP CONSTRAINT dispute_events_outcome_on_close,
     DROP COLUMN errand_outcome,
     DROP CONSTRAINT dispute_events_from_status_check,
     ADD CONSTRAINT dispute_events_from_status_check CHECK (from_status IN (
-        'OPEN', 'UNDER_REVIEW', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'
+        'OPEN', 'UNDER_REVIEW', 'ACCEPTED', 'REJECTED', 'WITHDRAWN', 'RESOLVED'
     )),
     DROP CONSTRAINT dispute_events_to_status_check,
     ADD CONSTRAINT dispute_events_to_status_check CHECK (to_status IN (
-        'OPEN', 'UNDER_REVIEW', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'
+        'OPEN', 'UNDER_REVIEW', 'ACCEPTED', 'REJECTED', 'WITHDRAWN', 'RESOLVED'
     )),
     ADD CONSTRAINT dispute_events_closing_reason CHECK (
-        to_status NOT IN ('ACCEPTED', 'REJECTED', 'WITHDRAWN') OR reason IS NOT NULL
+        to_status NOT IN ('ACCEPTED', 'REJECTED', 'WITHDRAWN', 'RESOLVED') OR reason IS NOT NULL
     );
 
 CREATE OR REPLACE FUNCTION admin_service.guard_dispute_update() RETURNS trigger
@@ -71,8 +88,9 @@ BEGIN
         OR NEW.created_by <> OLD.created_by OR NEW.idempotency_key <> OLD.idempotency_key
         OR NEW.request_hash <> OLD.request_hash OR NEW.created_at <> OLD.created_at
         OR NEW.reporter_role IS DISTINCT FROM OLD.reporter_role
-        OR NEW.problem <> OLD.problem
-        OR NEW.problem_details IS DISTINCT FROM OLD.problem_details THEN
+        OR NEW.problem IS DISTINCT FROM OLD.problem
+        OR NEW.problem_details IS DISTINCT FROM OLD.problem_details
+        OR NEW.legacy_record <> OLD.legacy_record THEN
         RAISE EXCEPTION 'recorded dispute fields are immutable' USING ERRCODE = '23514';
     END IF;
     IF NOT ((OLD.status = 'OPEN' AND NEW.status IN ('UNDER_REVIEW', 'WITHDRAWN'))

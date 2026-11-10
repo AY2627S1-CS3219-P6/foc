@@ -295,3 +295,19 @@ async def test_details_need_an_idempotency_key():
             f"/v1/disputes/{disputes.row['id']}/statements", json={"body": "Hi"}, headers=AUTH
         )
     assert response.json()["error"]["code"] == "IDEMPOTENCY_KEY_REQUIRED"
+
+
+async def test_participants_see_legacy_disputes_and_cannot_withdraw_them():
+    disputes, orders, identity = FakeDisputes(), FakeOrders(), FakeIdentity("USER")
+    disputes.row = dispute_row(
+        created_by=identity.user_id, legacy_record=True, problem=None, description="Old"
+    )
+    disputes.page = ([disputes.row], 1)
+    async with client_for(disputes, orders, identity) as client:
+        listing = await client.get(f"/v1/disputes?orderId={uuid4()}", headers=AUTH)
+        refused = await withdraw(client, disputes.row["id"])
+    item = listing.json()["items"][0]
+    assert (item["legacy"], item["problem"], item["ownReport"]) == (True, None, True)
+    assert "description" not in item
+    assert refused.json()["error"]["code"] == "WITHDRAWAL_NOT_ALLOWED"
+    assert orders.changes() == []

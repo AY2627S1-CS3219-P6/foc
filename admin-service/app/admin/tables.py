@@ -7,7 +7,7 @@
 
 """Query-only table definitions. supabase/migrations/ owns the schema."""
 
-from sqlalchemy import Column, DateTime, Integer, MetaData, Table, Text
+from sqlalchemy import Boolean, Column, DateTime, Integer, MetaData, Table, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 
 metadata = MetaData(schema="admin_service")
@@ -22,7 +22,8 @@ disputes = Table(
     Column("status", Text, nullable=False),
     Column("resolution_reason", Text),
     Column("reporter_role", Text),
-    Column("problem", Text, nullable=False),
+    Column("problem", Text),
+    Column("legacy_record", Boolean, nullable=False),
     Column("problem_details", Text),
     Column("created_by", UUID(as_uuid=True), nullable=False),
     Column("idempotency_key", UUID(as_uuid=True), nullable=False),

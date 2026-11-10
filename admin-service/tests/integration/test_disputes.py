@@ -383,3 +383,42 @@ async def test_runtime_role_has_only_the_needed_privileges(database):
     async with database.session_context() as session:
         for expression, expected in checks.items():
             assert await session.scalar(text(f"SELECT {expression}")) is expected, expression
+
+
+GUARD = "ALTER TABLE admin_service.disputes"
+
+
+async def legacy(database, repository, status="UNDER_REVIEW", reporter=None):
+    """A dispute recorded before disputed errands, as the migration marks it."""
+    dispute_id, *_ = await record(repository, actor=reporter, role="REQUESTER")
+    async with database.session_context() as session, session.begin():
+        await session.execute(text(f"{GUARD} DISABLE TRIGGER disputes_guard_update"))
+        await session.execute(
+            text(
+                "UPDATE admin_service.disputes SET legacy_record = true, problem = NULL, "
+                "problem_details = NULL, description = 'Arrived cold', status = :status "
+                "WHERE id = :id"
+            ),
+            {"status": status, "id": dispute_id},
+        )
+        await session.execute(text(f"{GUARD} ENABLE TRIGGER disputes_guard_update"))
+    return dispute_id
+
+
+async def test_deciding_a_legacy_dispute_never_calls_order(database, repository):
+    dispute_id = await legacy(database, repository)
+    calls = []
+
+    async def apply(row):
+        calls.append(row["id"])
+
+    await change(repository, dispute_id, "REJECTED", 1, "Not supported.", apply=apply)
+    row, _, _ = await repository.dispute(dispute_id)
+    assert row["status"] == "REJECTED" and calls == []
+
+
+async def test_legacy_disputes_cannot_be_withdrawn(database, repository):
+    reporter = uuid4()
+    dispute_id = await legacy(database, repository, status="OPEN", reporter=reporter)
+    with pytest.raises(WithdrawalNotAllowed):
+        await change(repository, dispute_id, "WITHDRAWN", 1, "Sorted", reporter=reporter)
