@@ -1888,3 +1888,47 @@ JSON files remain unchanged because JSON does not permit header comments. The co
 - [`web-client/tests/component/errand-report.test.tsx`](../web-client/tests/component/errand-report.test.tsx)
 - [`web-client/tests/e2e/orders.spec.ts`](../web-client/tests/e2e/orders.spec.ts)
 - [`web-client/tests/unit/order-service.test.ts`](../web-client/tests/unit/order-service.test.ts)
+
+
+## 2026-11-10 14:16:05 SGT — Legacy records for the disputed-errand migrations
+
+**Tool and mode** — Claude Code (model: Claude Opus 5.5), debug.
+
+**Prompt**
+
+> yes do 1
+
+**Prompt summary** — After read-only checks showed the cloud databases held errands and disputes made under the earlier rules, I chose to keep them as legacy records instead of deleting data or resetting the databases.
+
+**Key response** — Changed the two pending migrations to mark existing records as legacy and exempt only them from the new rules, made the Order, Admin and web code handle legacy records, and verified the migrations against a copy of the cloud's current schema and data.
+
+**Commits** — [`be2690c`](https://github.com/AY2627S1-CS3219-P6/foc/commit/be2690c), [`9241cf4`](https://github.com/AY2627S1-CS3219-P6/foc/commit/9241cf4), [`227a036`](https://github.com/AY2627S1-CS3219-P6/foc/commit/227a036).
+
+**Affected files**
+
+- [`admin-service/API.md`](../admin-service/API.md)
+- [`admin-service/app/admin/api.py`](../admin-service/app/admin/api.py)
+- [`admin-service/app/admin/reports.py`](../admin-service/app/admin/reports.py)
+- [`admin-service/app/admin/repository.py`](../admin-service/app/admin/repository.py)
+- [`admin-service/app/admin/schemas.py`](../admin-service/app/admin/schemas.py)
+- [`admin-service/app/admin/tables.py`](../admin-service/app/admin/tables.py)
+- [`admin-service/supabase/migrations/20261110000100_dispute_workflow.sql`](../admin-service/supabase/migrations/20261110000100_dispute_workflow.sql)
+- [`admin-service/tests/admin_fakes.py`](../admin-service/tests/admin_fakes.py)
+- [`admin-service/tests/integration/test_disputes.py`](../admin-service/tests/integration/test_disputes.py)
+- [`admin-service/tests/test_disputes_api.py`](../admin-service/tests/test_disputes_api.py)
+- [`admin-service/tests/test_reports_api.py`](../admin-service/tests/test_reports_api.py)
+- [`order-service/API.md`](../order-service/API.md)
+- [`order-service/app/orders/schemas.py`](../order-service/app/orders/schemas.py)
+- [`order-service/supabase/migrations/20261110000000_errand_disputes.sql`](../order-service/supabase/migrations/20261110000000_errand_disputes.sql)
+- [`order-service/tests/test_disputes.py`](../order-service/tests/test_disputes.py)
+- [`web-client/src/api/admin-service.ts`](../web-client/src/api/admin-service.ts)
+- [`web-client/src/api/order-service.ts`](../web-client/src/api/order-service.ts)
+- [`web-client/src/app/admin-presentation.ts`](../web-client/src/app/admin-presentation.ts)
+- [`web-client/src/components/errand-report.tsx`](../web-client/src/components/errand-report.tsx)
+- [`web-client/src/components/order-lifecycle.tsx`](../web-client/src/components/order-lifecycle.tsx)
+- [`web-client/src/pages/admin-dispute-detail-page.tsx`](../web-client/src/pages/admin-dispute-detail-page.tsx)
+- [`web-client/src/pages/admin-order-detail-page.tsx`](../web-client/src/pages/admin-order-detail-page.tsx)
+- [`web-client/src/pages/order-detail-page.tsx`](../web-client/src/pages/order-detail-page.tsx)
+- [`web-client/src/styles/admin.css`](../web-client/src/styles/admin.css)
+- [`web-client/tests/component/admin-dispute-detail-page.test.tsx`](../web-client/tests/component/admin-dispute-detail-page.test.tsx)
+- [`web-client/tests/component/errand-report.test.tsx`](../web-client/tests/component/errand-report.test.tsx)
