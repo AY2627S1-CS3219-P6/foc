@@ -3,7 +3,7 @@
 # Scope: Implemented image deployment, readiness checks, release-state handling and rollback.
 # Author review: I validated correctness and added boundary checks where needed.
 
-"""Apply digest-pinned application releases on the existing EC2 host; never migrate data."""
+"""Apply reviewed migrations, then digest-pinned application releases on EC2."""
 
 from __future__ import annotations
 
@@ -17,8 +17,10 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlencode
 
 from cloud_config import REPOSITORY, ROOT, load_database_secrets, read_environment
 from prepare_databases import sql
@@ -26,9 +28,17 @@ from release_manifest import (
     APPLICATIONS,
     ARTIFACTS,
     GROUPS,
+    checksum,
     configuration,
     migrations,
     validate_manifest,
+)
+from release_migrations import (
+    POLICY,
+    MigrationError,
+    MigrationRelease,
+    run_packaged_cli,
+    sql_history,
 )
 
 
@@ -120,6 +130,73 @@ class Runtime:
                 raise ReleaseError(f"{service}: cannot read owned migration metadata; no rollout.")
             versions[service] = result.stdout.split()
         return versions
+
+    @contextmanager
+    def source(self, manifest: dict, repo: Path):
+        # Fetch source data only. Do not switch the host checkout or execute any
+        # release-supplied Python/shell code. The installed operator remains fixed.
+        upstream = "https://github.com/AY2627S1-CS3219-P6/foc.git"
+        command(["git", "-C", str(repo), "fetch", "--no-tags", upstream, "main"])
+        commit = manifest["commit"]
+        command(["git", "-C", str(repo), "merge-base", "--is-ancestor", commit, "FETCH_HEAD"])
+        inventory = command(
+            ["git", "-C", str(repo), "ls-tree", "-r", "--name-only", commit]
+        ).splitlines()
+        expected = {
+            f"{service}-service/supabase/migrations/{name}"
+            for service, entries in manifest["migrations"].items()
+            for name in entries
+        }
+        observed = {
+            name
+            for name in inventory
+            if any(
+                name.startswith(f"{service}-service/supabase/migrations/")
+                for service in manifest["migrations"]
+            )
+            and name.endswith(".sql")
+        }
+        if observed != expected:
+            raise ReleaseError("Source migration inventory differs from the release manifest.")
+        paths = {*expected, *manifest["configuration"], POLICY}
+        for service in manifest["migrations"]:
+            paths.update(
+                (f"{service}-service/package.json", f"{service}-service/supabase/config.toml")
+            )
+        with tempfile.TemporaryDirectory(
+            prefix="source-", dir=self.root / ".release-state"
+        ) as directory:
+            source = Path(directory)
+            for name in sorted(paths):
+                path = source / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                content = command(["git", "-C", str(repo), "show", f"{commit}:{name}"])
+                path.write_text(content, encoding="utf-8", newline="\n")
+            if (
+                migrations(source) != manifest["migrations"]
+                or configuration(source) != manifest["configuration"]
+                or checksum(source / POLICY) != manifest["migration_policy"]
+            ):
+                raise ReleaseError("Release source fingerprints do not match the manifest.")
+            yield source
+
+    def migrate(self, service: str, source: Path) -> None:
+        installed = REPOSITORY / f"{service}-service/node_modules/supabase"
+        expected = json.loads((source / f"{service}-service/package.json").read_text())[
+            "devDependencies"
+        ]["supabase"]
+        if json.loads((installed / "package.json").read_text())["version"] != expected:
+            raise MigrationError(f"{service}: install the pinned Supabase CLI before release.")
+        credentials = load_database_secrets(self.root)[service]
+        from cloud_config import DATABASES
+
+        # Short lock waits protect the old app during expand migrations. Bound
+        # statements as well as the CLI process; output/URLs are never printed.
+        query = urlencode(
+            {"sslmode": "disable", "options": "-c lock_timeout=5s -c statement_timeout=120s"}
+        )
+        url = f"postgresql://postgres:{credentials['admin_password']}@127.0.0.1:{DATABASES[service][0]}/postgres?{query}"
+        run_packaged_cli(installed.parent, source / f"{service}-service", url)
 
     def pull(self, manifest: dict) -> None:
         registry = f"{manifest['account_id']}.dkr.ecr.ap-southeast-1.amazonaws.com"
@@ -229,29 +306,31 @@ class Releases:
     def baseline(self) -> None:
         history = migrations(self.repo)
         self.verify_database_versions(history)
-        atomic_json(self.state / "schema.json", {"migrations": history})
+        atomic_json(
+            self.state / "schema.json", {"version": 2, "migrations": sql_history(self.repo)}
+        )
         print(
             "Recorded canonical migration fingerprints after checking all six owned migration histories. No DDL ran."
         )
 
     def preflight(self, manifest: dict | None = None) -> dict:
         baseline = json.loads((self.state / "schema.json").read_text(encoding="utf-8"))
-        history = migrations(self.repo)
-        if baseline != {"migrations": history}:
-            raise ReleaseError(
-                "Installed migration history changed; an explicit reviewed baseline is required."
-            )
+        if manifest is None:
+            if baseline.get("version") == 2:
+                history = baseline["migrations"]
+            else:
+                history = migrations(self.repo)
+                if baseline != {"migrations": history}:
+                    raise ReleaseError(
+                        "Installed migration history changed; operator review required."
+                    )
+            self.verify_database_versions(history)
         if manifest is not None:
             validate_manifest(manifest)
             if manifest["configuration"] != configuration(self.repo):
                 raise ReleaseError(
                     "Cloud Compose/Nginx configuration changed; update the installed contract manually first."
                 )
-            if manifest["migrations"] != history:
-                raise ReleaseError(
-                    "Release includes schema changes; automatic migrations are disabled."
-                )
-        self.verify_database_versions(history)
         containers = self.runtime.inspect()
         if any(name not in containers for name in APPLICATIONS):
             raise ReleaseError(
@@ -295,8 +374,11 @@ class Releases:
     def deploy(self, manifest: dict) -> None:
         containers = self.preflight(manifest)
         previous = self.snapshot(containers)
-        # Fail while the current release is still untouched if image download/authentication fails.
-        self.runtime.pull(manifest)
+        with self.runtime.source(manifest, self.repo) as source:
+            # Download all application images before changing any schema. Existing
+            # application containers keep running while expand migrations execute.
+            self.runtime.pull(manifest)
+            MigrationRelease(self.state, self.repo, self.runtime, atomic_json).apply(source)
         images = {
             name: manifest["images"][artifact]
             for artifact, group in GROUPS.items()
@@ -407,9 +489,10 @@ def main() -> None:
         OSError,
         KeyError,
         TypeError,
+        MigrationError,
         subprocess.TimeoutExpired,
     ) as error:
-        if isinstance(error, ReleaseError):
+        if isinstance(error, (ReleaseError, MigrationError)):
             raise SystemExit(str(error)) from None
         raise SystemExit(
             "Release metadata/configuration invalid; no secret values printed."

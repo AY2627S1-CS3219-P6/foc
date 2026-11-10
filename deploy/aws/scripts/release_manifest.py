@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 from cloud_config import DATABASES, REPOSITORY
+from release_migrations import POLICY, read_policy
 
 ARTIFACTS = (
     "web-client",
@@ -74,11 +75,12 @@ def validate_manifest(value: object) -> dict:
         "images",
         "configuration",
         "migrations",
+        "migration_policy",
     }:
         raise ValueError("Unexpected release manifest fields.")
     if (
         type(value["version"]) is not int
-        or value["version"] != 1
+        or value["version"] != 2
         or not isinstance(value["commit"], str)
         or not SHA.fullmatch(value["commit"])
     ):
@@ -111,7 +113,7 @@ def validate_manifest(value: object) -> dict:
     expected = set(configuration())
     if not isinstance(config, dict) or set(config) != expected:
         raise ValueError("Unexpected deployment configuration inventory.")
-    hashes = list(config.values())
+    hashes = [*config.values(), value["migration_policy"]]
     schema = value["migrations"]
     if not isinstance(schema, dict) or set(schema) != set(DATABASES):
         raise ValueError("Unexpected migration inventory.")
@@ -143,6 +145,7 @@ def compose_images(images: dict[str, str]) -> dict:
 def create_manifest(
     repo: Path, digests: Path, commit: str, account: str, run: str, attempt: str
 ) -> dict:
+    read_policy(repo)
     images = {}
     for artifact in ARTIFACTS:
         value = json.loads((digests / f"{artifact}.json").read_text(encoding="utf-8"))
@@ -153,7 +156,7 @@ def create_manifest(
         )
     return validate_manifest(
         {
-            "version": 1,
+            "version": 2,
             "release_id": f"{commit[:12]}-{run}-{attempt}",
             "commit": commit,
             "account_id": account,
@@ -161,5 +164,6 @@ def create_manifest(
             "images": images,
             "configuration": configuration(repo),
             "migrations": migrations(repo),
+            "migration_policy": checksum(repo / POLICY),
         }
     )
