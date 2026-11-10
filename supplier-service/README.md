@@ -182,8 +182,8 @@ after the Supplier Service tests.
 From `supplier-service/`, run linting with `.venv/bin/ruff check app tests scripts`.
 Ruff checks application code, tests, and scripts using the same rule groups as
 the other Python services.
-Run the HTTP tests with `.venv/bin/python -m pytest -q`. The eight database
-tests cover readiness, categories, supplier reads, updates, and deactivation.
+Run the HTTP tests with `.venv/bin/python -m pytest -q`. The database tests
+cover readiness, categories, supplier reads, updates, deactivation, and seed replay.
 They run when `SUPPLIER_TEST_DATABASE_URL` points to a migrated local Supplier database on port
 55322; tests that create temporary suppliers remove them afterward. Without the
 variable, database tests skip for local development. To include them using the
@@ -271,14 +271,13 @@ npx supabase db push --dry-run
 npx supabase db push --include-seed
 ```
 
-The project ref appears in the Dashboard URL. Run `--include-seed` only when
-initializing a fresh development project; later schema migrations use
-`npx supabase db push` without that flag. In the hosted Dashboard SQL Editor,
-verify the import with:
+The project ref appears in the Dashboard URL. Later migrations, including the
+campus data expansion below, use `npx supabase db push` without `--include-seed`.
+In the hosted Dashboard SQL Editor, verify a fresh import with:
 
 ```sql
-SELECT count(*) FROM supplier_service.suppliers;           -- 21
-SELECT count(*) FROM supplier_service.supplier_categories; -- 26
+SELECT count(*) FROM supplier_service.suppliers;           -- 131 on a fresh database
+SELECT count(*) FROM supplier_service.supplier_categories; -- 150 on a fresh database
 ```
 
 Keep database credentials out of Git. The Supabase CLI tracks applied
@@ -357,14 +356,43 @@ page 1 and page size 20 when the client omits them. Normal users see only
 ## Supplier seed data
 
 [`../data/csv/supplier-seed-data.csv`](../data/csv/supplier-seed-data.csv)
-contains 21 sample suppliers. The committed
-[`supabase/seed.sql`](supabase/seed.sql) inserts them after the migration.
-It decodes the Windows-1252 CSV to UTF-8, splits types such as `Food/Coffee`
-into two category assignments, and converts `0900hrs` to `09:00`. It ignores
+contains 131 suppliers and campus pickup locations: the original 21 plus 110
+NUS locations, including 13 printing entries in total. The additions cover
+Kent Ridge, University Town, and Bukit Timah. See
+[`../data/csv/README.md`](../data/csv/README.md) for online sources, per-entry
+provenance, and the conventions for missing coordinates and operating hours.
+All CSV image URLs are empty.
+
+The committed [`supabase/seed.sql`](supabase/seed.sql) inserts missing entries
+after migrations. The generator decodes the Windows-1252 CSV to UTF-8, splits
+types such as `Food/Coffee` into two category assignments, and converts
+`0900hrs` to `09:00`. It ignores
 the CSV's `ImageURL` column, so every seeded supplier has a `NULL`
 `image_url`; the app does not handle images. The database generates IDs,
 timestamps, and the default `ACTIVE` status. All suppliers and their category assignments are inserted in
 one transaction because the category requirement is checked at commit.
+Existing normalized name/building/floor identities are skipped together with
+their category assignments, preserving IDs, timestamps, status, and admin edits
+when the seed runs again.
+
+The frozen data migration
+[`20261110000000_expand_nus_campus_suppliers.sql`](supabase/migrations/20261110000000_expand_nus_campus_suppliers.sql)
+adds the 110 new locations to existing databases. It also skips identities
+that already exist. To add them without resetting data, run from this directory:
+
+```sh
+# Existing local Supplier Supabase:
+npx supabase migration up --local
+
+# Existing linked hosted Supplier development project:
+npx supabase db push --dry-run
+npx supabase db push
+```
+
+For a new database, migrations load the expansion and the seed adds any remaining
+entries. A fresh setup has 131 suppliers and 150 category assignments. Existing
+databases can have different totals because administrator-managed data is retained.
+Do not regenerate an already-applied migration when the CSV changes later.
 
 After editing the CSV, regenerate and check the seed using Python 3 (no extra
 Python packages are required):
