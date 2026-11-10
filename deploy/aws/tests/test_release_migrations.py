@@ -61,6 +61,42 @@ def write_policy(repo, entries):
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def wait_for_postgres(name, password):
+    # The image's temporary initialization server accepts Unix sockets while
+    # TCP is disabled. Wait for the final server and a real query, not that socket.
+    for _ in range(60):
+        result = subprocess.run(
+            [
+                "docker",
+                "exec",
+                "--env",
+                f"PGPASSWORD={password}",
+                name,
+                "psql",
+                "--host",
+                "127.0.0.1",
+                "--username",
+                "postgres",
+                "--dbname",
+                "postgres",
+                "--no-password",
+                "--no-psqlrc",
+                "--tuples-only",
+                "--no-align",
+                "--command",
+                "SELECT 1;",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        if result.returncode == 0 and result.stdout.strip() == "1":
+            return
+        time.sleep(1)
+    raise AssertionError("Disposable PostgreSQL failed TCP query readiness.")
+
+
 class MigrationTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -318,6 +354,23 @@ class MigrationTests(unittest.TestCase):
     def test_repository_policy_matches_reviewed_canonical_sql(self):
         read_policy(REPOSITORY)
 
+    def test_database_readiness_waits_for_final_tcp_server(self):
+        with (
+            patch(
+                "test_release_migrations.subprocess.run",
+                side_effect=[
+                    subprocess.CompletedProcess([], 2, "", "initializing"),
+                    subprocess.CompletedProcess([], 0, "1\n", ""),
+                ],
+            ) as run,
+            patch("test_release_migrations.time.sleep") as sleep,
+        ):
+            wait_for_postgres("isolated-postgres", "test-password")
+        self.assertEqual(run.call_count, 2)
+        self.assertIn("127.0.0.1", run.call_args.args[0])
+        self.assertEqual(run.call_args.args[0][-2:], ["--command", "SELECT 1;"])
+        sleep.assert_called_once_with(1)
+
     def test_exact_release_source_is_verified_and_temporary_files_are_removed(self):
         manifest = release_manifest()
         self.root = self.base / "cloud"
@@ -423,18 +476,7 @@ class PostgreSQLUpgradeTests(unittest.TestCase):
                 ["docker", "rm", "--force", "--volumes", cls.name], capture_output=True
             )
         )
-        for _ in range(60):
-            if (
-                subprocess.run(
-                    ["docker", "exec", cls.name, "pg_isready", "-U", "postgres"],
-                    capture_output=True,
-                ).returncode
-                == 0
-            ):
-                break
-            time.sleep(1)
-        else:
-            raise AssertionError("Disposable PostgreSQL failed readiness.")
+        wait_for_postgres(cls.name, cls.password)
         binding = json.loads(
             subprocess.check_output(
                 ["docker", "inspect", "--format", "{{json .NetworkSettings.Ports}}", cls.name],
