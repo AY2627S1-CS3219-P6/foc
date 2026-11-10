@@ -37,7 +37,7 @@ from release_migrations import (
     POLICY,
     MigrationError,
     MigrationRelease,
-    run_cli,
+    run_packaged_cli,
     sql_history,
 )
 
@@ -196,7 +196,7 @@ class Runtime:
             {"sslmode": "disable", "options": "-c lock_timeout=5s -c statement_timeout=120s"}
         )
         url = f"postgresql://postgres:{credentials['admin_password']}@127.0.0.1:{DATABASES[service][0]}/postgres?{query}"
-        run_cli(installed / "bin/supabase", source / f"{service}-service", url)
+        run_packaged_cli(installed.parent, source / f"{service}-service", url)
 
     def pull(self, manifest: dict) -> None:
         registry = f"{manifest['account_id']}.dkr.ecr.ap-southeast-1.amazonaws.com"

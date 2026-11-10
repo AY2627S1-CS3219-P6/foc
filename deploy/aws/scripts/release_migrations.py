@@ -15,12 +15,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 import tomllib
 from pathlib import Path
+from uuid import uuid4
 
 from cloud_config import DATABASES
+from prepare_databases import TOOLING_IMAGE
 
 POLICY = "deploy/aws/migrations.toml"
 NAME = re.compile(r"[0-9]{14}_[A-Za-z0-9_]+\.sql")
@@ -134,12 +137,14 @@ def plan(previous: dict, target: dict, automatic: dict) -> dict:
     return pending
 
 
-def run_cli(binary: Path, workdir: Path, url: str) -> None:
+def run_cli(
+    binary: Path | str, workdir: Path | str, url: str, *, prefix: tuple | list = ()
+) -> None:
     # Supabase owns schema_migrations and the per-migration transaction. Never
     # replay seed.sql, provision roles, reset databases or print provider output.
     try:
         result = subprocess.run(
-            [str(binary), "migration", "up", "--db-url", url, "--workdir", str(workdir)],
+            [*prefix, str(binary), "migration", "up", "--db-url", url, "--workdir", str(workdir)],
             capture_output=True,
             text=True,
             timeout=300,
@@ -153,6 +158,44 @@ def run_cli(binary: Path, workdir: Path, url: str) -> None:
         raise MigrationError(
             "Supabase migration failed; no image rollout. Provider output withheld."
         )
+
+
+def run_packaged_cli(node_modules: Path, workdir: Path, url: str, *, network="host") -> None:
+    # Use npm's public launcher: the pinned package selects the native executable
+    # from @supabase/cli-<platform>, rather than the historical bin/supabase path.
+    if not (node_modules / "supabase/package.json").is_file():
+        raise MigrationError("Pinned Supabase npm installation is missing.")
+    docker = ["sudo", "docker"] if os.name == "posix" and os.getuid() != 0 else ["docker"]
+    name = "foc-migration-" + uuid4().hex
+    prefix = [
+        *docker,
+        "run",
+        "--rm",
+        "--name",
+        name,
+        "--network",
+        network,
+        "--mount",
+        f"type=bind,src={node_modules},dst=/foc-cli/node_modules,readonly",
+        "--mount",
+        f"type=bind,src={workdir},dst=/foc-migrations",
+        "--workdir",
+        "/foc-migrations",
+        TOOLING_IMAGE,
+    ]
+    try:
+        run_cli("/foc-cli/node_modules/.bin/supabase", "/foc-migrations", url, prefix=prefix)
+    finally:
+        # Killing a timed-out Docker client does not kill its container. Stop our
+        # own runner too, so it cannot continue SQL after the release lock exits.
+        try:
+            subprocess.run(
+                [*docker, "rm", "--force", name], capture_output=True, timeout=30, check=False
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            raise MigrationError(
+                "Migration runner cleanup uncertain; inspect before retrying."
+            ) from None
 
 
 class MigrationRelease:

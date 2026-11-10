@@ -31,6 +31,7 @@ from release_migrations import (
     migration_versions,
     read_policy,
     run_cli,
+    run_packaged_cli,
     sql_body,
     sql_checksum,
     sql_history,
@@ -234,6 +235,42 @@ class MigrationTests(unittest.TestCase):
                     run_cli(Path("supabase"), self.target, url)
                 self.assertNotIn("private-secret", str(error.exception))
 
+    def test_npm_launcher_runs_with_node_tooling_and_restricted_mounts(self):
+        modules = self.base / "node_modules"
+        package = modules / "supabase/package.json"
+        package.parent.mkdir(parents=True)
+        package.write_text('{"version":"2.117.0","bin":{"supabase":"dist/supabase.js"}}')
+        with patch(
+            "release_migrations.subprocess.run",
+            return_value=subprocess.CompletedProcess([], 0, "", ""),
+        ) as run:
+            run_packaged_cli(modules, self.target, "postgresql://example")
+        args = run.call_args_list[0].args[0]
+        self.assertIn("/foc-cli/node_modules/.bin/supabase", args)
+        self.assertIn(f"type=bind,src={modules},dst=/foc-cli/node_modules,readonly", args)
+        self.assertIn(f"type=bind,src={self.target},dst=/foc-migrations", args)
+        self.assertNotIn("/var/run/docker.sock", str(args))
+        self.assertEqual(args[-2:], ["--workdir", "/foc-migrations"])
+        self.assertEqual(run.call_args_list[-1].args[0][-1], args[args.index("--name") + 1])
+
+    def test_timed_out_packaged_cli_stops_its_own_runner(self):
+        modules = self.base / "node_modules"
+        package = modules / "supabase/package.json"
+        package.parent.mkdir(parents=True)
+        package.write_text('{"version":"2.117.0"}')
+        with patch(
+            "release_migrations.subprocess.run",
+            side_effect=[
+                subprocess.TimeoutExpired(["private-url"], 300),
+                subprocess.CompletedProcess([], 0, "", ""),
+            ],
+        ) as run:
+            with self.assertRaisesRegex(MigrationError, "timed out"):
+                run_packaged_cli(modules, self.target, "private-url")
+        first = run.call_args_list[0].args[0]
+        last = run.call_args_list[-1].args[0]
+        self.assertEqual(last[-3:], ["rm", "--force", first[first.index("--name") + 1]])
+
     def test_failed_migration_never_replaces_containers(self):
         self.expand()
         manifest = release_manifest()
@@ -334,14 +371,18 @@ class PostgreSQLUpgradeTests(unittest.TestCase):
     def setUpClass(cls):
         cls.name = "foc-migration-check-" + uuid4().hex[:12]
         cls.password = uuid4().hex
-        cls.binary = Path(
+        native = os.environ.get("CLOUD_MIGRATION_CLI")
+        cls.binary = Path(native) if native else None
+        cls.node_modules = Path(
             os.environ.get(
-                "CLOUD_MIGRATION_CLI",
-                str(REPOSITORY / "user-service/node_modules/supabase/bin/supabase"),
+                "CLOUD_MIGRATION_NODE_MODULES", str(REPOSITORY / "user-service/node_modules")
             )
         )
-        if not cls.binary.is_file():
-            raise AssertionError("Pinned migration CLI binary is missing.")
+        if cls.binary is not None:
+            if not cls.binary.is_file():
+                raise AssertionError("Explicit migration CLI binary is missing.")
+        elif not (cls.node_modules / "supabase/package.json").is_file():
+            raise AssertionError("Pinned Supabase npm installation is missing.")
         subprocess.run(
             [
                 "docker",
@@ -381,7 +422,14 @@ class PostgreSQLUpgradeTests(unittest.TestCase):
                 text=True,
             )
         )["5432/tcp"][0]
-        cls.url = f"postgresql://postgres:{cls.password}@127.0.0.1:{binding['HostPort']}/postgres?sslmode=disable&options=-c%20lock_timeout%3D5s%20-c%20statement_timeout%3D120s"
+        port = binding["HostPort"] if cls.binary is not None else "5432"
+        cls.url = f"postgresql://postgres:{cls.password}@127.0.0.1:{port}/postgres?sslmode=disable&options=-c%20lock_timeout%3D5s%20-c%20statement_timeout%3D120s"
+
+    def migrate(self, workdir):
+        if self.binary is not None:
+            run_cli(self.binary, workdir, self.url)
+        else:
+            run_packaged_cli(self.node_modules, workdir, self.url, network=f"container:{self.name}")
 
     def setUp(self):
         self.database = "migration_" + uuid4().hex[:12]
@@ -435,15 +483,15 @@ class PostgreSQLUpgradeTests(unittest.TestCase):
                 FIRST,
                 "BEGIN; CREATE TABLE kept (id int PRIMARY KEY, note text); INSERT INTO kept VALUES (1, 'existing'); COMMIT;\n",
             )
-            run_cli(self.binary, work, self.url)
+            self.migrate(work)
             write_migration(
                 repo,
                 "supplier",
                 NEXT,
                 "BEGIN; ALTER TABLE kept ADD COLUMN added text; UPDATE kept SET added='new' WHERE id=1; COMMIT;\n",
             )
-            run_cli(self.binary, work, self.url)
-            run_cli(self.binary, work, self.url)
+            self.migrate(work)
+            self.migrate(work)
             self.assertEqual(
                 self.query("SELECT id || ':' || note || ':' || added FROM kept;"), "1:existing:new"
             )
@@ -454,14 +502,14 @@ class PostgreSQLUpgradeTests(unittest.TestCase):
                 "BEGIN; INSERT INTO kept VALUES (2, 'must roll back', NULL); SELECT 1/0; COMMIT;\n",
             )
             with self.assertRaises(MigrationError):
-                run_cli(self.binary, work, self.url)
+                self.migrate(work)
             self.assertEqual(self.query("SELECT count(*) FROM kept;"), "1")
             self.assertEqual(
                 self.query("SELECT count(*) FROM supabase_migrations.schema_migrations;"), "2"
             )
             bad.unlink()
             path.write_text("-- updated attribution\n" + path.read_text())
-            run_cli(self.binary, work, self.url)
+            self.migrate(work)
             self.assertEqual(self.query("SELECT count(*) FROM kept;"), "1")
 
     def test_supplier_expansion_preserves_an_existing_managed_supplier(self):
@@ -474,7 +522,7 @@ class PostgreSQLUpgradeTests(unittest.TestCase):
             for path in sorted(canonical.glob("*.sql")):
                 if not path.name.startswith("20261110"):
                     shutil.copyfile(path, location / path.name)
-            run_cli(self.binary, work, self.url)
+            self.migrate(work)
             self.query(
                 "BEGIN; INSERT INTO supplier_service.suppliers(name,building_area,pickup_location_description,status) VALUES ('Bistro Box','College of Design and Engineering','Managed pickup','INACTIVE'); INSERT INTO supplier_service.supplier_categories SELECT id,'OTHERS' FROM supplier_service.suppliers; COMMIT;"
             )
@@ -483,8 +531,8 @@ class PostgreSQLUpgradeTests(unittest.TestCase):
             )
             new = canonical / "20261110000000_expand_nus_campus_suppliers.sql"
             shutil.copyfile(new, location / new.name)
-            run_cli(self.binary, work, self.url)
-            run_cli(self.binary, work, self.url)
+            self.migrate(work)
+            self.migrate(work)
             self.assertEqual(
                 self.query(
                     "SELECT row_to_json(s)::text FROM supplier_service.suppliers s WHERE name='Bistro Box';"
