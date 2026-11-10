@@ -1,16 +1,17 @@
 // AI Assistance Disclosure:
-// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08,
+// 2026-11-10
 // Scope: Implemented the Admin Service client for disputes, reports, status changes and the
-// audit log; added errand outcomes.
+// audit log; added problems, statements and withdrawal for disputed errands.
 // Author review: I validated correctness and supplied additional boundary checks.
 
 import { requestJson } from "./client";
+import type { FailureReason } from "./order-service";
 
-export type DisputeStatus = "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "REJECTED";
-export type DisputeTarget = Exclude<DisputeStatus, "OPEN">;
+export type DisputeStatus = "OPEN" | "UNDER_REVIEW" | "ACCEPTED" | "REJECTED" | "WITHDRAWN";
+// WITHDRAWN belongs to the reporter (disputeReports.withdraw), never to administrators.
+export type DisputeTarget = "UNDER_REVIEW" | "ACCEPTED" | "REJECTED";
 export type ReporterRole = "REQUESTER" | "COURIER";
-// N2F3.7: the errand outcome an administrator applied through Order when closing a dispute.
-export type ErrandOutcome = "FAILED" | "COMPLETED";
 
 export type DisputeHistoryEntry = {
   sequence: number;
@@ -18,17 +19,22 @@ export type DisputeHistoryEntry = {
   toStatus: DisputeStatus;
   actorId: string;
   reason: string | null;
-  errandOutcome?: ErrandOutcome | null;
   occurredAt: string;
 };
+
+export type OwnStatement = { statementId: string; body: string; createdAt: string };
+export type DisputeStatement = OwnStatement & { authorId: string; authorRole: ReporterRole };
 
 export type DisputeSummary = {
   disputeId: string;
   orderId: string;
-  description: string;
+  // The problem the reporter selected; an accepted dispute fails the errand with it.
+  problem: FailureReason;
+  problemDetails: string | null;
+  // Administrator case notes; null for participant reports.
+  description: string | null;
   status: DisputeStatus;
   resolutionReason: string | null;
-  errandOutcome?: ErrandOutcome | null;
   // Null when an administrator recorded the dispute rather than an errand participant.
   reporterRole: ReporterRole | null;
   createdBy: string;
@@ -37,12 +43,22 @@ export type DisputeSummary = {
   version: number;
 };
 
-export type Dispute = DisputeSummary & { evidenceRefs: string[]; history: DisputeHistoryEntry[] };
+export type Dispute = DisputeSummary & {
+  evidenceRefs: string[];
+  history: DisputeHistoryEntry[];
+  statements: DisputeStatement[];
+};
 
 export type AuditEntry = {
   auditId: string;
   actorId: string;
-  action: "DISPUTE_CREATE" | "DISPUTE_REPORT" | "DISPUTE_TRANSITION" | "ERRAND_DECISION";
+  action:
+    | "DISPUTE_CREATE"
+    | "DISPUTE_REPORT"
+    | "DISPUTE_TRANSITION"
+    | "DISPUTE_WITHDRAW"
+    | "DISPUTE_STATEMENT"
+    | "ERRAND_DECISION";
   targetType: "DISPUTE" | "ORDER";
   targetId: string;
   outcome: "SUCCESS" | "REJECTED";
@@ -51,29 +67,30 @@ export type AuditEntry = {
   occurredAt: string;
 };
 
-// What an errand participant sees: never the administrators or the history, and the
-// description only for their own reports.
+// What an errand participant sees: the problem, status and reasons, and only their own
+// statements. Never the administrators, their notes or the history.
 export type DisputeReport = Pick<
-  DisputeSummary, "disputeId" | "orderId" | "status" | "resolutionReason" | "errandOutcome" | "createdAt" | "updatedAt"
-> & { reporterRole: ReporterRole; ownReport: boolean; description: string | null };
+  DisputeSummary,
+  "disputeId" | "orderId" | "problem" | "problemDetails" | "status" | "resolutionReason"
+  | "reporterRole" | "createdAt" | "updatedAt" | "version"
+> & { ownReport: boolean; statements: OwnStatement[] };
 
 export type AdminPage<T> = { items: T[]; page: number; pageSize: number; total: number };
-export type NewDispute = { orderId: string; description: string; evidenceRefs: string[] };
-export type NewReport = { orderId: string; description: string };
-export type DisputeTransition = {
-  toStatus: DisputeTarget;
-  reason: string | null;
-  expectedVersion: number;
-  errandOutcome?: ErrandOutcome | null;
-};
+export type ProblemChoice = { problem: FailureReason; problemDetails: string | null };
+export type NewDispute = ProblemChoice & { orderId: string; description: string; evidenceRefs: string[] };
+export type NewReport = ProblemChoice & { orderId: string };
+export type DisputeTransition = { toStatus: DisputeTarget; reason: string | null; expectedVersion: number };
 
-// N2F3.3.1: OPEN -> UNDER_REVIEW -> RESOLVED | REJECTED. Admin Service enforces this too.
+// N2F3.3.1: OPEN -> UNDER_REVIEW -> ACCEPTED | REJECTED. Admin Service enforces this too.
 export const NEXT_STATUSES: Record<DisputeStatus, DisputeTarget[]> = {
   OPEN: ["UNDER_REVIEW"],
-  UNDER_REVIEW: ["RESOLVED", "REJECTED"],
-  RESOLVED: [],
+  UNDER_REVIEW: ["ACCEPTED", "REJECTED"],
+  ACCEPTED: [],
   REJECTED: [],
+  WITHDRAWN: [],
 };
+
+export const OPEN_DISPUTE: DisputeStatus[] = ["OPEN", "UNDER_REVIEW"];
 
 function query(values: Record<string, string | number | undefined>): string {
   const params = new URLSearchParams();
@@ -112,7 +129,18 @@ export const disputeReports = {
       headers: { "Idempotency-Key": idempotencyKey },
       body: JSON.stringify(input),
     }, token),
-  // With orderId: every participant report about that errand, for its requester or courier.
+  // With orderId: every dispute about that errand, for its requester or courier.
   list: (filters: { orderId?: string; page?: number; pageSize?: number }, token: string) =>
     requestJson<AdminPage<DisputeReport>>(`/disputes${query(filters)}`, { method: "GET" }, token),
+  addStatement: (disputeId: string, body: string, idempotencyKey: string, token: string) =>
+    requestJson<DisputeReport>(`/disputes/${encodeURIComponent(disputeId)}/statements`, {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ body }),
+    }, token),
+  withdraw: (disputeId: string, reason: string, expectedVersion: number, token: string) =>
+    requestJson<DisputeReport>(`/disputes/${encodeURIComponent(disputeId)}/withdraw`, {
+      method: "POST",
+      body: JSON.stringify({ reason, expectedVersion }),
+    }, token),
 };

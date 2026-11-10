@@ -1,7 +1,8 @@
 # AI Assistance Disclosure:
-# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
-# Scope: Implemented dispute, report, status-change and audit-log API models; added errand
-# outcome fields.
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08,
+# 2026-11-10
+# Scope: Implemented dispute, report, status-change and audit-log API models; added the
+# disputed-errand problem, statement and withdrawal models.
 # Author review: I validated correctness and supplied additional boundary checks.
 
 """Versioned API models. JSON uses camelCase; Python uses snake_case."""
@@ -34,7 +35,17 @@ class ApiModel(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, extra="forbid", populate_by_name=True)
 
 
-DisputeStatus = Literal["OPEN", "UNDER_REVIEW", "RESOLVED", "REJECTED"]
+DisputeStatus = Literal["OPEN", "UNDER_REVIEW", "ACCEPTED", "REJECTED", "WITHDRAWN"]
+# The problem a reporter selects; an accepted dispute fails the errand with it (N2F3).
+Problem = Literal[
+    "ITEM_UNAVAILABLE",
+    "ITEM_DAMAGED",
+    "UNABLE_TO_PICK_UP",
+    "UNABLE_TO_DELIVER",
+    "PARTICIPANT_UNREACHABLE",
+    "OTHER",
+]
+ReporterRole = Literal["REQUESTER", "COURIER"]
 EvidenceRef = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 
 
@@ -42,9 +53,26 @@ def trimmed(value):
     return value.strip() if isinstance(value, str) else value
 
 
-class CreateDispute(ApiModel):
+class ProblemChoice(ApiModel):
+    problem: Problem
+    # Shown to both participants as "Other: ..."; required only for Other.
+    problem_details: str | None = Field(default=None, min_length=1, max_length=500)
+
+    @field_validator("problem_details", mode="before")
+    @classmethod
+    def blank_details_are_missing(cls, value):
+        return trimmed(value) or None
+
+    @model_validator(mode="after")
+    def explain_other(self):
+        if self.problem == "OTHER" and self.problem_details is None:
+            raise ValueError("Explain the problem when selecting Other")
+        return self
+
+
+class CreateDispute(ProblemChoice):
     order_id: UUID
-    # N2F3.2.1: non-blank after trimming; evidence references are optional.
+    # Administrators' private case notes and evidence references (N2F3.2.1).
     description: str = Field(min_length=1, max_length=2000)
     evidence_refs: list[EvidenceRef] = Field(default_factory=list, max_length=10)
 
@@ -54,30 +82,42 @@ class CreateDispute(ApiModel):
         return trimmed(value)
 
 
-ErrandOutcome = Literal["FAILED", "COMPLETED"]
+class ReportProblem(ProblemChoice):
+    order_id: UUID
+
+
+ClosingReason = Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)]
 
 
 class Transition(ApiModel):
-    to_status: Literal["UNDER_REVIEW", "RESOLVED", "REJECTED"]
-    reason: str | None = Field(default=None, max_length=1000)
+    # WITHDRAWN belongs to the reporter (POST /v1/disputes/{id}/withdraw), never to admins.
+    to_status: Literal["UNDER_REVIEW", "ACCEPTED", "REJECTED"]
+    reason: ClosingReason | None = None
     expected_version: StrictInt = Field(ge=1)
-    # N2F3.7: closing a dispute may also fail or complete the errand through Order.
-    errand_outcome: ErrandOutcome | None = None
+
+    @field_validator("reason", mode="after")
+    @classmethod
+    def blank_reason_is_missing(cls, value):
+        return value or None
+
+
+class Withdrawal(ApiModel):
+    reason: str = Field(min_length=1, max_length=1000)
+    expected_version: StrictInt = Field(ge=1)
 
     @field_validator("reason", mode="before")
     @classmethod
-    def blank_reason_is_missing(cls, value):
-        return trimmed(value) or None
+    def trim_reason(cls, value):
+        return trimmed(value)
 
-    @model_validator(mode="after")
-    def outcome_closes_the_dispute(self):
-        if self.errand_outcome is not None:
-            if self.to_status == "UNDER_REVIEW":
-                raise ValueError("An errand outcome is decided only when closing a dispute")
-            # Order keeps at most 500 characters of an administrator's failure reason.
-            if self.reason is not None and len(self.reason) > 500:
-                raise ValueError("Keep the reason within 500 characters with an errand outcome")
-        return self
+
+class AddStatement(ApiModel):
+    body: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("body", mode="before")
+    @classmethod
+    def trim_body(cls, value):
+        return trimmed(value)
 
 
 class PageQuery(ApiModel):
@@ -102,22 +142,18 @@ class HistoryEntry(ApiModel):
     to_status: DisputeStatus
     actor_id: UUID
     reason: str | None
-    errand_outcome: ErrandOutcome | None = None
     occurred_at: datetime
 
 
-ReporterRole = Literal["REQUESTER", "COURIER"]
+class OwnStatement(ApiModel):
+    statement_id: UUID
+    body: str
+    created_at: datetime
 
 
-class ReportProblem(ApiModel):
-    # N2F3.2: a participant describes the problem; evidence can go in the description.
-    order_id: UUID
-    description: str = Field(min_length=1, max_length=2000)
-
-    @field_validator("description", mode="before")
-    @classmethod
-    def trim_description(cls, value):
-        return trimmed(value)
+class Statement(OwnStatement):
+    author_id: UUID
+    author_role: ReporterRole
 
 
 class ReportQuery(PageQuery):
@@ -125,27 +161,32 @@ class ReportQuery(PageQuery):
 
 
 class ReportView(ApiModel):
-    # What an errand participant may see: no administrator identities or history. The other
-    # participant's description is withheld; only its author and administrators read it.
+    # What an errand participant may see: the problem, status and reasons, and only their own
+    # statements. Administrator identities, notes, evidence and history are never included.
     dispute_id: UUID
     order_id: UUID
     own_report: bool
-    description: str | None
+    # None when an administrator raised the dispute.
+    reporter_role: ReporterRole | None
+    problem: Problem
+    problem_details: str | None
     status: DisputeStatus
     resolution_reason: str | None
-    errand_outcome: ErrandOutcome | None = None
-    reporter_role: ReporterRole
+    statements: list[OwnStatement]
     created_at: datetime
     updated_at: datetime
+    version: int
 
 
 class DisputeSummary(ApiModel):
     dispute_id: UUID
     order_id: UUID
-    description: str
+    problem: Problem
+    problem_details: str | None
+    # Administrator case notes; None for participant reports.
+    description: str | None
     status: DisputeStatus
     resolution_reason: str | None
-    errand_outcome: ErrandOutcome | None = None
     # None when an administrator recorded the dispute; created_by is then that administrator.
     reporter_role: ReporterRole | None
     created_by: UUID
@@ -157,12 +198,23 @@ class DisputeSummary(ApiModel):
 class DisputeView(DisputeSummary):
     evidence_refs: list[str]
     history: list[HistoryEntry]
+    statements: list[Statement]
+
+
+AuditAction = Literal[
+    "DISPUTE_CREATE",
+    "DISPUTE_REPORT",
+    "DISPUTE_TRANSITION",
+    "DISPUTE_WITHDRAW",
+    "DISPUTE_STATEMENT",
+    "ERRAND_DECISION",
+]
 
 
 class AuditEntry(ApiModel):
     audit_id: UUID
     actor_id: UUID
-    action: Literal["DISPUTE_CREATE", "DISPUTE_REPORT", "DISPUTE_TRANSITION", "ERRAND_DECISION"]
+    action: AuditAction
     target_type: Literal["DISPUTE", "ORDER"]
     target_id: UUID
     outcome: Literal["SUCCESS", "REJECTED"]

@@ -42,7 +42,9 @@ database. It deletes that database's data.
 | `.env.docker` (from `.env.docker.example`) | Root Compose. `DATABASE_URL` uses `host.docker.internal:17522`. |
 
 Set `DATABASE_URL` to the `foc_admin_local` login. An unset URL keeps liveness available while
-readiness returns `503`. Root Compose supplies `USER_SERVICE_BASE_URL` and `ORDER_SERVICE_BASE_URL`. Never commit either file.
+readiness returns `503`. Root Compose supplies `USER_SERVICE_BASE_URL` and `ORDER_SERVICE_BASE_URL`. Set
+`ORDER_SERVICE_SECRET` to the same value as Order's `ADMIN_SERVICE_SECRET`; without it, disputes cannot be
+opened, withdrawn or decided. Never commit either file.
 
 ## Run
 

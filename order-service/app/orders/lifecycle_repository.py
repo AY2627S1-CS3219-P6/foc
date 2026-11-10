@@ -11,7 +11,14 @@ from uuid import UUID, uuid4
 from sqlalchemy import func, insert, select, update
 
 from app.orders.errors import not_found
-from app.orders.lifecycle import Action, AdminAction, admin_decision_values, transition_values
+from app.orders.lifecycle import (
+    Action,
+    DisputeActor,
+    accept_dispute_values,
+    open_dispute_values,
+    restore_values,
+    transition_values,
+)
 from app.orders.tables import history, orders, outbox
 
 
@@ -19,37 +26,77 @@ class LifecycleRepository:
     def __init__(self, sessions):
         self.sessions = sessions
 
-    async def transition(self, order_id: UUID, actor: UUID, action: Action, *, failure=None):
+    async def _locked(self, session, order_id: UUID):
+        result = await session.execute(
+            select(orders).where(orders.c.id == order_id).with_for_update()
+        )
+        row = result.mappings().one_or_none()
+        if row is None:
+            raise not_found()
+        # transaction_timestamp() would permit a pre-deadline waiter to win too late.
+        return row, await session.scalar(select(func.clock_timestamp()))
+
+    async def transition(self, order_id: UUID, actor: UUID, action: Action):
         async with self.sessions() as session, session.begin():
-            result = await session.execute(
-                select(orders).where(orders.c.id == order_id).with_for_update()
-            )
-            row = result.mappings().one_or_none()
-            if row is None:
-                raise not_found()
-            # transaction_timestamp() would permit a pre-deadline waiter to win too late.
-            now = await session.scalar(select(func.clock_timestamp()))
-            values = transition_values(row, actor, action, now, failure)
+            row, now = await self._locked(session, order_id)
+            values = transition_values(row, actor, action, now)
             if not values:
                 return row
             return await self._record(session, row, values, actor, now)
 
-    async def decide(
-        self, order_id: UUID, admin: UUID, action: AdminAction, *, dispute_id: UUID, reason=None
+    async def open_dispute(
+        self, order_id: UUID, actor: UUID, actor_type: DisputeActor, *, dispute_id: UUID
     ):
-        """N2F3.7: an administrator's decision takes the same lock and terminal path."""
+        """N2F3.2: hold the errand in DISPUTED for a dispute Admin Service is recording."""
         async with self.sessions() as session, session.begin():
-            result = await session.execute(
-                select(orders).where(orders.c.id == order_id).with_for_update()
-            )
-            row = result.mappings().one_or_none()
-            if row is None:
-                raise not_found()
-            now = await session.scalar(select(func.clock_timestamp()))
-            values = admin_decision_values(row, admin, action, now, dispute_id, reason)
+            row, now = await self._locked(session, order_id)
+            values = open_dispute_values(row, actor, actor_type, dispute_id, now)
             if not values:
                 return row
-            return await self._record(session, row, values, admin, now, actor_type="ADMIN")
+            return await self._record(
+                session, row, values, actor, now, actor_type=actor_type, dispute_id=dispute_id
+            )
+
+    async def restore(
+        self, order_id: UUID, actor: UUID, actor_type: DisputeActor, *, dispute_id: UUID
+    ):
+        """Return the errand to its earlier state when its dispute is withdrawn or rejected."""
+        async with self.sessions() as session, session.begin():
+            row, now = await self._locked(session, order_id)
+            restored = row["state"] != "DISPUTED" and await self._restored(
+                session, order_id, dispute_id
+            )
+            values = restore_values(row, actor, actor_type, dispute_id, restored=restored)
+            if not values:
+                return row
+            return await self._record(
+                session, row, values, actor, now, actor_type=actor_type, dispute_id=dispute_id
+            )
+
+    async def accept_dispute(self, order_id: UUID, admin: UUID, *, dispute_id: UUID, failure):
+        """N2F3.7: an accepted dispute fails the errand through the same terminal path."""
+        async with self.sessions() as session, session.begin():
+            row, now = await self._locked(session, order_id)
+            values = accept_dispute_values(row, admin, dispute_id, now, failure)
+            if not values:
+                return row
+            return await self._record(
+                session, row, values, admin, now, actor_type="ADMIN", dispute_id=dispute_id
+            )
+
+    async def _restored(self, session, order_id: UUID, dispute_id: UUID) -> bool:
+        """Whether this dispute already returned the errand to its earlier state."""
+        found = await session.scalar(
+            select(history.c.sequence)
+            .where(
+                history.c.order_id == order_id,
+                history.c.dispute_id == dispute_id,
+                history.c.previous_state == "DISPUTED",
+                history.c.new_state != "FAILED",
+            )
+            .limit(1)
+        )
+        return found is not None
 
     async def expire_batch(self, limit: int) -> int:
         async with self.sessions() as session, session.begin():
@@ -66,7 +113,9 @@ class LifecycleRepository:
                 await self._record(session, row, {"state": "EXPIRED", "expired_at": now}, None, now)
             return len(rows)
 
-    async def _record(self, session, row, values, actor, now, *, actor_type="USER"):
+    async def _record(
+        self, session, row, values, actor, now, *, actor_type="USER", dispute_id=None
+    ):
         updated = await session.execute(
             update(orders)
             .where(orders.c.id == row["id"])
@@ -89,7 +138,7 @@ class LifecycleRepository:
                 occurred_at=now,
                 failure_reason=values.get("failure_reason"),
                 failure_details=values.get("failure_details"),
-                dispute_id=values.get("decision_dispute_id"),
+                dispute_id=dispute_id,
             )
         )
         if values["state"] in ("CANCELLED", "EXPIRED", "COMPLETED", "FAILED"):

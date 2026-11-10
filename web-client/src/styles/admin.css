@@ -42,8 +42,8 @@
 .admin-flag { background: var(--danger-surface); border-radius: 999px; color: var(--danger); font-size: .7rem; font-weight: 800; padding: .35rem .65rem; white-space: nowrap; }
 .dispute-badge-open { background: #fff4e6; color: #925008; }
 .dispute-badge-under_review { background: #f1effc; color: #56408f; }
-.dispute-badge-resolved { background: var(--success-surface); color: var(--success); }
-.dispute-badge-rejected { background: #f1f3f6; color: #526477; }
+.dispute-badge-accepted { background: var(--success-surface); color: var(--success); }
+.dispute-badge-rejected, .dispute-badge-withdrawn { background: #f1f3f6; color: #526477; }
 .admin-columns { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
 .admin-evidence { margin: 0; padding-left: 1.1rem; }
 .admin-choices { border: 0; display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; margin: 0 0 1rem; padding: 0; }

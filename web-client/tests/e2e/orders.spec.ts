@@ -211,80 +211,114 @@ async function mockSession(page: Page) {
   await page.route((url) => url.pathname === `/v1/orders/${orderId}/history`, (route) => route.fulfill({ json: list([{ sequence: 1, previousState: null, newState: "OPEN", actorId: "user-id", actorType: "USER", occurredAt: order.createdAt }], 1, 20) }));
 }
 
+const disputeId = "550e8400-e29b-41d4-a716-446655440009";
+const dispute = (status: string, extra: Record<string, unknown> = {}) => ({
+  disputeId, orderId, ownReport: true, reporterRole: "REQUESTER", problem: "ITEM_DAMAGED", problemDetails: null,
+  status, resolutionReason: null, statements: [], createdAt: order.createdAt, updatedAt: order.createdAt, version: 1, ...extra,
+});
+
 for (const courier of [false, true]) {
-  test(`${courier ? "courier" : "requester"} can fail without agreement and sees the saved reason`, async ({ page }, testInfo) => {
+  test(`${courier ? "courier" : "requester"} reports a problem and the errand pauses for review`, async ({ page }, testInfo) => {
     await mockSession(page);
     await page.setViewportSize({ width: courier ? 1440 : 375, height: 900 });
-    const active = { ...participant, state: "PICKED_UP", requesterId: courier ? "other" : "user-id", courierId: courier ? "user-id" : "other", overdueAt: order.deliveryDeadline };
-    const failed = { ...active, state: "FAILED", failedBy: "user-id", failedAt: order.createdAt, failureReason: "ITEM_DAMAGED", failureDetails: "Package broken" };
-    await page.route(`**/v1/orders/${orderId}`, (route) => route.fulfill({ json: active }));
-    let calls = 0;
-    await page.route(`**/v1/orders/${orderId}/fail`, async (route) => {
-      calls++;
-      expect(route.request().postDataJSON()).toEqual({ reason: "ITEM_DAMAGED", details: "Package broken" });
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      return route.fulfill({ json: failed });
+    const active = { ...participant, state: "PICKED_UP", requesterId: courier ? "other" : "user-id", courierId: courier ? "user-id" : "other" };
+    let reported = false;
+    const held = { ...active, state: "DISPUTED", disputeId, disputedFromState: "PICKED_UP", disputedAt: order.createdAt };
+    await page.route(`**/v1/orders/${orderId}`, (route) => route.fulfill({ json: reported ? held : active }));
+    const bodies: unknown[] = [];
+    await page.route((url) => url.pathname === "/v1/disputes", async (route) => {
+      if (route.request().method() === "POST") {
+        bodies.push(route.request().postDataJSON());
+        expect(route.request().headers()["idempotency-key"]).toMatch(/^[0-9a-f-]{36}$/);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        reported = true;
+        return route.fulfill({ status: 201, json: dispute("OPEN", { problem: "OTHER", problemDetails: "Package broken", reporterRole: courier ? "COURIER" : "REQUESTER" }) });
+      }
+      return route.fulfill({ json: list(reported ? [dispute("OPEN", { problem: "OTHER", problemDetails: "Package broken" })] : [], 1, 50) });
     });
-    await page.route(`**/v1/orders/${orderId}/history*`, (route) => route.fulfill({ json: list([{ sequence: calls ? 4 : 3, newState: calls ? "FAILED" : "PICKED_UP", actorType: "USER", actorId: "user-id", occurredAt: order.createdAt, failureReason: calls ? "ITEM_DAMAGED" : null, failureDetails: calls ? "Package broken" : null }]) }));
     await page.goto(`/orders/${orderId}`);
-    await page.getByRole("button", { name: "Mark failed", exact: true }).click();
-    expect(calls).toBe(0);
-    await expect(page.getByRole("button", { name: "Confirm failure", exact: true })).toBeDisabled();
-    await page.getByRole("combobox", { name: "Failure reason", exact: true }).selectOption("OTHER");
-    await expect(page.getByRole("button", { name: "Confirm failure", exact: true })).toBeDisabled();
-    await page.getByRole("combobox", { name: "Failure reason", exact: true }).selectOption("ITEM_DAMAGED");
-    await page.getByRole("textbox", { name: "Failure details", exact: false }).fill("Package broken");
-    await page.screenshot({ path: testInfo.outputPath("failure-confirmation.png"), fullPage: true });
-    await page.getByRole("button", { name: "Confirm failure", exact: true }).evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
-    await expect(page.getByText("Errand marked failed.", { exact: false })).toBeVisible();
-    await expect(page.locator(".order-heading")).toContainText("FAILED");
-    await expect(page.locator(".order-history")).toContainText("Item damaged: Package broken");
-    await expect(page.getByText("Was overdue since", { exact: false })).toBeVisible();
-    await expect(page.getByText("Delivered late since", { exact: false })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Mark failed", exact: true })).toHaveCount(0);
-    expect(calls).toBe(1);
+    await expect(page.getByRole("button", { name: "Report problem", exact: true })).toBeDisabled();
+    await page.getByRole("combobox", { name: "What went wrong", exact: true }).selectOption("OTHER");
+    await expect(page.getByRole("button", { name: "Report problem", exact: true })).toBeDisabled();
+    await page.getByRole("textbox", { name: "Describe the problem", exact: false }).fill("Package broken");
+    await page.screenshot({ path: testInfo.outputPath("report-problem.png"), fullPage: true });
+    await page.getByRole("button", { name: "Report problem", exact: true }).evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
+    await expect(page.locator(".order-heading")).toContainText("DISPUTED");
+    await expect(page.getByText("This errand is on hold while an administrator reviews a reported problem.", { exact: false })).toBeVisible();
+    await expect(page.getByText("continues from picked up", { exact: false })).toBeVisible();
+    await expect(page.getByText("Other: Package broken")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mark delivered", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Details for the administrator", exact: true })).toBeVisible();
+    expect(bodies).toEqual([{ orderId, problem: "OTHER", problemDetails: "Package broken" }]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
 
-test("lost failure response freezes the original report for a safe retry", async ({ page }) => {
+test("the other participant sees the reported problem and sends private details while the errand is held", async ({ page }) => {
   await mockSession(page);
-  const active = { ...participant, state: "ACCEPTED", courierId: "other" };
-  await page.route(`**/v1/orders/${orderId}`, (route) => route.fulfill({ json: active }));
-  const bodies: unknown[] = [];
-  await page.route(`**/v1/orders/${orderId}/fail`, (route) => {
-    bodies.push(route.request().postDataJSON());
-    return bodies.length === 1 ? route.abort() : route.fulfill({ json: { ...active, state: "FAILED", failedBy: "user-id", failureReason: "ITEM_UNAVAILABLE" } });
+  const held = { ...participant, state: "DISPUTED", requesterId: "other", courierId: "user-id", disputeId, disputedFromState: "DELIVERED", disputedAt: order.createdAt };
+  await page.route(`**/v1/orders/${orderId}`, (route) => route.fulfill({ json: held }));
+  let sent: unknown = null;
+  await page.route((url) => url.pathname === "/v1/disputes", (route) => route.fulfill({ json: list([
+    dispute("UNDER_REVIEW", { ownReport: false, statements: sent ? [{ statementId: "s1", body: "I left it at the counter.", createdAt: order.createdAt }] : [] }),
+  ], 1, 50) }));
+  await page.route(`**/v1/disputes/${disputeId}/statements`, (route) => {
+    sent = route.request().postDataJSON();
+    return route.fulfill({ status: 201, json: dispute("UNDER_REVIEW", { ownReport: false, statements: [{ statementId: "s1", body: "I left it at the counter.", createdAt: order.createdAt }] }) });
   });
   await page.goto(`/orders/${orderId}`);
-  await page.getByRole("button", { name: "Mark failed", exact: true }).click();
-  await page.getByRole("combobox", { name: "Failure reason", exact: true }).selectOption("ITEM_UNAVAILABLE");
-  await page.getByRole("button", { name: "Confirm failure", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("could not confirm");
-  await expect(page.getByRole("combobox", { name: "Failure reason", exact: true })).toBeDisabled();
-  await page.getByRole("button", { name: "Try again", exact: true }).click();
-  await expect(page.locator(".order-heading")).toContainText("FAILED");
-  expect(bodies).toHaveLength(2);
-  expect(bodies[0]).toEqual(bodies[1]);
+  await expect(page.getByText("The requester reported a problem", { exact: false })).toBeVisible();
+  await expect(page.locator("#errand-report-heading + ol")).toContainText("Problem: Item damaged");
+  await expect(page.getByRole("button", { name: "Withdraw report", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Report problem", exact: true })).toHaveCount(0);
+  await page.getByRole("textbox", { name: "Details for the administrator", exact: true }).fill("I left it at the counter.");
+  await page.getByRole("button", { name: "Send details", exact: true }).click();
+  await expect(page.getByText("Your details to the administrator")).toBeVisible();
+  expect(sent).toEqual({ body: "I left it at the counter." });
 });
 
-test("delivery winning a failure race requires refresh instead of claiming failure", async ({ page }) => {
+test("an accepted dispute shows the reporter's problem as the failure reason and keeps the overdue note", async ({ page }) => {
   await mockSession(page);
-  let delivered = false;
-  await page.route(`**/v1/orders/${orderId}`, (route) => route.fulfill({ json: { ...participant, state: delivered ? "DELIVERED" : "PICKED_UP", courierId: "other" } }));
-  await page.route(`**/v1/orders/${orderId}/fail`, (route) => {
-    delivered = true;
-    return route.fulfill({ status: 409, json: { error: { code: "INVALID_TRANSITION", message: "Failure requires ACCEPTED or PICKED_UP state." } } });
+  const failed = {
+    ...participant, state: "FAILED", courierId: "other", overdueAt: order.deliveryDeadline, failedAt: order.createdAt,
+    failureReason: "ITEM_DAMAGED", failureDetails: null, decidedByAdministrator: true, decisionDisputeId: disputeId,
+  };
+  await page.route(`**/v1/orders/${orderId}`, (route) => route.fulfill({ json: failed }));
+  await page.route((url) => url.pathname === "/v1/disputes", (route) => route.fulfill({ json: list([
+    dispute("ACCEPTED", { resolutionReason: "Photos show the damage." }),
+  ], 1, 50) }));
+  await page.goto(`/orders/${orderId}`);
+  await expect(page.getByText("Failure reason: Item damaged.")).toBeVisible();
+  await expect(page.getByText("An administrator accepted the reported problem", { exact: false })).toBeVisible();
+  await expect(page.getByText("Was overdue since", { exact: false })).toBeVisible();
+  await expect(page.getByText("Photos show the damage.")).toBeVisible();
+  await expect(page.getByText("The errand was marked as failed, so the reward returns to the requester.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Report problem", exact: true })).toHaveCount(0);
+});
+
+test("the reporter withdraws an open report and the errand continues", async ({ page }) => {
+  await mockSession(page);
+  let withdrawn = false;
+  const active = { ...participant, state: "ACCEPTED", courierId: "other" };
+  const held = { ...active, state: "DISPUTED", disputeId, disputedFromState: "ACCEPTED", disputedAt: order.createdAt };
+  await page.route(`**/v1/orders/${orderId}`, (route) => route.fulfill({ json: withdrawn ? active : held }));
+  await page.route((url) => url.pathname === "/v1/disputes", (route) => route.fulfill({ json: list([
+    withdrawn ? dispute("WITHDRAWN", { resolutionReason: "Courier found the shop open.", version: 2 }) : dispute("OPEN"),
+  ], 1, 50) }));
+  await page.route(`**/v1/disputes/${disputeId}/withdraw`, (route) => {
+    expect(route.request().postDataJSON()).toEqual({ reason: "Courier found the shop open.", expectedVersion: 1 });
+    withdrawn = true;
+    return route.fulfill({ json: dispute("WITHDRAWN", { resolutionReason: "Courier found the shop open.", version: 2 }) });
   });
   await page.goto(`/orders/${orderId}`);
-  await page.getByRole("button", { name: "Mark failed", exact: true }).click();
-  await page.getByRole("combobox", { name: "Failure reason", exact: true }).selectOption("UNABLE_TO_DELIVER");
-  await page.getByRole("button", { name: "Confirm failure", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("This errand has changed. Refresh");
-  await expect(page.getByRole("alert")).not.toContainText("PICKED_UP");
-  await page.getByRole("button", { name: "Refresh errand", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Mark failed", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Confirm received", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Withdraw report", exact: true }).click();
+  await page.getByRole("textbox", { name: "Why are you withdrawing?", exact: false }).fill("Courier found the shop open.");
+  await page.getByRole("button", { name: "Withdraw and continue the errand", exact: true }).click();
+  await expect(page.locator(".order-heading")).toContainText("ACCEPTED");
+  await expect(page.getByText("Withdrawal reason:")).toBeVisible();
+  await expect(page.getByText("Waiting for the assigned courier to update the errand.")).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "What went wrong", exact: true })).toBeVisible();
 });
 
 async function fillForm(page: Page) {

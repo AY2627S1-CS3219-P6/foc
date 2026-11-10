@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     supplier_service_base_url: str | None = None
     credit_service_base_url: str | None = None
     credit_service_secret: SecretStr | None = None
+    # Must equal Admin Service's ORDER_SERVICE_SECRET. Only Admin Service may move errands into
+    # or out of DISPUTED through /v1/internal routes.
+    admin_service_secret: SecretStr | None = None
     dependency_timeout_seconds: float = Field(default=2, gt=0, le=10)
     recovery_interval_seconds: float = Field(default=5, gt=0, le=60)
     recovery_batch_size: int = Field(default=50, ge=1, le=100)
@@ -65,7 +68,7 @@ class Settings(BaseSettings):
             raise ValueError("Service URLs must be HTTP(S) origins without credentials or paths")
         return value.rstrip("/")
 
-    @field_validator("credit_service_secret", mode="before")
+    @field_validator("credit_service_secret", "admin_service_secret", mode="before")
     @classmethod
     def blank_credit_secret(cls, value):
         return value.strip() or None if isinstance(value, str) else value

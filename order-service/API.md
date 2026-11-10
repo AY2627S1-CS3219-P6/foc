@@ -4,7 +4,7 @@ Implemented Order-side contract, updated 2026-10-16. D3 is the main implementati
 guide; requirement IDs remain the team's M3/M4 identifiers. Credit implements
 the interface below in its [own service](../credit-service/API.md). No fake Credit
 success is enabled in the runtime. Order supports acceptance, cancellation and
-expiry, pickup, delivery, completion, unilateral failure and overdue tracking with durable terminal-event
+expiry, pickup, delivery, completion, disputes and overdue tracking with durable terminal-event
 publication. Real Credit consumes these events; publishing alone does not confirm wallet settlement.
 
 ## Identity and conventions
@@ -34,9 +34,9 @@ publication. Real Credit consumes these events; publishing alone does not confir
 | `POST /v1/orders/{orderId}/pickup` | Assigned courier advances ACCEPTED to PICKED_UP. |
 | `POST /v1/orders/{orderId}/deliver` | Assigned courier advances PICKED_UP to DELIVERED; no reward transfer yet. |
 | `POST /v1/orders/{orderId}/complete` | Requester confirms DELIVERED to COMPLETED; atomically records transfer-event intent. |
-| `POST /v1/orders/{orderId}/fail` | Either participant marks ACCEPTED/PICKED_UP as FAILED with a reason; atomically records release-event intent. |
-| `POST /v1/admin/orders/{orderId}/fail` | Administrator deciding a dispute marks ACCEPTED/PICKED_UP/DELIVERED as FAILED; atomically records release-event intent. See [Administrator decisions](#administrator-decisions-admin-dashboard-n2f37). |
-| `POST /v1/admin/orders/{orderId}/complete` | Administrator deciding a dispute marks DELIVERED as COMPLETED; atomically records transfer-event intent. |
+| `POST /v1/internal/orders/{orderId}/disputes` | Admin Service only: holds ACCEPTED/PICKED_UP/DELIVERED in DISPUTED for a new dispute. See [Disputed errands](#disputed-errands-admin-dashboard-n2f3). |
+| `POST /v1/internal/orders/{orderId}/disputes/{disputeId}/restore` | Admin Service only: a withdrawn or rejected dispute returns the errand to its earlier state. |
+| `POST /v1/internal/orders/{orderId}/disputes/{disputeId}/accept` | Admin Service only: an accepted dispute marks the errand FAILED; atomically records release-event intent. |
 | `GET /v1/order-creations/{operationId}` | Creator-only progress; no mutation/finalization. 404 for other users. |
 | `GET /v1/orders` | Available OPEN assessment list; excludes reached acceptance deadlines even before an expiry worker exists. Optional `supplierId`. |
 | `GET /v1/orders/mine?relationship=requester` | Current user's requested orders across states. `courier` selects their assigned orders. |
@@ -103,10 +103,9 @@ retain their authenticated UUID. History ordering remains per-order sequence.
 ## Administrator oversight and analytics (Admin Dashboard N2)
 
 These read-only routes re-check the caller's current ADMIN/SUPER_ADMIN role with User on every
-request (403 otherwise) and never change errands. Apart from the two
-[dispute decisions](#administrator-decisions-admin-dashboard-n2f37), administrators cannot
-accept, fulfil, complete, cancel or fail errands, and the participant routes keep their rules
-for every caller.
+request (403 otherwise) and never change errands. Apart from
+[disputes](#disputed-errands-admin-dashboard-n2f3), administrators cannot accept, fulfil,
+complete, cancel or fail errands, and the participant routes keep their rules for every caller.
 
 - Creation-date filters and analytics periods are Asia/Singapore (UTC+8) calendar days:
   `createdFrom`/`from` starts at 00:00 SGT and `createdTo`/`to` includes that whole day. A
@@ -122,29 +121,43 @@ for every caller.
 - Analytics is computed on request from Order's own records and states its period, time zone and
   generation time.
 
-## Administrator decisions (Admin Dashboard N2F3.7)
+## Disputed errands (Admin Dashboard N2F3)
 
-When a requester or courier reports a problem, an administrator reviewing that dispute may
-decide the errand's outcome. Admin Service calls these routes only for a dispute that is
-`UNDER_REVIEW`, forwarding the administrator's token; Order re-checks the current
-ADMIN/SUPER_ADMIN role with User on every request.
+Participants no longer fail errands themselves. A requester or courier who reports a problem, or
+an administrator who records one, holds the errand in `DISPUTED` until the dispute is withdrawn
+or decided. Admin Service owns the dispute and its workflow; Order only stores the errand's
+state and moves credits through its existing terminal path.
+
+These routes are internal. They require `X-FoC-Service-Secret` equal to Order's
+`ADMIN_SERVICE_SECRET` (Admin Service's `ORDER_SERVICE_SECRET`) and are not routed by the edge
+proxy, so a participant cannot skip Admin Service's dispute rules. Admin Service also forwards
+the acting user's bearer token: Order re-checks it with User, requires a participant of the
+errand for `actorType: "USER"` and a current ADMIN/SUPER_ADMIN for `actorType: "ADMIN"` and for
+accepting.
 
 | Route | Body | Allowed from | Result |
 | --- | --- | --- | --- |
-| `POST /v1/admin/orders/{orderId}/fail` | `{"disputeId": uuid, "reason": string}` (1-500 characters after trimming) | ACCEPTED, PICKED_UP, DELIVERED | FAILED with `failureReason` `ADMIN_DECISION` and the reason as `failureDetails`; `order.failed.v1` releases the reserved reward to the requester. |
-| `POST /v1/admin/orders/{orderId}/complete` | `{"disputeId": uuid}` | DELIVERED | COMPLETED; `order.completed.v1` transfers the reward to the courier. |
+| `POST .../disputes` | `{"disputeId": uuid, "actorType": "USER" \| "ADMIN"}` | ACCEPTED, PICKED_UP, DELIVERED | DISPUTED, remembering `disputedFromState`, `disputeId` and `disputedAt`. |
+| `POST .../disputes/{disputeId}/restore` | `{"actorType": "USER" \| "ADMIN"}` (USER: the reporter withdrew; ADMIN: rejected) | DISPUTED for this dispute | The remembered state; the dispute fields are cleared. |
+| `POST .../disputes/{disputeId}/accept` | `{"reason": FailureReason, "details": string?}` | DISPUTED for this dispute | FAILED with the reporter's selected reason and `Other` text; `order.failed.v1` releases the reserved reward to the requester. |
 
-- Decisions take the same row lock and terminal path as participant actions, so the state
-  change, the history entry and the Credit event intent commit together, and a requester's
-  confirmation racing an administrator's failure settles exactly once.
-- COMPLETED errands have already paid the courier and are never reversed. Any other source state,
-  or an errand already decided for another dispute, returns `409 INVALID_TRANSITION`.
-- Repeating the same decision for the same dispute returns `200` and changes nothing.
-- History records `actorType` `ADMIN` and the `disputeId`. Participants see
-  `decidedByAdministrator: true`, the dispute ID and the reason, but never which administrator:
-  `actorId`, `failedBy` and `decidedBy` are `null` in participant views and present in admin
-  views.
-- Participants cannot submit `ADMIN_DECISION` as their own failure reason.
+- `FailureReason` is one of `ITEM_UNAVAILABLE`, `ITEM_DAMAGED`, `UNABLE_TO_PICK_UP`,
+  `UNABLE_TO_DELIVER`, `PARTICIPANT_UNREACHABLE` or `OTHER`; `details` is trimmed nonblank text
+  up to 500 characters and is required for `OTHER`.
+- Only one dispute holds an errand at a time: another dispute returns `409 DISPUTE_OPEN`. Any
+  other source state returns `409 INVALID_TRANSITION`; COMPLETED is never reversed. Once the
+  errand is back in its earlier state, a new dispute may be opened.
+- While DISPUTED, pickup, delivery and confirmation return `409 ERRAND_DISPUTED`; a retry of an
+  action already recorded before the dispute still returns `200`. DISPUTED is not terminal, so
+  no Credit event is written and the reward stays reserved.
+- Each change takes the same row lock and history path as participant actions. Repeating the
+  same open, restore or accept for the same dispute returns `200` and changes nothing.
+- History rows entering or leaving DISPUTED carry the `disputeId` and `actorType` `USER` or
+  `ADMIN`. Participants see `decidedByAdministrator: true` and the dispute ID on a FAILED errand,
+  but never which administrator: `actorId`, `failedBy` and `decidedBy` are `null` in participant
+  views and present in admin views.
+- An unconfigured `ADMIN_SERVICE_SECRET` returns `503 SERVICE_NOT_CONFIGURED`; a missing or
+  wrong credential returns `401 UNAUTHENTICATED_SERVICE`.
 
 ## Fulfilment, completion and overdue
 
@@ -172,50 +185,9 @@ late pickup/delivery. Valid late actions also set the marker in their transactio
 so a delayed worker cannot miss lateness if delivery wins the race. Rejected actions
 and replays do not cause overdue writes. Preserve the marker after late delivery
 and completion. On-time DELIVERED orders awaiting confirmation are not overdue.
-OPEN/CANCELLED/EXPIRED/FAILED/COMPLETED do not newly acquire markers in the worker.
-A valid late failure records/preserves the marker before changing to FAILED.
-A failure before deliveryDeadline never becomes overdue afterward.
-
-## Unilateral participant failure
-
-Either the requester or assigned courier can mark ACCEPTED/PICKED_UP as FAILED
-without second-party approval, allowing an unfulfillable errand to close without
-admin intervention.
-Participants cannot fail from OPEN, DELIVERED or any terminal state. Only an administrator
-deciding a dispute may fail a DELIVERED errand (see below). There is no automatic penalty or
-fault determination. Physical return/compensation and
-post-delivery complaints are outside this implementation.
-
-```http
-POST /v1/orders/{{orderId}}/fail
-Authorization: Bearer {{accessToken}}
-Content-Type: application/json
-```
-
-```json
-{"reason": "ITEM_DAMAGED", "details": "Item damaged after pickup"}
-```
-
-Required `reason` is one of `ITEM_UNAVAILABLE`, `ITEM_DAMAGED`, `UNABLE_TO_PICK_UP`,
-`UNABLE_TO_DELIVER`, `PARTICIPANT_UNREACHABLE`, `OTHER`. Optional `details` is trimmed
-nonblank text up to 500 characters; OTHER requires details. These neutral categories
-are implementation choices, not proof of fault. Unknown fields, query parameters,
-client actor/state and penalties are rejected. Authentication is checked afresh.
-
-200 returns participant detail with `failedAt`, `failedBy`, `failureReason` and
-`failureDetails`. These fields and history's failureReason/failureDetails are
-participant data, never public assessment fields. Row lock and database time guard
-the action; FAILED, actor/time/reason, one history entry and `order.failed.v1`
-release intent commit together without a Credit HTTP call. No transfer is requested.
-
-The same actor with the same normalized reason/details returns the saved result
-without writes. Changing the report or another participant reporting after failure
-returns 409 `FAILURE_CONFLICT`; an invalid state returns 409 `INVALID_TRANSITION`.
-Unrelated users receive 404. Failure versus delivery follows the first valid locked
-transition; if delivery wins, failure is rejected unchanged. Failure versus pickup
-can record pickup first then failure, or failure first then reject pickup.
-The UI requires confirmation, freezes an ambiguous report for the same-body retry,
-shows recorded reason/history and says credit release is processed separately.
+OPEN/CANCELLED/EXPIRED/FAILED/COMPLETED/DISPUTED do not newly acquire markers in the worker.
+A late dispute records/preserves the marker as history before changing to DISPUTED; an errand
+returned to ACCEPTED/PICKED_UP after its deadline is marked by the worker's next pass.
 
 ## Terminal events: Credit-facing v1 contract
 
@@ -382,7 +354,8 @@ PostgreSQL tests exercise competing requests, leases, transaction rollback,
 lost commit acknowledgments, grants and queries in a disposable database.
 
 Lifecycle coverage includes pickup, delivery, completion, overdue tracking and
-unilateral participant failure, with security and retry invariants. Credit owns
+disputed errands (hold, withdrawal, rejection and accepted failure), with security and
+retry invariants. Credit owns
 wallet conservation and ledger correctness. Verify terminal-event settlement
 against Credit's wallet and ledger in an integrated environment. Automated doubles
 under `tests/` exercise dependency behavior; they do not verify real settlement

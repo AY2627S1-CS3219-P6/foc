@@ -119,7 +119,10 @@ services:
   order-service:
     <<: *app
     build: ../../order-service
-    environment: *order-env
+    environment:
+      <<: *order-env
+      # Only Admin Service may hold errands in, or release them from, DISPUTED.
+      ADMIN_SERVICE_SECRET: ${ORDER_ADMIN_SHARED_SECRET:?Generate cloud secrets first}
 
   order-recovery:
     <<: *app
@@ -204,6 +207,7 @@ services:
       DATABASE_URL: ${ADMIN_DATABASE_URL:?Generate the EC2 cloud environment first}
       USER_SERVICE_BASE_URL: http://user-service:8000
       ORDER_SERVICE_BASE_URL: http://order-service:8002
+      ORDER_SERVICE_SECRET: ${ORDER_ADMIN_SHARED_SECRET:?Generate cloud secrets first}
 
   voice-assist-service:
     <<: *app

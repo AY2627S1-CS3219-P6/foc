@@ -1,48 +1,52 @@
 // AI Assistance Disclosure:
-// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
-// Scope: Implemented Admin Dashboard labels, formatting, errors and drafts; added report and
-// errand outcome helpers.
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08,
+// 2026-11-10
+// Scope: Implemented Admin Dashboard labels, formatting, errors and drafts; added report helpers
+// and disputed-errand labels.
 // Author review: I validated correctness and supplied additional boundary checks.
 
 import { isApiRequestError } from "../api/client";
-import type { AuditEntry, DisputeStatus, DisputeSummary, ErrandOutcome, ReporterRole } from "../api/admin-service";
-import type { OrderState } from "../api/order-service";
+import type { AuditEntry, DisputeStatus, DisputeSummary, ProblemChoice, ReporterRole } from "../api/admin-service";
+import { failureReasons, type OrderState } from "../api/order-service";
 import { orderError } from "./order-presentation";
 
-export const LIVE_STATES: OrderState[] = ["OPEN", "ACCEPTED", "PICKED_UP", "DELIVERED"];
+export const LIVE_STATES: OrderState[] = ["OPEN", "ACCEPTED", "PICKED_UP", "DELIVERED", "DISPUTED"];
 export const PAST_STATES: OrderState[] = ["COMPLETED", "CANCELLED", "EXPIRED", "FAILED"];
 export const ALL_STATES: OrderState[] = [...LIVE_STATES, ...PAST_STATES];
 
 export const disputeStatusLabels: Record<DisputeStatus, string> = {
   OPEN: "Open",
   UNDER_REVIEW: "Under review",
-  RESOLVED: "Resolved",
+  ACCEPTED: "Accepted",
   REJECTED: "Rejected",
+  WITHDRAWN: "Withdrawn",
 };
 
 export const auditActionLabels: Record<AuditEntry["action"], string> = {
   DISPUTE_CREATE: "Record dispute",
   DISPUTE_REPORT: "Report problem",
   DISPUTE_TRANSITION: "Change dispute status",
-  ERRAND_DECISION: "Decide errand outcome",
+  DISPUTE_WITHDRAW: "Withdraw dispute",
+  DISPUTE_STATEMENT: "Send dispute details",
+  ERRAND_DECISION: "Change errand for dispute",
 };
 
-export const errandOutcomeLabels: Record<ErrandOutcome, string> = {
-  FAILED: "Errand marked as failed",
-  COMPLETED: "Errand marked as completed",
-};
-
-// N2F3.7: the outcomes Order accepts from each errand state. COMPLETED has already paid the courier.
-export function allowedOutcomes(state: OrderState): ErrandOutcome[] {
-  if (state === "DELIVERED") return ["FAILED", "COMPLETED"];
-  if (state === "ACCEPTED" || state === "PICKED_UP") return ["FAILED"];
-  return [];
+/** The selected problem as both participants see it, e.g. "Other: courier never replied". */
+export function problemLabel({ problem, problemDetails }: ProblemChoice): string {
+  if (problem === "OTHER") return `Other: ${problemDetails ?? ""}`;
+  return problemDetails ? `${failureReasons[problem]}: ${problemDetails}` : failureReasons[problem];
 }
 
-export function creditEffect(outcome: ErrandOutcome, amount: number): string {
-  return outcome === "FAILED"
-    ? `${amount} credits return to the requester.`
-    : `${amount} credits are paid to the courier.`;
+/** What each final dispute status did to the errand, for administrators and participants. */
+export const disputeOutcomes: Partial<Record<DisputeStatus, string>> = {
+  ACCEPTED: "The errand was marked as failed, so the reward returns to the requester.",
+  REJECTED: "The errand continues from where it was before the dispute.",
+  WITHDRAWN: "The errand continues from where it was before the dispute.",
+};
+
+/** The label for a dispute's closing reason, which depends on who closed it. */
+export function closingReasonLabel(status: DisputeStatus): string {
+  return status === "WITHDRAWN" ? "Withdrawal reason" : "Decision";
 }
 
 const reporterLabels: Record<ReporterRole, string> = { REQUESTER: "Requester", COURIER: "Courier" };
@@ -99,10 +103,12 @@ export function updatedAt(time: Date): string {
 const messages: Record<string, string> = {
   VERSION_CONFLICT: "This dispute was changed by someone else. Refresh and review it before trying again.",
   INVALID_TRANSITION: "This status change is no longer allowed. Refresh to see the current status.",
-  REASON_REQUIRED: "Give a reason to resolve or reject this dispute.",
+  REASON_REQUIRED: "Give a reason to accept or reject this dispute.",
   ORDER_NOT_FOUND: "No errand has this ID.",
-  ERRAND_CHANGED: "The errand changed, so this outcome is no longer possible. Refresh and decide again.",
-  DECISION_INCOMPLETE: "The errand outcome was applied, but the dispute was not closed. Refresh and close it with the same outcome.",
+  ERRAND_CHANGED: "The errand no longer matches this dispute. Refresh and review it again.",
+  DECISION_INCOMPLETE: "The errand was updated, but the dispute was not. Refresh and repeat the same decision to finish.",
+  DISPUTE_ALREADY_OPEN: "A dispute about this errand is already open. Review that dispute instead.",
+  REPORT_NOT_ALLOWED: "Disputes can be raised only while a courier is working on the errand.",
   ORDER_UNAVAILABLE: "Errand records are unavailable, so nothing was saved. Try again.",
   IDEMPOTENCY_KEY_REUSED: "This form was already used for a different dispute. Reload the page and try again.",
   DISPUTE_NOT_FOUND: "This dispute does not exist.",

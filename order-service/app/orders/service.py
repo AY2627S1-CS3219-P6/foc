@@ -61,9 +61,12 @@ def project_order(order, *, participant=False, admin=False):
             failedBy=order.get("failed_by"),
             failureReason=order.get("failure_reason"),
             failureDetails=order.get("failure_details"),
+            disputeId=order.get("dispute_id"),
+            disputedFromState=order.get("disputed_from_state"),
+            disputedAt=order.get("disputed_at"),
         )
         if order.get("decided_by") is not None:
-            # N2F3.7: participants see that an administrator decided, not who did.
+            # N2F3.7: participants see that an administrator decided the dispute, not who did.
             result.update(
                 decidedByAdministrator=True,
                 decisionDisputeId=order["decision_dispute_id"],

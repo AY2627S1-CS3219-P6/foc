@@ -6,6 +6,7 @@
 
 """Authenticated creation, retrieval and OPEN lifecycle endpoints."""
 
+import hmac
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
@@ -17,14 +18,13 @@ from fastapi.responses import JSONResponse
 from app.orders.analytics import period_bounds, summarize, summarize_user
 from app.orders.errors import ApiError, not_found
 from app.orders.schemas import (
-    AdminDecision,
-    AdminFailOrder,
+    AcceptDispute,
     AdminQuery,
     AnalyticsQuery,
     CreateOrder,
     CreationResponse,
-    FailOrder,
     HistoryEntry,
+    OpenDispute,
     OpenQuery,
     OrderAnalytics,
     OrderAssessment,
@@ -32,6 +32,7 @@ from app.orders.schemas import (
     OwnQuery,
     Page,
     PageQuery,
+    RestoreDispute,
     UserOrderAnalytics,
 )
 from app.orders.service import CreationService, operation_view, project_order, visible_order
@@ -180,16 +181,6 @@ async def own_orders(request: Request, auth: Auth, query: Annotated[OwnQuery, Qu
     return page_result([project_order(row, participant=True) for row in rows], total, query)
 
 
-@router.post("/orders/{order_id}/fail", response_model=OrderParticipant)
-async def fail_order(order_id: UUID, request: Request, body: FailOrder, auth: Auth):
-    if request.query_params:
-        raise ApiError(422, "VALIDATION_ERROR", "This action accepts no query fields.")
-    row = await request.app.state.lifecycle.transition(
-        order_id, auth[0].user_id, "fail", failure=body.model_dump()
-    )
-    return project_order(row, participant=True)
-
-
 @router.get("/admin/orders", response_model=Page[OrderParticipant])
 async def admin_orders(request: Request, auth: Auth, query: Annotated[AdminQuery, Query()]):
     require_admin(auth[0])
@@ -232,30 +223,6 @@ async def admin_order_detail(order_id: UUID, request: Request, auth: Auth):
     return project_order(row, participant=True, admin=True)
 
 
-# N2F3.7: the only lifecycle actions open to administrators, each tied to a dispute. Admin
-# Service checks that the dispute is under review before calling these.
-@router.post("/admin/orders/{order_id}/fail", response_model=OrderParticipant)
-async def admin_fail_order(order_id: UUID, request: Request, body: AdminFailOrder, auth: Auth):
-    require_admin(auth[0])
-    if request.query_params:
-        raise ApiError(422, "VALIDATION_ERROR", "This action accepts no query fields.")
-    row = await request.app.state.lifecycle.decide(
-        order_id, auth[0].user_id, "fail", dispute_id=body.dispute_id, reason=body.reason
-    )
-    return project_order(row, participant=True, admin=True)
-
-
-@router.post("/admin/orders/{order_id}/complete", response_model=OrderParticipant)
-async def admin_complete_order(order_id: UUID, request: Request, body: AdminDecision, auth: Auth):
-    require_admin(auth[0])
-    if request.query_params:
-        raise ApiError(422, "VALIDATION_ERROR", "This action accepts no query fields.")
-    row = await request.app.state.lifecycle.decide(
-        order_id, auth[0].user_id, "complete", dispute_id=body.dispute_id
-    )
-    return project_order(row, participant=True, admin=True)
-
-
 @router.get("/admin/orders/{order_id}/history", response_model=Page[HistoryEntry])
 async def admin_order_history(
     order_id: UUID,
@@ -288,3 +255,70 @@ async def order_history(
     )
     rows, total = await request.app.state.repository.order_history(order_id, query)
     return page_result([history_entry(row) for row in rows], total, query)
+
+
+def authorize_admin_service(
+    request: Request, x_foc_service_secret: Annotated[str, Header()] = ""
+) -> None:
+    expected = request.app.state.settings.admin_service_secret
+    if expected is None:
+        raise ApiError(503, "SERVICE_NOT_CONFIGURED", "Order is not configured for Admin.")
+    if not hmac.compare_digest(
+        x_foc_service_secret.encode(), expected.get_secret_value().encode()
+    ):
+        raise ApiError(401, "UNAUTHENTICATED_SERVICE", "A valid service credential is required.")
+
+
+# N2F3: Admin Service owns disputes and is the only caller allowed to hold an errand in, or
+# release it from, DISPUTED. It forwards the acting user's session, which Order checks again.
+internal_router = APIRouter(
+    prefix="/v1/internal/orders",
+    tags=["Internal"],
+    dependencies=[Depends(authorize_admin_service)],
+)
+
+
+def dispute_actor(principal, actor_type: str):
+    if actor_type == "ADMIN":
+        require_admin(principal)
+
+
+def no_query(request: Request):
+    if request.query_params:
+        raise ApiError(422, "VALIDATION_ERROR", "This action accepts no query fields.")
+
+
+@internal_router.post("/{order_id}/disputes", response_model=OrderParticipant)
+async def open_dispute(order_id: UUID, request: Request, body: OpenDispute, auth: Auth):
+    no_query(request)
+    dispute_actor(auth[0], body.actor_type)
+    row = await request.app.state.lifecycle.open_dispute(
+        order_id, auth[0].user_id, body.actor_type, dispute_id=body.dispute_id
+    )
+    return project_order(row, participant=True, admin=True)
+
+
+@internal_router.post(
+    "/{order_id}/disputes/{dispute_id}/restore", response_model=OrderParticipant
+)
+async def restore_errand(
+    order_id: UUID, dispute_id: UUID, request: Request, body: RestoreDispute, auth: Auth
+):
+    no_query(request)
+    dispute_actor(auth[0], body.actor_type)
+    row = await request.app.state.lifecycle.restore(
+        order_id, auth[0].user_id, body.actor_type, dispute_id=dispute_id
+    )
+    return project_order(row, participant=True, admin=True)
+
+
+@internal_router.post("/{order_id}/disputes/{dispute_id}/accept", response_model=OrderParticipant)
+async def accept_dispute(
+    order_id: UUID, dispute_id: UUID, request: Request, body: AcceptDispute, auth: Auth
+):
+    no_query(request)
+    require_admin(auth[0])
+    row = await request.app.state.lifecycle.accept_dispute(
+        order_id, auth[0].user_id, dispute_id=dispute_id, failure=body.model_dump()
+    )
+    return project_order(row, participant=True, admin=True)

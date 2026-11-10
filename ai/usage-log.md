@@ -1809,3 +1809,82 @@ JSON files remain unchanged because JSON does not permit header comments. The co
 - [`deploy/aws/ssm/deploy-release.json`](../deploy/aws/ssm/deploy-release.json) — commits `fc4b9df`, `05f5d88`.
 - [`order-service/package-lock.json`](../order-service/package-lock.json) — commits `c12b816`.
 - [`order-service/package.json`](../order-service/package.json) — commits `c12b816`.
+
+## 2026-11-10 04:29:29 SGT — Disputed errand state
+
+**Tool and mode** — Claude Code (model: Claude Opus 5.5), generate.
+
+**Prompt excerpts**
+
+> report workflow should be changed. there is already a marked failed portion as part of errand, and should be build on top of that. do the workflow properly. suggest changes if necessary
+
+> go and implement, make sure there are proper commits and commit messages, then i will also need to push it into github after
+
+**Prompt summary** — I specified the workflow and answered every design question before implementation: a DISPUTED errand state replacing participant failure, the selected problem and its visibility, private statements, reporter-only withdrawal while OPEN, Accepted/Rejected decisions, one dispute per errand, Admin Service ownership, calling Order first with retries, and a shared service credential between Admin and Order.
+
+**Key response** — Implemented the specified workflow: the DISPUTED state and internal dispute routes in Order Service; problems, statements, withdrawal and errand-changing decisions in Admin Service; the deployment credential; and the participant and administrator pages in the web client, with unit, integration, component and end-to-end tests.
+
+**Commits** — [`33b6da0`](https://github.com/AY2627S1-CS3219-P6/foc/commit/33b6da0), [`1ba1f79`](https://github.com/AY2627S1-CS3219-P6/foc/commit/1ba1f79), [`032e1a7`](https://github.com/AY2627S1-CS3219-P6/foc/commit/032e1a7), [`bd01cad`](https://github.com/AY2627S1-CS3219-P6/foc/commit/bd01cad).
+
+**Affected files**
+
+- [`admin-service/.env.docker.example`](../admin-service/.env.docker.example)
+- [`admin-service/.env.example`](../admin-service/.env.example)
+- [`admin-service/AGENTS.md`](../admin-service/AGENTS.md)
+- [`admin-service/API.md`](../admin-service/API.md)
+- [`admin-service/README.md`](../admin-service/README.md)
+- [`admin-service/app/admin/api.py`](../admin-service/app/admin/api.py)
+- [`admin-service/app/admin/disputes.py`](../admin-service/app/admin/disputes.py)
+- [`admin-service/app/admin/orders.py`](../admin-service/app/admin/orders.py)
+- [`admin-service/app/admin/reports.py`](../admin-service/app/admin/reports.py)
+- [`admin-service/app/admin/repository.py`](../admin-service/app/admin/repository.py)
+- [`admin-service/app/admin/schemas.py`](../admin-service/app/admin/schemas.py)
+- [`admin-service/app/admin/tables.py`](../admin-service/app/admin/tables.py)
+- [`admin-service/app/core/config.py`](../admin-service/app/core/config.py)
+- [`admin-service/supabase/migrations/20261110000100_dispute_workflow.sql`](../admin-service/supabase/migrations/20261110000100_dispute_workflow.sql)
+- [`admin-service/tests/admin_fakes.py`](../admin-service/tests/admin_fakes.py)
+- [`admin-service/tests/integration/test_disputes.py`](../admin-service/tests/integration/test_disputes.py)
+- [`admin-service/tests/test_dispute_rules.py`](../admin-service/tests/test_dispute_rules.py)
+- [`admin-service/tests/test_disputes_api.py`](../admin-service/tests/test_disputes_api.py)
+- [`admin-service/tests/test_orders_client.py`](../admin-service/tests/test_orders_client.py)
+- [`admin-service/tests/test_reports_api.py`](../admin-service/tests/test_reports_api.py)
+- [`deploy/aws/.env.example`](../deploy/aws/.env.example)
+- [`deploy/aws/README.md`](../deploy/aws/README.md)
+- [`deploy/aws/compose.yaml`](../deploy/aws/compose.yaml)
+- [`deploy/aws/scripts/generate_env.py`](../deploy/aws/scripts/generate_env.py)
+- [`deploy/aws/scripts/validate.py`](../deploy/aws/scripts/validate.py)
+- [`deploy/aws/tests/test_cloud_helpers.py`](../deploy/aws/tests/test_cloud_helpers.py)
+- [`order-service/.env.docker.example`](../order-service/.env.docker.example)
+- [`order-service/.env.example`](../order-service/.env.example)
+- [`order-service/API.md`](../order-service/API.md)
+- [`order-service/app/core/config.py`](../order-service/app/core/config.py)
+- [`order-service/app/main.py`](../order-service/app/main.py)
+- [`order-service/app/orders/analytics.py`](../order-service/app/orders/analytics.py)
+- [`order-service/app/orders/api.py`](../order-service/app/orders/api.py)
+- [`order-service/app/orders/lifecycle.py`](../order-service/app/orders/lifecycle.py)
+- [`order-service/app/orders/lifecycle_repository.py`](../order-service/app/orders/lifecycle_repository.py)
+- [`order-service/app/orders/schemas.py`](../order-service/app/orders/schemas.py)
+- [`order-service/app/orders/service.py`](../order-service/app/orders/service.py)
+- [`order-service/app/orders/tables.py`](../order-service/app/orders/tables.py)
+- [`order-service/supabase/migrations/20261110000000_errand_disputes.sql`](../order-service/supabase/migrations/20261110000000_errand_disputes.sql)
+- [`order-service/tests/integration/test_disputes.py`](../order-service/tests/integration/test_disputes.py)
+- [`order-service/tests/integration/test_order_events.py`](../order-service/tests/integration/test_order_events.py)
+- [`order-service/tests/test_disputes.py`](../order-service/tests/test_disputes.py)
+- [`web-client/src/api/admin-service.ts`](../web-client/src/api/admin-service.ts)
+- [`web-client/src/api/order-service.ts`](../web-client/src/api/order-service.ts)
+- [`web-client/src/app/admin-presentation.ts`](../web-client/src/app/admin-presentation.ts)
+- [`web-client/src/app/order-presentation.ts`](../web-client/src/app/order-presentation.ts)
+- [`web-client/src/components/admin-ui.tsx`](../web-client/src/components/admin-ui.tsx)
+- [`web-client/src/components/errand-report.tsx`](../web-client/src/components/errand-report.tsx)
+- [`web-client/src/components/order-lifecycle.tsx`](../web-client/src/components/order-lifecycle.tsx)
+- [`web-client/src/pages/admin-dispute-detail-page.tsx`](../web-client/src/pages/admin-dispute-detail-page.tsx)
+- [`web-client/src/pages/admin-order-detail-page.tsx`](../web-client/src/pages/admin-order-detail-page.tsx)
+- [`web-client/src/pages/admin-orders-page.tsx`](../web-client/src/pages/admin-orders-page.tsx)
+- [`web-client/src/pages/order-detail-page.tsx`](../web-client/src/pages/order-detail-page.tsx)
+- [`web-client/src/styles/admin.css`](../web-client/src/styles/admin.css)
+- [`web-client/src/styles/order.css`](../web-client/src/styles/order.css)
+- [`web-client/tests/component/admin-dispute-detail-page.test.tsx`](../web-client/tests/component/admin-dispute-detail-page.test.tsx)
+- [`web-client/tests/component/admin-orders-page.test.tsx`](../web-client/tests/component/admin-orders-page.test.tsx)
+- [`web-client/tests/component/errand-report.test.tsx`](../web-client/tests/component/errand-report.test.tsx)
+- [`web-client/tests/e2e/orders.spec.ts`](../web-client/tests/e2e/orders.spec.ts)
+- [`web-client/tests/unit/order-service.test.ts`](../web-client/tests/unit/order-service.test.ts)

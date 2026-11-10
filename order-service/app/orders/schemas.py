@@ -26,7 +26,8 @@ class ApiModel(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, extra="forbid")
 
 
-ParticipantFailureReason = Literal[
+# N2F3: the problem a reporter selects; an accepted dispute records it as the failure reason.
+FailureReason = Literal[
     "ITEM_UNAVAILABLE",
     "ITEM_DAMAGED",
     "UNABLE_TO_PICK_UP",
@@ -34,12 +35,23 @@ ParticipantFailureReason = Literal[
     "PARTICIPANT_UNREACHABLE",
     "OTHER",
 ]
-# ADMIN_DECISION is recorded only by an administrator deciding a dispute (N2F3.7).
-FailureReason = ParticipantFailureReason | Literal["ADMIN_DECISION"]
+DisputeActor = Literal["USER", "ADMIN"]
 
 
-class FailOrder(ApiModel):
-    reason: ParticipantFailureReason
+class OpenDispute(ApiModel):
+    # Admin Service names the dispute it is recording and whether a participant or an
+    # administrator raised it; Order still checks that actor from the forwarded session.
+    dispute_id: UUID
+    actor_type: DisputeActor
+
+
+class RestoreDispute(ApiModel):
+    # USER: the reporter withdrew the dispute. ADMIN: an administrator rejected it.
+    actor_type: DisputeActor
+
+
+class AcceptDispute(ApiModel):
+    reason: FailureReason
     details: str | None = Field(default=None, min_length=1, max_length=500)
 
     @field_validator("details", mode="before")
@@ -52,20 +64,6 @@ class FailOrder(ApiModel):
         if self.reason == "OTHER" and not self.details:
             raise ValueError("Provide details when selecting Other")
         return self
-
-
-class AdminDecision(ApiModel):
-    # N2F3.7: every administrator errand decision belongs to a dispute under review.
-    dispute_id: UUID
-
-
-class AdminFailOrder(AdminDecision):
-    reason: str = Field(min_length=1, max_length=500)
-
-    @field_validator("reason", mode="before")
-    @classmethod
-    def trim_reason(cls, value):
-        return value.strip() if isinstance(value, str) else value
 
 
 class CreateOrder(ApiModel):
@@ -101,7 +99,15 @@ class CreateOrder(ApiModel):
 
 
 OrderState = Literal[
-    "OPEN", "ACCEPTED", "PICKED_UP", "DELIVERED", "COMPLETED", "CANCELLED", "EXPIRED", "FAILED"
+    "OPEN",
+    "ACCEPTED",
+    "PICKED_UP",
+    "DELIVERED",
+    "DISPUTED",
+    "COMPLETED",
+    "CANCELLED",
+    "EXPIRED",
+    "FAILED",
 ]
 
 
@@ -238,6 +244,11 @@ class OrderParticipant(OrderAssessment):
     decided_by_administrator: bool = False
     decision_dispute_id: UUID | None = None
     decided_by: UUID | None = None
+    # N2F3: the open dispute holding the errand and the state it returns to if withdrawn or
+    # rejected.
+    dispute_id: UUID | None = None
+    disputed_from_state: Literal["ACCEPTED", "PICKED_UP", "DELIVERED"] | None = None
+    disputed_at: AwareDatetime | None = None
 
 
 class CreationResponse(ApiModel):

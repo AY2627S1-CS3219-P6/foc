@@ -1,7 +1,8 @@
 // AI Assistance Disclosure:
-// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08
+// Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-28, 2026-10-29, 2026-11-08,
+// 2026-11-10
 // Scope: Implemented shared Admin Dashboard panels, badges, facts and lists; added the pending
-// settlement notice.
+// settlement notice and disputed-errand details.
 // Author review: I validated correctness and supplied additional boundary checks.
 
 import type { PropsWithChildren, ReactNode } from "react";
@@ -9,7 +10,7 @@ import { Link } from "react-router-dom";
 import type { DisputeStatus, DisputeSummary } from "../api/admin-service";
 import type { Settlement } from "../api/credit-service";
 import type { OrderState } from "../api/order-service";
-import { adminError, disputeOrigin, disputeStatusLabels, shortId, updatedAt } from "../app/admin-presentation";
+import { adminError, disputeOrigin, disputeStatusLabels, problemLabel, shortId, updatedAt } from "../app/admin-presentation";
 import { orderTime } from "../app/order-presentation";
 
 type PanelResource = { loading: boolean; error: unknown; retrievedAt: Date | null; reload: () => void };
@@ -68,6 +69,7 @@ export function SettlementFacts({ settlement, errandState }: { settlement: Settl
       <AdminFact label="Last change">{orderTime(settlement.updatedAt)} SGT</AdminFact>
     </dl>
     {pending ? <p role="status">{errandState === "FAILED" ? "Release to the requester is processing." : "Transfer to the courier is processing."} Refresh shortly to see it settled.</p> : null}
+    {settlement.state === "RESERVED" && errandState === "DISPUTED" ? <p role="status">The reward stays reserved while the errand is disputed.</p> : null}
     <p className="order-muted">Credits follow the errand: they move only when the errand ends.</p>
   </>;
 }
@@ -76,7 +78,7 @@ export function DisputeList({ items }: { items: DisputeSummary[] }) {
   return <ul className="admin-list">
     {items.map((dispute) => <li key={dispute.disputeId}>
       <Link className="admin-list-item" to={`/admin/disputes/${dispute.disputeId}`}>
-        <span className="admin-row-title"><strong className="admin-clamp">{dispute.description}</strong><DisputeBadge status={dispute.status} /></span>
+        <span className="admin-row-title"><strong className="admin-clamp">{problemLabel(dispute)}</strong><DisputeBadge status={dispute.status} /></span>
         <span className="admin-row-meta">
           <span>Dispute #{shortId(dispute.disputeId)}</span>
           <span>Errand #{shortId(dispute.orderId)}</span>
