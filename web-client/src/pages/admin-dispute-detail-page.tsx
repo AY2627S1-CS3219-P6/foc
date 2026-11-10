@@ -9,9 +9,9 @@ import { type FormEvent, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { adminService, NEXT_STATUSES, type Dispute, type DisputeTarget } from "../api/admin-service";
 import { adminCreditService, type Settlement } from "../api/credit-service";
-import { adminOrderService, failureReasons, stateNames, type OrderParticipant } from "../api/order-service";
+import { adminOrderService, failureReasonLabel, failureReasons, stateNames, type OrderParticipant } from "../api/order-service";
 import {
-  adminError, clearDraft, closingReasonLabel, disputeOrigin, disputeOutcomes, disputeStatusLabels, needsRefresh,
+  adminError, clearDraft, closingReasonLabel, disputeOrigin, disputeOutcome, disputeStatusLabels, needsRefresh,
   noReservation, problemLabel, readDraft, shortId, writeDraft,
 } from "../app/admin-presentation";
 import { orderTime } from "../app/order-presentation";
@@ -34,8 +34,12 @@ type StatusFormProps = {
 
 /** What accepting or rejecting will do to the errand, shown before the administrator confirms. */
 function errandEffect(target: DisputeTarget, dispute: Dispute, errand: OrderParticipant, amount: number): string {
+  if (dispute.legacy) {
+    return "This earlier report never held the errand, so deciding it records your decision only. The errand and its credits stay as they are.";
+  }
   if (target === "ACCEPTED") {
-    return `Errand #${shortId(errand.orderId)} will be marked as failed (${failureReasons[dispute.problem]}). ${amount} credits return to the requester.`;
+    const problem = dispute.problem ? failureReasons[dispute.problem] : "reported problem";
+    return `Errand #${shortId(errand.orderId)} will be marked as failed (${problem}). ${amount} credits return to the requester.`;
   }
   const back = errand.disputedFromState ? stateNames[errand.disputedFromState].toLowerCase() : "its earlier state";
   return `Errand #${shortId(errand.orderId)} returns to ${back} and its lifecycle continues. Credits stay reserved.`;
@@ -60,7 +64,7 @@ function StatusForm({ dispute, errand, settlement, onChanged }: StatusFormProps)
     return <section aria-labelledby="admin-update-status" className="order-panel admin-wide">
       <h2 id="admin-update-status">Update status</h2>
       <p>This dispute is {disputeStatusLabels[dispute.status].toLowerCase()} and cannot change further.</p>
-      {disputeOutcomes[dispute.status] ? <p>{disputeOutcomes[dispute.status]}</p> : null}
+      {disputeOutcome(dispute) ? <p>{disputeOutcome(dispute)}</p> : null}
     </section>;
   }
   const chosen = target;
@@ -68,7 +72,8 @@ function StatusForm({ dispute, errand, settlement, onChanged }: StatusFormProps)
   // The reserved amount is what moves; fall back to the reward if Credit has not answered.
   const amount = settlement?.state === "RESERVED" ? settlement.amount : errand?.reward ?? 0;
   // A decision changes the errand, so it needs the errand held for this very dispute.
-  const held = errand?.state === "DISPUTED" && errand.disputeId === dispute.disputeId;
+  // Legacy disputes never held the errand, so they can be decided whatever its state.
+  const held = dispute.legacy || (errand?.state === "DISPUTED" && errand.disputeId === dispute.disputeId);
 
   function review(event: FormEvent) {
     event.preventDefault();
@@ -166,6 +171,8 @@ export function AdminDisputeDetailPage() {
         {data ? <>
           <p className="order-description">{problemLabel(data)}</p>
           <dl className="order-facts">
+            {/* Legacy participant reports kept their original description. */}
+            {data.legacy && data.reporterRole && data.description ? <AdminFact label="Earlier description">{data.description}</AdminFact> : null}
             {/* Only administrator records carry private notes and evidence; participants send statements. */}
             {data.reporterRole ? null : <>
               <AdminFact label="Admin notes">{data.description}</AdminFact>
@@ -177,7 +184,7 @@ export function AdminDisputeDetailPage() {
             <AdminFact label="Raised at">{orderTime(data.createdAt)} SGT</AdminFact>
             {data.resolutionReason ? <AdminFact label={closingReasonLabel(data.status)}>{data.resolutionReason}</AdminFact> : null}
           </dl>
-          {disputeOutcomes[data.status] ? <p>{disputeOutcomes[data.status]}</p> : null}
+          {disputeOutcome(data) ? <p>{disputeOutcome(data)}</p> : null}
         </> : null}
       </AdminPanel>
 
@@ -208,7 +215,7 @@ export function AdminDisputeDetailPage() {
           <p>{errand.itemDescription}</p>
           {errand.state === "DISPUTED" && data && errand.disputeId === data.disputeId && errand.disputedFromState
             ? <p className="order-muted">Held for this dispute. Rejecting returns it to {stateNames[errand.disputedFromState].toLowerCase()}.</p> : null}
-          {errand.failureReason ? <p className="order-muted">Failure reason: {failureReasons[errand.failureReason]}{errand.failureDetails ? `: ${errand.failureDetails}` : ""}</p> : null}
+          {errand.failureReason ? <p className="order-muted">Failure reason: {failureReasonLabel(errand.failureReason)}{errand.failureDetails ? `: ${errand.failureDetails}` : ""}</p> : null}
           {errand.decidedByAdministrator ? <p className="order-muted">Failed by an administrator{errand.decisionDisputeId ? ` for dispute #${shortId(errand.decisionDisputeId)}` : ""}.</p> : null}
           <Link to={`/admin/orders/${errand.orderId}`}>View errand and its history</Link>
         </> : null}

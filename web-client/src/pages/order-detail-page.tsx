@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { isApiRequestError } from "../api/client";
-import { failureReasons, orderService, type OrderDetail, type OrderHistoryEntry, type OrderPage } from "../api/order-service";
+import { failureReasonLabel, orderService, type OrderDetail, type OrderHistoryEntry, type OrderPage } from "../api/order-service";
 import { useAuth } from "../app/use-auth";
 import { OrderBadge, OrderFailure, OrderPagination, OrderShell, OrderSummary } from "../components/order-ui";
 import { orderError, orderTime } from "../app/order-presentation";
@@ -69,7 +69,7 @@ function OrderHistory({ orderId }: { orderId: string }) {
   }, [orderId, page, reload, withCurrentAccess]);
   return <section className="order-panel"><h2>Errand history</h2>
     {error ? <p role="alert">{error} <button className="order-text-button" onClick={() => setReload((n) => n + 1)} type="button">Retry history</button></p> : !result ? <p role="status">Loading history…</p> : <>
-      <ol className="order-history">{result.items.map((entry) => <li key={entry.sequence}><OrderBadge state={entry.newState} /><time dateTime={entry.occurredAt}>{orderTime(entry.occurredAt)} SGT</time><small>{entry.actorType === "SYSTEM" ? "Updated automatically" : entry.actorType === "ADMIN" ? "Updated by an administrator" : "Updated by a participant"}</small>{entry.failureReason ? <p>{failureReasons[entry.failureReason]}{entry.failureDetails ? `: ${entry.failureDetails}` : ""}</p> : null}</li>)}</ol>
+      <ol className="order-history">{result.items.map((entry) => <li key={entry.sequence}><OrderBadge state={entry.newState} /><time dateTime={entry.occurredAt}>{orderTime(entry.occurredAt)} SGT</time><small>{entry.actorType === "SYSTEM" ? "Updated automatically" : entry.actorType === "ADMIN" ? "Updated by an administrator" : "Updated by a participant"}</small>{entry.failureReason ? <p>{failureReasonLabel(entry.failureReason)}{entry.failureDetails ? `: ${entry.failureDetails}` : ""}</p> : null}</li>)}</ol>
       {!result.items.length ? <p>No history entries yet.</p> : null}
       {result.total > 20 ? <OrderPagination page={result.page} pageSize={result.pageSize} total={result.total} onPage={setPage} /> : null}
     </>}

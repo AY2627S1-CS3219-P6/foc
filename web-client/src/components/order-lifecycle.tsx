@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { isApiRequestError } from "../api/client";
-import { failureReasons, orderService, stateNames, type OrderAction, type OrderDetail, type OrderParticipant } from "../api/order-service";
+import { failureReasonLabel, orderService, stateNames, type OrderAction, type OrderDetail, type OrderParticipant } from "../api/order-service";
 import { orderError, orderTime } from "../app/order-presentation";
 import { useAuth } from "../app/use-auth";
 
@@ -75,9 +75,10 @@ export function OrderLifecycle({ order, onChanged, onRefresh }: {
       {"disputedFromState" in order && order.disputedFromState ? <p className="order-muted">If the dispute is withdrawn or rejected, the errand continues from {stateNames[order.disputedFromState].toLowerCase()}. If it is accepted, the errand fails and the reward returns to the requester.</p> : null}
     </div> : null}
     {order.state === "FAILED" && "failureReason" in order && order.failureReason ? <div>
-      <p>Failure reason: {order.failureReason === "OTHER" ? `Other: ${order.failureDetails ?? ""}` : failureReasons[order.failureReason]}.</p>
+      <p>Failure reason: {order.failureReason === "OTHER" ? `Other: ${order.failureDetails ?? ""}` : failureReasonLabel(order.failureReason)}.</p>
       {order.failureReason !== "OTHER" && order.failureDetails ? <p>{order.failureDetails}</p> : null}
-      <p>An administrator accepted the reported problem{order.failedAt ? ` on ${orderTime(order.failedAt)} SGT` : ""}.</p>
+      {/* Errands failed before disputed errands were recorded by a participant directly. */}
+      <p>{order.decidedByAdministrator ? "An administrator accepted the reported problem" : `Recorded by the ${order.failedBy === order.requesterId ? "requester" : "courier"}`}{order.failedAt ? ` on ${orderTime(order.failedAt)} SGT` : ""}.</p>
       {!notice ? <p>Reserved credits will be returned to the requester.</p> : null}
     </div> : null}
     {order.state === "COMPLETED" && !notice ? <p>{notices.complete}</p> : null}
