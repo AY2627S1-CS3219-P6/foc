@@ -271,6 +271,25 @@ class MigrationTests(unittest.TestCase):
         last = run.call_args_list[-1].args[0]
         self.assertEqual(last[-3:], ["rm", "--force", first[first.index("--name") + 1]])
 
+    def test_linux_runner_preserves_operator_ownership_without_root_cache_access(self):
+        modules = self.base / "node_modules"
+        package = modules / "supabase/package.json"
+        package.parent.mkdir(parents=True)
+        package.write_text('{"version":"2.117.0"}')
+        with (
+            patch("release_migrations.os.name", "posix"),
+            patch("release_migrations.os.getuid", return_value=1001, create=True),
+            patch("release_migrations.os.getgid", return_value=1002, create=True),
+            patch(
+                "release_migrations.subprocess.run",
+                return_value=subprocess.CompletedProcess([], 0, "", ""),
+            ) as run,
+        ):
+            run_packaged_cli(modules, self.target, "postgresql://example")
+        args = run.call_args_list[0].args[0]
+        self.assertEqual(args[args.index("--user") + 1], "1001:1002")
+        self.assertEqual(args[args.index("--env") + 1], "HOME=/tmp")
+
     def test_failed_migration_never_replaces_containers(self):
         self.expand()
         manifest = release_manifest()
@@ -430,6 +449,13 @@ class PostgreSQLUpgradeTests(unittest.TestCase):
             run_cli(self.binary, workdir, self.url)
         else:
             run_packaged_cli(self.node_modules, workdir, self.url, network=f"container:{self.name}")
+            if os.name == "posix":
+                for path in workdir.rglob("*"):
+                    self.assertEqual(
+                        path.stat().st_uid,
+                        os.getuid(),
+                        "CLI changed ownership of migration source files",
+                    )
 
     def setUp(self):
         self.database = "migration_" + uuid4().hex[:12]

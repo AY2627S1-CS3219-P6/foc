@@ -175,6 +175,11 @@ def run_packaged_cli(node_modules: Path, workdir: Path, url: str, *, network="ho
         name,
         "--network",
         network,
+        # Keep generated .temp files owned by the operator/CI runner. A root
+        # container would make the private source directory impossible to clean.
+        *(["--user", f"{os.getuid()}:{os.getgid()}"] if os.name == "posix" else []),
+        "--env",
+        "HOME=/tmp",
         "--mount",
         f"type=bind,src={node_modules},dst=/foc-cli/node_modules,readonly",
         "--mount",
