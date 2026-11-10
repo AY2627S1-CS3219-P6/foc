@@ -17,8 +17,7 @@ withdrawn, or exchanged for money, and only circulate within the platform.
 | Chen Feng | User & Chat Service |
 | Xie YingWen | Order & Cloud deployment and DevOps |
 | Hwang Jihun | Supplier & Voice Assist Errand Creation Service |
-| Your Name | Your ownership |
-| Your Name | Your ownership |
+| Fong Jing Xiang | Credit & Admin Service |
 
 ---
 
