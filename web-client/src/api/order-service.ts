@@ -19,6 +19,10 @@ export const failureReasons = {
 } as const;
 // N2F3: the problem a reporter selects; an accepted dispute fails the errand with it.
 export type FailureReason = keyof typeof failureReasons;
+// Legacy errands failed by an administrator before disputed errands keep ADMIN_DECISION.
+export type RecordedFailureReason = FailureReason | "ADMIN_DECISION";
+export const failureReasonLabel = (reason: RecordedFailureReason): string =>
+  reason === "ADMIN_DECISION" ? "Decided by an administrator" : failureReasons[reason];
 export const stateNames: Record<OrderState, string> = {
   OPEN: "Open", ACCEPTED: "Accepted", PICKED_UP: "Picked up", DELIVERED: "Delivered", DISPUTED: "Disputed",
   COMPLETED: "Completed", CANCELLED: "Cancelled", EXPIRED: "Expired", FAILED: "Failed",
@@ -61,7 +65,7 @@ export type OrderParticipant = OrderAssessment & {
   overdueAt?: string | null;
   failedAt?: string | null;
   failedBy?: string | null;
-  failureReason?: FailureReason | null;
+  failureReason?: RecordedFailureReason | null;
   failureDetails?: string | null;
   // N2F3.7: participants learn that an administrator decided, never which one.
   decidedByAdministrator?: boolean;
@@ -91,7 +95,7 @@ export type OrderHistoryEntry = {
   actorId: string | null;
   actorType: "USER" | "SYSTEM" | "ADMIN";
   occurredAt: string;
-  failureReason?: FailureReason | null;
+  failureReason?: RecordedFailureReason | null;
   failureDetails?: string | null;
   disputeId?: string | null;
 };

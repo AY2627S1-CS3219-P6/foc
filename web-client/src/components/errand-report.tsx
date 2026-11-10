@@ -8,7 +8,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { disputeReports, OPEN_DISPUTE, type DisputeReport } from "../api/admin-service";
 import { isApiRequestError } from "../api/client";
 import { failureReasons, type FailureReason, type OrderState } from "../api/order-service";
-import { clearDraft, closingReasonLabel, disputeOutcomes, problemLabel, readDraft, writeDraft } from "../app/admin-presentation";
+import { clearDraft, closingReasonLabel, disputeOutcome, problemLabel, readDraft, writeDraft } from "../app/admin-presentation";
 import { orderError, orderTime } from "../app/order-presentation";
 import { useAuth } from "../app/use-auth";
 import { DisputeBadge } from "./admin-ui";
@@ -226,7 +226,8 @@ export function ErrandReportPanel({ orderId, state, onErrandChanged }: {
     onErrandChanged?.();
   }
 
-  const openReport = reports?.find((report) => OPEN_DISPUTE.includes(report.status)) ?? null;
+  // Legacy disputes never held the errand, so they do not block a new report.
+  const openReport = reports?.find((report) => OPEN_DISPUTE.includes(report.status) && !report.legacy) ?? null;
   const canReport = reports !== null && !openReport && REPORTABLE_STATES.includes(state);
 
   return <section aria-labelledby="errand-report-heading" className="order-panel">
@@ -241,14 +242,14 @@ export function ErrandReportPanel({ orderId, state, onErrandChanged }: {
             <time dateTime={report.createdAt}>{origin(report)} {orderTime(report.createdAt)} SGT</time>
             <p><strong>Problem:</strong> {problemLabel(report)}</p>
             {report.resolutionReason ? <p><strong>{closingReasonLabel(report.status)}:</strong> {report.resolutionReason}</p> : null}
-            {disputeOutcomes[report.status] ? <p>{disputeOutcomes[report.status]}</p> : null}
-            {isOpen ? <p className="order-muted">{report.status === "OPEN" ? "Waiting for an administrator to review it." : "An administrator is reviewing it."} The errand is on hold until then.</p> : null}
+            {disputeOutcome(report) ? <p>{disputeOutcome(report)}</p> : null}
+            {isOpen && !report.legacy ? <p className="order-muted">{report.status === "OPEN" ? "Waiting for an administrator to review it." : "An administrator is reviewing it."} The errand is on hold until then.</p> : null}
             {report.statements.length ? <div>
               <p><strong>Your details to the administrator</strong></p>
               <ul>{report.statements.map((statement) => <li key={statement.statementId}><p>{statement.body}</p><small>{orderTime(statement.createdAt)} SGT</small></li>)}</ul>
             </div> : null}
             {isOpen ? <StatementForm key={`statement:${report.disputeId}`} onSent={replace} report={report} /> : null}
-            {isOpen && report.ownReport && report.status === "OPEN" ? <WithdrawForm key={`withdraw:${report.disputeId}:${report.version}`} onWithdrawn={errandMoved} report={report} /> : null}
+            {isOpen && report.ownReport && report.status === "OPEN" && !report.legacy ? <WithdrawForm key={`withdraw:${report.disputeId}:${report.version}`} onWithdrawn={errandMoved} report={report} /> : null}
           </li>;
         })}</ol> : null}
         {canReport ? <ReportForm onReported={errandMoved} orderId={orderId} />

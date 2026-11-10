@@ -78,6 +78,7 @@ def summary_fields(row) -> dict:
         "order_id": row["order_id"],
         "problem": row["problem"],
         "problem_details": row["problem_details"],
+        "legacy": row.get("legacy_record", False),
         "description": row["description"],
         "status": row["status"],
         "resolution_reason": row["resolution_reason"],

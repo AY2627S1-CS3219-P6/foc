@@ -94,6 +94,7 @@ def dispute_row(**overrides):
         "order_id": uuid4(),
         "problem": "ITEM_DAMAGED",
         "problem_details": None,
+        "legacy_record": False,
         "description": None,
         "evidence_refs": [],
         "status": "OPEN",
@@ -179,10 +180,10 @@ class FakeDisputes:
             raise DisputeNotFound()
         if self.row["version"] != values["expected_version"]:
             raise VersionConflict()
-        if reporter is not None and self.row["status"] != "OPEN":
+        if reporter is not None and (self.row["status"] != "OPEN" or self.row["legacy_record"]):
             raise WithdrawalNotAllowed()
         check_transition(self.row["status"], values["to_status"], values["reason"])
-        if apply is not None:
+        if apply is not None and not self.row["legacy_record"]:
             await apply(dict(self.row))
             if self.fail_after_apply:
                 raise DecisionIncomplete()

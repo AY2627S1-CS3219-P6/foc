@@ -20,6 +20,7 @@ export const disputeStatusLabels: Record<DisputeStatus, string> = {
   ACCEPTED: "Accepted",
   REJECTED: "Rejected",
   WITHDRAWN: "Withdrawn",
+  RESOLVED: "Resolved",
 };
 
 export const auditActionLabels: Record<AuditEntry["action"], string> = {
@@ -32,7 +33,10 @@ export const auditActionLabels: Record<AuditEntry["action"], string> = {
 };
 
 /** The selected problem as both participants see it, e.g. "Other: courier never replied". */
-export function problemLabel({ problem, problemDetails }: ProblemChoice): string {
+export function problemLabel({ problem, problemDetails }: Omit<ProblemChoice, "problem"> & {
+  problem: ProblemChoice["problem"] | null;
+}): string {
+  if (problem === null) return "Earlier report (no problem selected)";
   if (problem === "OTHER") return `Other: ${problemDetails ?? ""}`;
   return problemDetails ? `${failureReasons[problem]}: ${problemDetails}` : failureReasons[problem];
 }
@@ -43,6 +47,15 @@ export const disputeOutcomes: Partial<Record<DisputeStatus, string>> = {
   REJECTED: "The errand continues from where it was before the dispute.",
   WITHDRAWN: "The errand continues from where it was before the dispute.",
 };
+
+// Legacy disputes were decided without holding the errand, so deciding them changed nothing.
+export const LEGACY_OUTCOME = "Reported before errands paused for disputes, so the errand was not changed.";
+
+/** What a closed dispute did to the errand, accounting for legacy disputes. */
+export function disputeOutcome(dispute: { status: DisputeStatus; legacy: boolean }): string | null {
+  if (dispute.legacy) return dispute.status === "OPEN" || dispute.status === "UNDER_REVIEW" ? null : LEGACY_OUTCOME;
+  return disputeOutcomes[dispute.status] ?? null;
+}
 
 /** The label for a dispute's closing reason, which depends on who closed it. */
 export function closingReasonLabel(status: DisputeStatus): string {

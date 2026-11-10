@@ -51,6 +51,7 @@ def report_view(row, viewer, statements) -> ReportView:
         reporter_role=row["reporter_role"],
         problem=row["problem"],
         problem_details=row["problem_details"],
+        legacy=row.get("legacy_record", False),
         status=row["status"],
         resolution_reason=row["resolution_reason"],
         statements=[

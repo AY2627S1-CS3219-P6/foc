@@ -193,4 +193,16 @@ describe("Admin dispute detail", () => {
     expect(screen.getByText(label)).toBeVisible();
     expect(screen.getAllByText(outcome).length).toBeGreaterThan(0);
   });
+
+  it("decides a legacy dispute without needing the errand held and says nothing changes on the errand", async () => {
+    const legacy = { ...dispute, legacy: true, problem: null, problemDetails: null, description: "Arrived cold", statements: [] };
+    const fetchMock = routeFetch(() => json({ ...legacy, status: "REJECTED", version: 3 }), legacy, { errand: { ...errand, state: "COMPLETED", disputeId: null } });
+    await renderDispute();
+    expect(screen.getByText("Earlier report (no problem selected)")).toBeVisible();
+    expect(screen.getByText("Arrived cold")).toBeVisible();
+    await decide("Reject", "Handled by phone.");
+    expect(screen.getByText(/records your decision only\. The errand and its credits stay as they are\./)).toBeVisible();
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Confirm and apply" })); });
+    expect(JSON.parse(String(posts(fetchMock)[0][1]?.body))).toMatchObject({ toStatus: "REJECTED", reason: "Handled by phone." });
+  });
 });

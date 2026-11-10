@@ -169,10 +169,14 @@ class DisputeRepository:
                     raise DisputeNotFound()
                 if current["version"] != expected_version:
                     raise VersionConflict()
-                if reporter is not None and current["status"] != "OPEN":
+                # Legacy disputes never held their errand, so they cannot be withdrawn into it.
+                if reporter is not None and (
+                    current["status"] != "OPEN" or current["legacy_record"]
+                ):
                     raise WithdrawalNotAllowed()
                 check_transition(current["status"], to_status, reason)
-                if apply is not None:
+                # Deciding a legacy dispute records the decision only; the errand stays as it is.
+                if apply is not None and not current["legacy_record"]:
                     await apply(dict(current))
                     applied = True
                 await session.execute(

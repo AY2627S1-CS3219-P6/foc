@@ -191,4 +191,17 @@ describe("Errand disputes for participants", () => {
     expect(screen.getByText("No problems reported.")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Report problem" })).toBeNull();
   });
+
+  it("shows legacy disputes as earlier reports that neither block a new report nor can be withdrawn", async () => {
+    routeFetch([
+      report("OPEN", { disputeId: "legacy-open", legacy: true, problem: null }),
+      report("RESOLVED", { disputeId: "legacy-done", legacy: true, problem: null, resolutionReason: "Refund agreed" }),
+    ]);
+    await renderPanel("PICKED_UP");
+    expect(screen.getAllByText("Earlier report (no problem selected)")).toHaveLength(2);
+    expect(screen.getByText("Reported before errands paused for disputes, so the errand was not changed.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Withdraw report" })).toBeNull();
+    expect(screen.queryByText(/The errand is on hold/)).toBeNull();
+    expect(screen.getByLabelText("What went wrong")).toBeVisible();
+  });
 });

@@ -51,6 +51,14 @@ service never moves credits; Order applies the errand change and Credit follows 
 | `POST /v1/admin/disputes/{disputeId}/transitions` | Review, accept or reject the dispute. | `200` + dispute |
 | `GET /v1/admin/audit-log` | Dashboard action records, newest first; optional `actorId`, `targetId` and `outcome` filters. | `200` + page |
 
+### Legacy disputes
+
+Disputes recorded before disputed errands are kept as recorded and returned with
+`"legacy": true`. They may have `"problem": null`, keep their original `description`, and may
+have the earlier status `RESOLVED`. They never held their errand, so they do not count towards
+the one-open-dispute rule. They cannot be withdrawn, and accepting or rejecting an open one
+records the decision only: the errand and its credits stay as they are.
+
 ### The selected problem
 
 Every dispute records one problem: `ITEM_UNAVAILABLE`, `ITEM_DAMAGED`, `UNABLE_TO_PICK_UP`,

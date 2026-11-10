@@ -371,3 +371,17 @@ async def test_participants_see_the_dispute_but_never_which_administrator_decide
     clients.role, clients.actor = "ADMIN", ADMIN
     admin_entry = (await http.get(f"/v1/admin/orders/{order_id}/history")).json()["items"][-1]
     assert admin_entry["actorId"] == str(ADMIN)
+
+
+async def test_legacy_administrator_failures_are_still_readable(service):
+    http, clients, repository, _ = service
+    order_id = decided_row(repository)
+    repository.rows[order_id].update(
+        failure_reason="ADMIN_DECISION", failure_details="Old decision"
+    )
+    repository.histories[order_id][-1].update(failure_reason="ADMIN_DECISION")
+    clients.role, clients.actor = "ADMIN", ADMIN
+    detail = await http.get(f"/v1/admin/orders/{order_id}")
+    history = await http.get(f"/v1/admin/orders/{order_id}/history")
+    assert detail.status_code == 200 and detail.json()["failureReason"] == "ADMIN_DECISION"
+    assert history.json()["items"][-1]["failureReason"] == "ADMIN_DECISION"

@@ -8,7 +8,8 @@
 import { requestJson } from "./client";
 import type { FailureReason } from "./order-service";
 
-export type DisputeStatus = "OPEN" | "UNDER_REVIEW" | "ACCEPTED" | "REJECTED" | "WITHDRAWN";
+// RESOLVED appears only on legacy disputes decided before disputed errands.
+export type DisputeStatus = "OPEN" | "UNDER_REVIEW" | "ACCEPTED" | "REJECTED" | "WITHDRAWN" | "RESOLVED";
 // WITHDRAWN belongs to the reporter (disputeReports.withdraw), never to administrators.
 export type DisputeTarget = "UNDER_REVIEW" | "ACCEPTED" | "REJECTED";
 export type ReporterRole = "REQUESTER" | "COURIER";
@@ -28,9 +29,12 @@ export type DisputeStatement = OwnStatement & { authorId: string; authorRole: Re
 export type DisputeSummary = {
   disputeId: string;
   orderId: string;
-  // The problem the reporter selected; an accepted dispute fails the errand with it.
-  problem: FailureReason;
+  // The problem the reporter selected; an accepted dispute fails the errand with it. Null only on
+  // legacy disputes recorded before a problem had to be selected.
+  problem: FailureReason | null;
   problemDetails: string | null;
+  // A legacy dispute never held its errand; deciding it changes no errand.
+  legacy: boolean;
   // Administrator case notes; null for participant reports.
   description: string | null;
   status: DisputeStatus;
@@ -71,7 +75,7 @@ export type AuditEntry = {
 // statements. Never the administrators, their notes or the history.
 export type DisputeReport = Pick<
   DisputeSummary,
-  "disputeId" | "orderId" | "problem" | "problemDetails" | "status" | "resolutionReason"
+  "disputeId" | "orderId" | "problem" | "problemDetails" | "legacy" | "status" | "resolutionReason"
   | "reporterRole" | "createdAt" | "updatedAt" | "version"
 > & { ownReport: boolean; statements: OwnStatement[] };
 
@@ -88,6 +92,7 @@ export const NEXT_STATUSES: Record<DisputeStatus, DisputeTarget[]> = {
   ACCEPTED: [],
   REJECTED: [],
   WITHDRAWN: [],
+  RESOLVED: [],
 };
 
 export const OPEN_DISPUTE: DisputeStatus[] = ["OPEN", "UNDER_REVIEW"];

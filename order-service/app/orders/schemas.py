@@ -35,6 +35,8 @@ FailureReason = Literal[
     "PARTICIPANT_UNREACHABLE",
     "OTHER",
 ]
+# Legacy errands failed by an administrator before disputed errands keep ADMIN_DECISION.
+RecordedFailureReason = FailureReason | Literal["ADMIN_DECISION"]
 DisputeActor = Literal["USER", "ADMIN"]
 
 
@@ -238,7 +240,7 @@ class OrderParticipant(OrderAssessment):
     overdue_at: AwareDatetime | None = None
     failed_at: AwareDatetime | None = None
     failed_by: UUID | None = None
-    failure_reason: FailureReason | None = None
+    failure_reason: RecordedFailureReason | None = None
     failure_details: str | None = None
     # Participants learn that an administrator decided the outcome, never which one.
     decided_by_administrator: bool = False
@@ -269,7 +271,7 @@ class HistoryEntry(ApiModel):
     actor_id: UUID | None
     actor_type: Literal["USER", "SYSTEM", "ADMIN"]
     occurred_at: AwareDatetime
-    failure_reason: FailureReason | None = None
+    failure_reason: RecordedFailureReason | None = None
     failure_details: str | None = None
     dispute_id: UUID | None = None
 
