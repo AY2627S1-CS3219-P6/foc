@@ -67,6 +67,10 @@ jobs:
         env:
           CLOUD_DB_SMOKE: "1"
         run: python -m unittest discover -s deploy/aws/tests -p test_database_live.py -v
+      - name: Verify migration upgrades preserve existing data and stop on SQL failure
+        env:
+          CLOUD_MIGRATION_SMOKE: "1"
+        run: python -m unittest discover -s deploy/aws/tests -p test_release_migrations.py -v
       - name: Verify monitoring reads real disposable Docker metadata without credentials
         env:
           CLOUD_MONITORING_SMOKE: "1"

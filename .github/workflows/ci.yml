@@ -51,6 +51,7 @@ jobs:
           filters: |
             cloud-foundation:
               - 'deploy/aws/**'
+              - '*-service/supabase/migrations/**'
               - 'web-client/nginx/default.conf'
               - '.github/workflows/cloud-foundation.yml'
               - '.github/workflows/cloud-release.yml'

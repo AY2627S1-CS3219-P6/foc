@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
@@ -24,12 +25,14 @@ from prepare_delivery import policies
 from release_manifest import (
     APPLICATIONS,
     ARTIFACTS,
+    checksum,
     compose_images,
     configuration,
     create_manifest,
     migrations,
     validate_manifest,
 )
+from release_migrations import POLICY, MigrationError
 from release_workflow import WorkflowError, preflight, source_ci
 from test_public_https import render_compose_configs
 
@@ -39,7 +42,7 @@ ACCOUNT = "123456789012"
 
 def release_manifest() -> dict:
     return {
-        "version": 1,
+        "version": 2,
         "release_id": f"{COMMIT[:12]}-100-1",
         "commit": COMMIT,
         "account_id": ACCOUNT,
@@ -50,6 +53,7 @@ def release_manifest() -> dict:
         },
         "configuration": configuration(),
         "migrations": migrations(),
+        "migration_policy": checksum(REPOSITORY / POLICY),
     }
 
 
@@ -71,6 +75,12 @@ class FakeRuntime:
 
     def database_versions(self):
         return self.versions
+
+    @contextmanager
+    def source(self, manifest, repo):
+        if manifest["migrations"] != migrations(repo):
+            raise ReleaseError("Source fingerprints differ from manifest.")
+        yield repo
 
     def inspect(self):
         return copy.deepcopy(self.containers)
@@ -226,9 +236,9 @@ class DeploymentRecoveryTests(unittest.TestCase):
 
     def test_database_versions_must_match_the_service_migration_history(self):
         self.runtime.versions["credit"] = []
-        with self.assertRaisesRegex(ReleaseError, "migration versions differ"):
+        with self.assertRaisesRegex(MigrationError, "migration versions differ"):
             self.release.deploy(release_manifest())
-        self.assertEqual(self.runtime.calls, [])
+        self.assertEqual(self.runtime.calls, ["pull"])
 
     def test_explicit_rollback_uses_saved_images_and_preserves_secrets(self):
         self.release.deploy(release_manifest())

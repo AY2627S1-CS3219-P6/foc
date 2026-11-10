@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.2",
-  "description": "Deploy digest-pinned FoC application images or restore the previous application release. No schema or secret changes.",
+  "description": "Apply reviewed compatible migrations and deploy digest-pinned FoC images, or restore previous application images. No automatic schema rollback or secret changes.",
   "parameters": {
     "Operation": {
       "type": "String",
