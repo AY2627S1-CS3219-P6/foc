@@ -1,3 +1,8 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30, 2026-11-02
+# Scope: Implemented voice-draft time resolution, including weekdays, dates and AM/PM handling.
+# Author review: I validated correctness, and added boundary checks.
+
 """Deterministic time resolution in Asia/Singapore (N3F2.1.3, N3F2.1.4).
 
 The provider only reports what was said; this module decides what it means, so a vague or

@@ -1,3 +1,12 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: ChatGPT (Codex, model: gpt-6-sol), date: 2026-09-24
+ * Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-07
+ * Tool: Claude Code (model: Claude Opus 5.5), date: 2026-11-02
+ * Scope: Generated and refined Supplier browsing/management browser regression checks.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 import { expect, test, type Page } from "@playwright/test";
 
 const supplierId = "550e8400-e29b-41d4-a716-446655440000";

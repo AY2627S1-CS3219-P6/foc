@@ -1,3 +1,9 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: ChatGPT (Codex, model: gpt-6-sol), date: 2026-09-23, 2026-09-24
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-21
+# Scope: Generated Supplier input validation and response serialization; applied lint fixes.
+# Author review: I validated correctness, and added boundary checks.
+
 """Supplier creation, update, and removal models."""
 
 import re

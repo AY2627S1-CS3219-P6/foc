@@ -1,3 +1,8 @@
+-- AI Assistance Disclosure (hwangjihun):
+-- Tool: Claude Code (model: Claude Opus 5.5), date: 2026-11-02
+-- Scope: Implemented Supplier listing and search indexes.
+-- Author review: I validated correctness, and added boundary checks.
+
 -- Supplier list indexes. Both list routes sort by lower(name) with id as a
 -- tie-breaker and search three text columns by case-insensitive substring.
 

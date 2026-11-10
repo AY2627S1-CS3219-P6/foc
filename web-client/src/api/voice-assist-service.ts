@@ -1,3 +1,10 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30, 2026-10-31
+ * Scope: Implemented the Voice Assist HTTP client and draft/error handling.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 import { requestJson } from "./client";
 
 export type DraftFieldStatus = "FILLED" | "MISSING" | "AMBIGUOUS" | "CONFLICT";

@@ -1,3 +1,8 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30, 2026-10-31
+# Scope: Implemented authenticated voice drafting, request limits and empty-errand handling.
+# Author review: I validated correctness, and added boundary checks.
+
 """Voice Assist routes. A draft is returned to the caller only; nothing is stored or forwarded
 to Order or Credit (N3F3.1.3, N3NFR3.1, N3NFR3.4)."""
 

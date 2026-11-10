@@ -1,3 +1,10 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30
+ * Scope: Implemented voice recording and safe application of drafts to the errand form.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 import { emptyOrderForm, type OrderForm } from "../api/order-draft";
 import type { DraftField, DraftSupplierOption, ErrandDraftFields } from "../api/voice-assist-service";
 

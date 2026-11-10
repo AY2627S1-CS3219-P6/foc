@@ -1,3 +1,8 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30
+# Scope: Implemented transcript-grounded voice-draft validation and field processing.
+# Author review: I validated correctness, and added boundary checks.
+
 """Turn the provider's extraction into reviewable form fields (N3F2.1.1-2.1.6, N3F2.2.2-2.2.3).
 
 Everything here is deterministic. A value the transcript does not support is dropped rather

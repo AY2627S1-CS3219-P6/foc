@@ -1,3 +1,8 @@
+-- AI Assistance Disclosure (hwangjihun):
+-- Tool: ChatGPT (Codex, model: gpt-6-sol), date: 2026-09-23
+-- Scope: Generated Supplier SQL constraints, normalization functions and triggers.
+-- Author review: I validated correctness, and added boundary checks.
+
 -- D2 Supplier Service step 1: supplier-owned PostgreSQL schema.
 -- Apply this migration only to the Supplier Service database.
 

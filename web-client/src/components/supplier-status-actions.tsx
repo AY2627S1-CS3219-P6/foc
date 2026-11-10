@@ -1,3 +1,11 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: ChatGPT (Codex, model: gpt-6-sol), date: 2026-09-24
+ * Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-07
+ * Scope: Implemented Supplier navigation and integration with the existing shared shell.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 import { useEffect, useState } from "react";
 import { isApiRequestError } from "../api/client";
 import { type SupplierStatus, supplierService } from "../api/supplier-service";

@@ -1,3 +1,10 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: ChatGPT (Codex, model: gpt-6-sol), date: 2026-09-23
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-21
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-11-02
+# Scope: Generated and refined the Supplier CSV-to-SQL seed importer.
+# Author review: I validated correctness, and added boundary checks.
+
 """Generate the Supplier Service's local Supabase seed from the source CSV."""
 
 from __future__ import annotations

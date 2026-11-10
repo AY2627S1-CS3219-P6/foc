@@ -1,3 +1,10 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30, 2026-10-31
+ * Scope: Integrated voice drafts and discard behavior into the existing errand form.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 // AI Assistance Disclosure:
 // Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
 // Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-11

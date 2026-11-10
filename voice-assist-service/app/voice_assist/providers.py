@@ -1,3 +1,8 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30, 2026-10-31, 2026-11-02
+# Scope: Implemented voice transcription/draft provider calls and refined extraction handling.
+# Author review: I validated correctness, and added boundary checks.
+
 """Speech-to-text and extraction providers (N3F1.2, N3F2.1, N3NFR3.2, N3NFR3.3).
 
 Only the audio and the transcript leave FoC. The extractor has no tools

@@ -16,7 +16,7 @@ withdrawn, or exchanged for money, and only circulate within the platform.
 | ----- | ----- |
 | Chen Feng | User & Chat Service |
 | Xie YingWen | Order & Cloud deployment and DevOps |
-| Your Name | Your ownership |
+| Hwang Jihun | Supplier & Voice Assist Errand Creation Service |
 | Your Name | Your ownership |
 | Your Name | Your ownership |
 
@@ -733,3 +733,21 @@ The [AI usage log](ai/usage-log.md) records the prompts, key responses, and affe
 - **Verification** included author review, boundary checks, and existing unit, integration, and smoke tests as recorded in the implementation history.
 
 The [AI usage log](ai/usage-log.md) records the prompts, key responses, and affected files in chronological order.
+
+### Supplier Service and Voice Assist Service (hwangjihun)
+
+**Scope** covers hwangjihun's implementation in `supplier-service/`, `voice-assist-service/`, their Supplier/voice web screens and directly related shared client, proxy, Compose and CI code.
+
+**Tools** include ChatGPT through Codex (models: `gpt-6-sol`, `gpt-6.1-sol`, `gpt-6-astra`) and Claude Code (model: Claude Opus 5.5). Saved message metadata confirms Opus 5.5 for Voice Assist and the later Supplier fixes.
+
+The course policy's example disclosure statement is:
+
+> Prohibited phases avoided: requirements elicitation; architecture/design decisions.
+
+This section documents implementation assistance only. The statement above is quoted policy wording, not a project-wide compliance attestation; the implementation-only prompt excerpts in the log are not a complete archive of original prompts.
+
+- **Supplier Service** used AI to implement and debug SQL validation/seed import, authenticated CRUD/read handlers, filtering and pagination, connection reuse, health checks, responsive browsing/management screens, error handling and existing regression/CI checks.
+- **Voice Assist Service** used AI to implement and debug audio transcription/drafting, deterministic time resolution and Supplier matching, transcript-grounded field processing, recording/draft/discard controls, errand-form integration and existing tests/evaluation tooling.
+- **Author review**: I validated correctness, and added boundary checks. Existing automated regression checks are rerun for this attribution-only update; no implementation or test cases are added.
+
+**Prompts and key exchanges**: see the chronological [hwangjihun implementation entries in the shared AI usage log](ai/usage-log.md#hwangjihun---supplier-and-voice-assist-implementation). JSON attribution is carried by that log because JSON does not support comments.
