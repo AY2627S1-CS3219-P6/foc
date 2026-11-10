@@ -1,3 +1,11 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-07
+ * Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-07
+ * Scope: Applied supplied Supplier shell styling and shared navigation integration.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 * { box-sizing: border-box; }
 
 html, body, #root { min-height: 100%; margin: 0; }

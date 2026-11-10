@@ -1,3 +1,10 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30
+ * Scope: Extended the shared HTTP client for Voice Assist audio requests.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 export type FieldError = {
   field: string;
   code: string;

@@ -1,3 +1,11 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: ChatGPT (Codex, model: gpt-6-sol), date: 2026-09-24
+ * Tool: Claude Code (model: Claude Opus 5.5), date: 2026-11-02
+ * Scope: Implemented the Supplier HTTP client and refined filters and error handling.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 import { ApiRequestError, type FieldError } from "./client";
 
 export type SupplierStatus = "ACTIVE" | "INACTIVE";

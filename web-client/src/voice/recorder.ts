@@ -1,3 +1,10 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30
+ * Scope: Implemented voice recording and safe application of drafts to the errand form.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 // MediaRecorder wrapper for N3F1.1: explicit start, stop or cancel, elapsed time and a hard limit.
 
 export type RecorderFailure = "denied" | "unsupported" | "failed";

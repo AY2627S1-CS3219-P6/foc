@@ -1,3 +1,8 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-11-02
+# Scope: Generated and refined Supplier regression tests and test fixtures.
+# Author review: I validated correctness, and added boundary checks.
+
 """Shared connection pool behaviour for Supplier repository requests."""
 
 import os

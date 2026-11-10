@@ -1,3 +1,8 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-11-02
+# Scope: Implemented Supplier database connection reuse and cleanup.
+# Author review: I validated correctness, and added boundary checks.
+
 """Shared PostgreSQL connection pool for Supplier API requests."""
 
 import threading

@@ -1,3 +1,8 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30
+# Scope: Generated Voice Assist startup, configuration, validation and upstream client code.
+# Author review: I validated correctness, and added boundary checks.
+
 """N3NFR4.1: bound provider spend before any audio is sent anywhere.
 
 State is in memory, so limits apply per instance and reset on restart; Voice Assist runs as a

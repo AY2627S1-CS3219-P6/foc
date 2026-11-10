@@ -1,3 +1,8 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30, 2026-10-31, 2026-11-02
+# Scope: Generated and refined Voice Assist regression tests and evaluation fixtures.
+# Author review: I validated correctness, and added boundary checks.
+
 """Draft endpoint: N3F1.2.1, N3F2.1.5, N3F2.2, N3F4.1.1, N3NFR2.1, N3NFR3.1-3.4, N3NFR4.1."""
 
 import logging

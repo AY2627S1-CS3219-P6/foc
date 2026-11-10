@@ -1,3 +1,10 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30, 2026-10-31
+ * Scope: Generated and refined Voice Assist client, form or recording regression checks.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PROCESSING_TIMEOUT_MS, VoiceDraftPanel } from "../../src/components/voice-draft-panel";

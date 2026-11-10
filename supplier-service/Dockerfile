@@ -1,3 +1,9 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: ChatGPT (Codex, model: gpt-6-sol), date: 2026-09-23
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-21
+# Scope: Generated the Supplier container build and health probe; updated the Python version.
+# Author review: I validated correctness, and added boundary checks.
+
 FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

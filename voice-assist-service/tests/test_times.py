@@ -1,3 +1,8 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30, 2026-11-02
+# Scope: Generated and refined Voice Assist regression tests and evaluation fixtures.
+# Author review: I validated correctness, and added boundary checks.
+
 """N3F2.1.3 and N3F2.1.4: spoken times resolve in Asia/Singapore against the request time."""
 
 from datetime import UTC, datetime

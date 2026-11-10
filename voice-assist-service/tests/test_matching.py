@@ -1,3 +1,8 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30
+# Scope: Generated and refined Voice Assist regression tests and evaluation fixtures.
+# Author review: I validated correctness, and added boundary checks.
+
 """N3F2.2.1 and N3F2.2.3: the supplier name decides; the building only breaks ties or vetoes."""
 
 import pytest

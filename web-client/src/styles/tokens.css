@@ -1,3 +1,10 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-07
+ * Scope: Applied supplied color tokens used by the Supplier shell.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 :root {
   color-scheme: light;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

@@ -1,3 +1,8 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-21
+# Scope: Implemented Supplier liveness and database-readiness checks.
+# Author review: I validated correctness, and added boundary checks.
+
 """Independent liveness and bounded Supplier database readiness checks."""
 
 import asyncio

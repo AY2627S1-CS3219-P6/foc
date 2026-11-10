@@ -1,3 +1,11 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: ChatGPT (Codex, model: gpt-6-sol), date: 2026-09-24
+ * Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-07
+ * Scope: Implemented Supplier browsing/management UI and refined validation, filters and error states.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 import { type FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { isApiRequestError } from "../api/client";

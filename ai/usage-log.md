@@ -1932,3 +1932,902 @@ JSON files remain unchanged because JSON does not permit header comments. The co
 - [`web-client/src/styles/admin.css`](../web-client/src/styles/admin.css)
 - [`web-client/tests/component/admin-dispute-detail-page.test.tsx`](../web-client/tests/component/admin-dispute-detail-page.test.tsx)
 - [`web-client/tests/component/errand-report.test.tsx`](../web-client/tests/component/errand-report.test.tsx)
+
+## hwangjihun - Supplier and Voice Assist implementation
+
+This section records implementation, debugging, refactoring and code-related documentation assistance for hwangjihun's changes in `supplier-service/` and `voice-assist-service/` on `main`, including related integration in `web-client/` and shared proxy, Compose and CI configuration. Times are Singapore time (UTC+08:00), using the original message timestamps. Prompt excerpts preserve the relevant implementation wording from the original messages. Key responses are summarized. Conversation IDs, message times and referenced commits identify the exchanges and retained changes.
+
+This section carries the attribution for the JSON files listed below.
+
+### 2026-09-23 09:37:35 SGT - Supplier SQL implementation and seed import
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6-sol); implementation (code generation) and debugging.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-09-23 09:37:35 SGT; Codex conversation `01a0cbe0-bd8e-7a01-83db-31737faad617`.
+
+> do step 1 of supplier service
+
+Message: 2026-09-23 10:45:35 SGT; Codex conversation `01a0cbe0-bd8e-7a01-83db-31737faad617`.
+
+> okay do a final pass on my sql based on my product backlog final and milestone D2. make sure all the requirements are fulfilled
+
+Message: 2026-09-23 10:50:32 SGT; Codex conversation `01a0cbe0-bd8e-7a01-83db-31737faad617`.
+
+> now can you write the import code for inserting the seed data into the database?
+
+**Key response** - Implemented the Supplier SQL constraints, normalization functions and triggers; reviewed validation against the existing backlog; generated the CSV-to-SQL seed importer and local Supabase configuration. This entry records the code generation and review portions of the exchanges.
+
+**Commits** - [`77a1ec9`](https://github.com/AY2627S1-CS3219-P6/foc/commit/77a1ec9).
+
+**Affected files**
+
+- [`supplier-service/scripts/generate_seed.py`](../supplier-service/scripts/generate_seed.py)
+- [`supplier-service/supabase/.gitignore`](../supplier-service/supabase/.gitignore)
+- [`supplier-service/supabase/config.toml`](../supplier-service/supabase/config.toml)
+- [`supplier-service/supabase/migrations/20260923000000_create_suppliers.sql`](../supplier-service/supabase/migrations/20260923000000_create_suppliers.sql)
+- [`supplier-service/supabase/seed.sql`](../supplier-service/supabase/seed.sql)
+
+### 2026-09-23 12:59:25 SGT - Supplier creation API
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6-sol); implementation (code generation).
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-09-23 12:59:25 SGT; Codex conversation `01a0cbe0-bd8e-7a01-83db-31737faad617`.
+
+> okay can you implement POST API using python fastapi first in the supplier service folder now?
+
+**Key response** - Generated the FastAPI creation handler, input validation, current-role authorization checks, transactional repository writes, error handling and creation tests.
+
+**Commits** - [`894259d`](https://github.com/AY2627S1-CS3219-P6/foc/commit/894259d).
+
+**Affected files**
+
+- [`.gitignore`](../.gitignore)
+- [`supplier-service/.env.example`](../supplier-service/.env.example)
+- [`supplier-service/app/__init__.py`](../supplier-service/app/__init__.py)
+- [`supplier-service/app/auth.py`](../supplier-service/app/auth.py)
+- [`supplier-service/app/config.py`](../supplier-service/app/config.py)
+- [`supplier-service/app/errors.py`](../supplier-service/app/errors.py)
+- [`supplier-service/app/main.py`](../supplier-service/app/main.py)
+- [`supplier-service/app/repository.py`](../supplier-service/app/repository.py)
+- [`supplier-service/app/schemas.py`](../supplier-service/app/schemas.py)
+- [`supplier-service/pyproject.toml`](../supplier-service/pyproject.toml)
+- [`supplier-service/supabase/config.toml`](../supplier-service/supabase/config.toml)
+- [`supplier-service/tests/test_create.py`](../supplier-service/tests/test_create.py)
+
+### 2026-09-23 14:14:18 SGT - Supplier creation checks in CI
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6-sol); implementation (code generation).
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-09-23 14:14:18 SGT; Codex conversation `01a0cbe0-bd8e-7a01-83db-31737faad617`.
+
+> ok implement CI
+
+**Key response** - Added Supplier HTTP test execution and image-build checks to the existing shared CI workflow.
+
+**Commits** - [`894259d`](https://github.com/AY2627S1-CS3219-P6/foc/commit/894259d).
+
+**Affected files**
+
+- [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+
+### 2026-09-23 16:13:49 SGT - Supplier container and local integration configuration
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6-sol); implementation (code generation).
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-09-23 16:13:49 SGT; Codex conversation `01a0cbe0-bd8e-7a01-83db-31737faad617`.
+
+> ok now do it
+
+**Key response** - Generated the Supplier Dockerfile and build exclusions, connected the Supplier container to the existing local stack, and wired the Supplier proxy paths and responsive smoke check.
+
+**Commits** - [`894259d`](https://github.com/AY2627S1-CS3219-P6/foc/commit/894259d).
+
+**Affected files**
+
+- [`compose.yaml`](../compose.yaml)
+- [`supplier-service/.dockerignore`](../supplier-service/.dockerignore)
+- [`supplier-service/Dockerfile`](../supplier-service/Dockerfile)
+- [`web-client/nginx/default.conf`](../web-client/nginx/default.conf)
+- [`web-client/tests/e2e/responsive.spec.ts`](../web-client/tests/e2e/responsive.spec.ts)
+- [`web-client/vite.config.ts`](../web-client/vite.config.ts)
+
+### 2026-09-24 00:14:47 SGT - Supplier local CLI package setup
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6-sol); implementation (code generation).
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-09-24 00:14:47 SGT; Codex conversation `01a0cbe0-bd8e-7a01-83db-31737faad617`.
+
+> let's standardize supabase first
+
+**Key response** - Added the Supplier-local Supabase CLI package manifest and lockfile. JSON attribution is carried by this log.
+
+**Commits** - [`1ee3ddd`](https://github.com/AY2627S1-CS3219-P6/foc/commit/1ee3ddd).
+
+**Affected files**
+
+- [`supplier-service/package-lock.json`](../supplier-service/package-lock.json)
+- [`supplier-service/package.json`](../supplier-service/package.json)
+
+### 2026-09-24 00:33:45 SGT - Supplier update API
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6-sol); implementation (code generation).
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-09-24 00:33:45 SGT; Codex conversation `01a0cbe0-bd8e-7a01-83db-31737faad617`.
+
+> now implement update suppliers basde on API.md and verify it against my product backlog from M2F1.2 to M2F1.2.7
+
+**Key response** - Implemented authenticated PATCH operations, optional-field clearing, validation, duplicate handling and update regression tests.
+
+**Commits** - [`1ee3ddd`](https://github.com/AY2627S1-CS3219-P6/foc/commit/1ee3ddd).
+
+**Affected files**
+
+- [`supplier-service/.dockerignore`](../supplier-service/.dockerignore)
+- [`supplier-service/app/auth.py`](../supplier-service/app/auth.py)
+- [`supplier-service/app/errors.py`](../supplier-service/app/errors.py)
+- [`supplier-service/app/main.py`](../supplier-service/app/main.py)
+- [`supplier-service/app/repository.py`](../supplier-service/app/repository.py)
+- [`supplier-service/app/schemas.py`](../supplier-service/app/schemas.py)
+- [`supplier-service/tests/test_create.py`](../supplier-service/tests/test_create.py)
+- [`supplier-service/tests/test_update.py`](../supplier-service/tests/test_update.py)
+- [`supplier-service/tests/test_update_database.py`](../supplier-service/tests/test_update_database.py)
+
+### 2026-09-24 10:28:02 SGT - Supplier deactivation API
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6-sol); implementation (code generation).
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-09-24 10:28:02 SGT; Codex conversation `01a0cbe0-bd8e-7a01-83db-31737faad617`.
+
+> implement deactivation first since errand service is not ready. follow API.md and also reference prdouct backlog from M2F1.3 to M2F1.3.3
+
+**Key response** - Implemented the administrator DELETE handler that deactivates suppliers while retaining their records, with authorization and database regression coverage.
+
+**Commits** - [`1fb213d`](https://github.com/AY2627S1-CS3219-P6/foc/commit/1fb213d).
+
+**Affected files**
+
+- [`supplier-service/app/main.py`](../supplier-service/app/main.py)
+- [`supplier-service/app/repository.py`](../supplier-service/app/repository.py)
+- [`supplier-service/app/schemas.py`](../supplier-service/app/schemas.py)
+- [`supplier-service/tests/test_delete.py`](../supplier-service/tests/test_delete.py)
+- [`supplier-service/tests/test_delete_database.py`](../supplier-service/tests/test_delete_database.py)
+
+### 2026-09-24 11:11:50 SGT - Supplier read APIs
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6-sol); implementation (code generation).
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-09-24 11:11:50 SGT; Codex conversation `01a0cbe0-bd8e-7a01-83db-31737faad617`.
+
+> ok i want you to implement by commits so like GET /api/v1/categories 1 commit, GET /ap/v1/suppliers 1 commit for easier traceability
+
+**Key response** - Generated category lookup, active-supplier list/detail and administrator list/detail handlers, repository filtering/sorting/pagination, authorization checks and corresponding tests.
+
+**Commits** - [`f59d116`](https://github.com/AY2627S1-CS3219-P6/foc/commit/f59d116), [`bed6b5b`](https://github.com/AY2627S1-CS3219-P6/foc/commit/bed6b5b), [`4a8c6dd`](https://github.com/AY2627S1-CS3219-P6/foc/commit/4a8c6dd), [`3e2a11a`](https://github.com/AY2627S1-CS3219-P6/foc/commit/3e2a11a), [`7590de4`](https://github.com/AY2627S1-CS3219-P6/foc/commit/7590de4).
+
+**Affected files**
+
+- [`supplier-service/app/auth.py`](../supplier-service/app/auth.py)
+- [`supplier-service/app/main.py`](../supplier-service/app/main.py)
+- [`supplier-service/app/repository.py`](../supplier-service/app/repository.py)
+- [`supplier-service/app/schemas.py`](../supplier-service/app/schemas.py)
+- [`supplier-service/tests/conftest.py`](../supplier-service/tests/conftest.py)
+- [`supplier-service/tests/test_admin_supplier_detail.py`](../supplier-service/tests/test_admin_supplier_detail.py)
+- [`supplier-service/tests/test_admin_supplier_list.py`](../supplier-service/tests/test_admin_supplier_list.py)
+- [`supplier-service/tests/test_categories.py`](../supplier-service/tests/test_categories.py)
+- [`supplier-service/tests/test_read_database.py`](../supplier-service/tests/test_read_database.py)
+- [`supplier-service/tests/test_supplier_detail.py`](../supplier-service/tests/test_supplier_detail.py)
+- [`supplier-service/tests/test_supplier_list.py`](../supplier-service/tests/test_supplier_list.py)
+
+### 2026-09-24 12:19:27 SGT - Supplier web implementation
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6-sol); implementation (code generation).
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-09-24 12:19:27 SGT; Codex conversation `01a0cbe0-bd8e-7a01-83db-31737faad617`.
+
+> remember to implement only SUPPLIER SERVICE RELATED PAGES and cross reference check with the current product backlog NFRs and FR for supplier service and responsive design stated in Milestone D2.
+
+**Key response** - Implemented the supplied Figma screens as responsive Supplier browsing, details, create/edit and status-action pages. Added the Supplier API client, existing-session token reuse, routes, styles and browser/unit coverage.
+
+**Commits** - [`76d2559`](https://github.com/AY2627S1-CS3219-P6/foc/commit/76d2559), [`a46733c`](https://github.com/AY2627S1-CS3219-P6/foc/commit/a46733c), [`cbe5f3a`](https://github.com/AY2627S1-CS3219-P6/foc/commit/cbe5f3a).
+
+**Affected files**
+
+- [`web-client/src/api/supplier-service.ts`](../web-client/src/api/supplier-service.ts)
+- [`web-client/src/app/auth-provider.tsx`](../web-client/src/app/auth-provider.tsx)
+- [`web-client/src/app/routes.tsx`](../web-client/src/app/routes.tsx)
+- [`web-client/src/components/desktop-app-shell.tsx`](../web-client/src/components/desktop-app-shell.tsx)
+- [`web-client/src/components/mobile-app-shell.tsx`](../web-client/src/components/mobile-app-shell.tsx)
+- [`web-client/src/components/supplier-shell.tsx`](../web-client/src/components/supplier-shell.tsx)
+- [`web-client/src/components/supplier-status-actions.tsx`](../web-client/src/components/supplier-status-actions.tsx)
+- [`web-client/src/main.tsx`](../web-client/src/main.tsx)
+- [`web-client/src/pages/supplier-detail-page.tsx`](../web-client/src/pages/supplier-detail-page.tsx)
+- [`web-client/src/pages/supplier-form-page.tsx`](../web-client/src/pages/supplier-form-page.tsx)
+- [`web-client/src/pages/supplier-list-page.tsx`](../web-client/src/pages/supplier-list-page.tsx)
+- [`web-client/src/styles/supplier.css`](../web-client/src/styles/supplier.css)
+- [`web-client/tests/e2e/suppliers.spec.ts`](../web-client/tests/e2e/suppliers.spec.ts)
+- [`web-client/tests/unit/supplier-service.test.ts`](../web-client/tests/unit/supplier-service.test.ts)
+
+### 2026-09-24 16:15:57 SGT - Supplier web behavior fixes
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6-sol); debugging and refactoring.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-09-24 16:15:57 SGT; Codex conversation `01a0cbe0-bd8e-7a01-83db-31737faad617`.
+
+> ok polish the above. keep only deactivate. for building campus area , change the form hint and also remove search by building campus area. fix point 3. make filter consistent and fix poitn 5
+
+**Key response** - Updated deactivation wording, form hints, filter consistency, empty states, status actions and the existing Supplier browser tests.
+
+**Commits** - [`efabfff`](https://github.com/AY2627S1-CS3219-P6/foc/commit/efabfff).
+
+**Affected files**
+
+- [`web-client/src/components/supplier-status-actions.tsx`](../web-client/src/components/supplier-status-actions.tsx)
+- [`web-client/src/pages/supplier-detail-page.tsx`](../web-client/src/pages/supplier-detail-page.tsx)
+- [`web-client/src/pages/supplier-form-page.tsx`](../web-client/src/pages/supplier-form-page.tsx)
+- [`web-client/src/pages/supplier-list-page.tsx`](../web-client/src/pages/supplier-list-page.tsx)
+- [`web-client/src/styles/supplier.css`](../web-client/src/styles/supplier.css)
+- [`web-client/tests/e2e/suppliers.spec.ts`](../web-client/tests/e2e/suppliers.spec.ts)
+
+### 2026-09-24 16:23:21 SGT - Supplier filter implementation alignment
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6-sol); refactoring.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-09-24 16:23:21 SGT; Codex conversation `01a0cbe0-bd8e-7a01-83db-31737faad617`.
+
+> change the backend also since we no longer support search by campus area
+
+**Key response** - Removed the dedicated exact building-area filter from the Supplier API/client while retaining area text matching through q; updated the existing filtering tests.
+
+**Commits** - [`50221ee`](https://github.com/AY2627S1-CS3219-P6/foc/commit/50221ee), [`4103680`](https://github.com/AY2627S1-CS3219-P6/foc/commit/4103680).
+
+**Affected files**
+
+- [`supplier-service/app/main.py`](../supplier-service/app/main.py)
+- [`supplier-service/app/repository.py`](../supplier-service/app/repository.py)
+- [`supplier-service/app/schemas.py`](../supplier-service/app/schemas.py)
+- [`supplier-service/tests/test_admin_supplier_list.py`](../supplier-service/tests/test_admin_supplier_list.py)
+- [`supplier-service/tests/test_read_database.py`](../supplier-service/tests/test_read_database.py)
+- [`supplier-service/tests/test_supplier_list.py`](../supplier-service/tests/test_supplier_list.py)
+- [`web-client/src/api/supplier-service.ts`](../web-client/src/api/supplier-service.ts)
+
+### 2026-09-24 16:39:45 SGT - Supplier browser selector regression
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6-sol); debugging.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-09-24 16:39:45 SGT; Codex conversation `01a0cbe0-bd8e-7a01-83db-31737faad617`.
+
+> my ci is failing
+
+**Key response** - Diagnosed strict browser-locator matches and stabilized the existing Supplier administrator browser selectors.
+
+**Commits** - [`f104582`](https://github.com/AY2627S1-CS3219-P6/foc/commit/f104582).
+
+**Affected files**
+
+- [`web-client/tests/e2e/suppliers.spec.ts`](../web-client/tests/e2e/suppliers.spec.ts)
+
+### 2026-10-07 16:10:59 SGT - Supplier pagination and development proxy fixes
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6.1-sol); debugging and refactoring.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-10-07 16:10:59 SGT; Codex conversation `01a11561-0491-7aa0-b6a6-f0a0ea869320`.
+
+> fix this issue and make sure it doesn't hide no matter what page option i use
+
+Message: 2026-10-07 16:30:17 SGT; Codex conversation `01a11561-0491-7aa0-b6a6-f0a0ea869320`.
+
+> can you check if there are any other minor ui bugs like this pagination issue
+
+**Key response** - Kept Supplier pagination controls visible, corrected development proxy handling for query strings, and fixed Supplier page/status/form state. Refactored shared authentication helpers used by Supplier pages and updated relevant tests.
+
+**Commits** - [`e83933f`](https://github.com/AY2627S1-CS3219-P6/foc/commit/e83933f).
+
+**Affected files**
+
+- [`web-client/src/app/auth-context.ts`](../web-client/src/app/auth-context.ts)
+- [`web-client/src/app/auth-provider.tsx`](../web-client/src/app/auth-provider.tsx)
+- [`web-client/src/app/routes.tsx`](../web-client/src/app/routes.tsx)
+- [`web-client/src/app/use-auth.ts`](../web-client/src/app/use-auth.ts)
+- [`web-client/src/components/supplier-shell.tsx`](../web-client/src/components/supplier-shell.tsx)
+- [`web-client/src/components/supplier-status-actions.tsx`](../web-client/src/components/supplier-status-actions.tsx)
+- [`web-client/src/pages/supplier-detail-page.tsx`](../web-client/src/pages/supplier-detail-page.tsx)
+- [`web-client/src/pages/supplier-form-page.tsx`](../web-client/src/pages/supplier-form-page.tsx)
+- [`web-client/src/pages/supplier-list-page.tsx`](../web-client/src/pages/supplier-list-page.tsx)
+- [`web-client/src/styles/supplier.css`](../web-client/src/styles/supplier.css)
+- [`web-client/tests/e2e/responsive.spec.ts`](../web-client/tests/e2e/responsive.spec.ts)
+- [`web-client/tests/e2e/suppliers.spec.ts`](../web-client/tests/e2e/suppliers.spec.ts)
+- [`web-client/tests/unit/dev-proxy.test.ts`](../web-client/tests/unit/dev-proxy.test.ts)
+- [`web-client/vite.config.ts`](../web-client/vite.config.ts)
+
+### 2026-10-07 16:49:18 SGT - Supplier shell styling from supplied Figma
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6.1-sol); refactoring.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-10-07 16:49:18 SGT; Codex conversation `01a11561-0491-7aa0-b6a6-f0a0ea869320`.
+
+> based on this figma design, can you set the color of the sidebar to be exactly the color in my figma
+
+**Key response** - Applied the supplied sidebar colors and existing FoC branding to the Supplier shell and the shared shell/branding code it uses.
+
+**Commits** - [`3d949ca`](https://github.com/AY2627S1-CS3219-P6/foc/commit/3d949ca).
+
+**Affected files**
+
+- [`web-client/index.html`](../web-client/index.html)
+- [`web-client/src/app/branding.ts`](../web-client/src/app/branding.ts)
+- [`web-client/src/components/app-brand.tsx`](../web-client/src/components/app-brand.tsx)
+- [`web-client/src/components/desktop-app-shell.tsx`](../web-client/src/components/desktop-app-shell.tsx)
+- [`web-client/src/components/mobile-app-shell.tsx`](../web-client/src/components/mobile-app-shell.tsx)
+- [`web-client/src/components/supplier-shell.tsx`](../web-client/src/components/supplier-shell.tsx)
+- [`web-client/src/styles/app.css`](../web-client/src/styles/app.css)
+- [`web-client/src/styles/supplier.css`](../web-client/src/styles/supplier.css)
+- [`web-client/src/styles/tokens.css`](../web-client/src/styles/tokens.css)
+
+### 2026-10-07 17:32:50 SGT - Supplier administrator mode UI
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6-astra); implementation (code generation).
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-10-07 17:32:50 SGT; Codex conversation `01a11561-0491-7aa0-b6a6-f0a0ea869320`.
+
+> when we first login, we will get user mode then when we toggle it , it changes to admin mode.
+
+Message: 2026-10-07 18:05:11 SGT; Codex conversation `01a11561-0491-7aa0-b6a6-f0a0ea869320`.
+
+> also i think for profile we dont need to add the toggle? right ? only suppliers
+
+**Key response** - Implemented the requested User/Admin switch on Supplier pages, supplier-only management navigation, shared shell integration and mode-switch browser coverage.
+
+**Commits** - [`1c608ac`](https://github.com/AY2627S1-CS3219-P6/foc/commit/1c608ac).
+
+**Affected files**
+
+- [`web-client/src/app/use-workspace-mode.ts`](../web-client/src/app/use-workspace-mode.ts)
+- [`web-client/src/components/app-navigation.tsx`](../web-client/src/components/app-navigation.tsx)
+- [`web-client/src/components/desktop-app-shell.tsx`](../web-client/src/components/desktop-app-shell.tsx)
+- [`web-client/src/components/mobile-app-shell.tsx`](../web-client/src/components/mobile-app-shell.tsx)
+- [`web-client/src/components/navigation-icons.tsx`](../web-client/src/components/navigation-icons.tsx)
+- [`web-client/src/components/supplier-shell.tsx`](../web-client/src/components/supplier-shell.tsx)
+- [`web-client/src/components/workspace-mode-switch.tsx`](../web-client/src/components/workspace-mode-switch.tsx)
+- [`web-client/src/main.tsx`](../web-client/src/main.tsx)
+- [`web-client/src/pages/supplier-list-page.tsx`](../web-client/src/pages/supplier-list-page.tsx)
+- [`web-client/src/styles/app.css`](../web-client/src/styles/app.css)
+- [`web-client/src/styles/supplier.css`](../web-client/src/styles/supplier.css)
+- [`web-client/src/styles/workspace.css`](../web-client/src/styles/workspace.css)
+- [`web-client/tests/e2e/workspace-modes.spec.ts`](../web-client/tests/e2e/workspace-modes.spec.ts)
+
+### 2026-10-07 18:35:51 SGT - Supplier navigation browser regression
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6.1-sol); debugging.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-10-07 18:35:51 SGT; Codex conversation `01a115ee-d14f-7ed2-a43f-97ed75db52f6`.
+
+> this pr failed .
+
+**Key response** - Fixed the existing workspace-mode browser test to wait for navigation layout after route changes.
+
+**Commits** - [`faa9641`](https://github.com/AY2627S1-CS3219-P6/foc/commit/faa9641).
+
+**Affected files**
+
+- [`web-client/tests/e2e/workspace-modes.spec.ts`](../web-client/tests/e2e/workspace-modes.spec.ts)
+
+### 2026-10-21 16:54:04 SGT - Supplier Python version and lint implementation
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6.1-sol); refactoring.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-10-21 16:54:04 SGT; Codex conversation `01a15da3-1a6c-7332-b6e6-9cb698d0c30f`.
+
+> change the supply service to be consistent with the other services as well?
+
+Message: 2026-10-21 19:21:04 SGT; Codex conversation `01a15da3-1a6c-7332-b6e6-9cb698d0c30f`.
+
+> ok add linting
+
+**Key response** - Updated Supplier runtime/package/CI settings to Python 3.13, added Ruff execution and applied lint fixes to the existing application and test files.
+
+**Commits** - [`6d8ccb0`](https://github.com/AY2627S1-CS3219-P6/foc/commit/6d8ccb0), [`7587926`](https://github.com/AY2627S1-CS3219-P6/foc/commit/7587926), [`edb0f2a`](https://github.com/AY2627S1-CS3219-P6/foc/commit/edb0f2a), [`59f26bc`](https://github.com/AY2627S1-CS3219-P6/foc/commit/59f26bc).
+
+**Affected files**
+
+- [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+- [`supplier-service/Dockerfile`](../supplier-service/Dockerfile)
+- [`supplier-service/app/auth.py`](../supplier-service/app/auth.py)
+- [`supplier-service/app/config.py`](../supplier-service/app/config.py)
+- [`supplier-service/app/errors.py`](../supplier-service/app/errors.py)
+- [`supplier-service/app/main.py`](../supplier-service/app/main.py)
+- [`supplier-service/app/repository.py`](../supplier-service/app/repository.py)
+- [`supplier-service/app/schemas.py`](../supplier-service/app/schemas.py)
+- [`supplier-service/pyproject.toml`](../supplier-service/pyproject.toml)
+- [`supplier-service/scripts/generate_seed.py`](../supplier-service/scripts/generate_seed.py)
+- [`supplier-service/tests/conftest.py`](../supplier-service/tests/conftest.py)
+- [`supplier-service/tests/test_account_status.py`](../supplier-service/tests/test_account_status.py)
+- [`supplier-service/tests/test_admin_supplier_detail.py`](../supplier-service/tests/test_admin_supplier_detail.py)
+- [`supplier-service/tests/test_admin_supplier_list.py`](../supplier-service/tests/test_admin_supplier_list.py)
+- [`supplier-service/tests/test_categories.py`](../supplier-service/tests/test_categories.py)
+- [`supplier-service/tests/test_create.py`](../supplier-service/tests/test_create.py)
+- [`supplier-service/tests/test_delete.py`](../supplier-service/tests/test_delete.py)
+- [`supplier-service/tests/test_delete_database.py`](../supplier-service/tests/test_delete_database.py)
+- [`supplier-service/tests/test_read_database.py`](../supplier-service/tests/test_read_database.py)
+- [`supplier-service/tests/test_supplier_detail.py`](../supplier-service/tests/test_supplier_detail.py)
+- [`supplier-service/tests/test_supplier_list.py`](../supplier-service/tests/test_supplier_list.py)
+- [`supplier-service/tests/test_update.py`](../supplier-service/tests/test_update.py)
+- [`supplier-service/tests/test_update_database.py`](../supplier-service/tests/test_update_database.py)
+
+### 2026-10-21 19:28:11 SGT - Supplier database regression execution in CI
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6.1-sol); implementation (code generation).
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-10-21 19:28:11 SGT; Codex conversation `01a15da3-1a6c-7332-b6e6-9cb698d0c30f`.
+
+> ok can you make these 7 database tests run in CI as well
+
+**Key response** - Updated Supplier CI to apply its migrations and run existing database tests against disposable PostgreSQL, then clean up the test database.
+
+**Commits** - [`888ee17`](https://github.com/AY2627S1-CS3219-P6/foc/commit/888ee17).
+
+**Affected files**
+
+- [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+
+### 2026-10-21 19:45:47 SGT - Supplier environment template cleanup
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6.1-sol); refactoring.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-10-21 19:45:47 SGT; Codex conversation `01a15da3-1a6c-7332-b6e6-9cb698d0c30f`.
+
+> ok delete it
+
+**Key response** - Removed the unused Supplier Compose-port setting from the environment template when the obsolete standalone Compose file was removed. Deleted files are not given new headers.
+
+**Commits** - [`551f4e0`](https://github.com/AY2627S1-CS3219-P6/foc/commit/551f4e0).
+
+**Affected files**
+
+- [`supplier-service/.env.example`](../supplier-service/.env.example)
+
+### 2026-10-21 19:51:13 SGT - Supplier readiness and restart implementation
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6.1-sol); implementation (code generation).
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-10-21 19:51:13 SGT; Codex conversation `01a15da3-1a6c-7332-b6e6-9cb698d0c30f`.
+
+> ok fix supplier's readiness checks
+
+Message: 2026-10-21 21:58:14 SGT; Codex conversation `01a15da3-1a6c-7332-b6e6-9cb698d0c30f`.
+
+> ok add it for supplier service
+
+**Key response** - Implemented separate liveness/database-readiness endpoints, readiness regression tests, the Supplier container probe and its restart setting.
+
+**Commits** - [`6fe949e`](https://github.com/AY2627S1-CS3219-P6/foc/commit/6fe949e).
+
+**Affected files**
+
+- [`compose.yaml`](../compose.yaml)
+- [`supplier-service/Dockerfile`](../supplier-service/Dockerfile)
+- [`supplier-service/app/health.py`](../supplier-service/app/health.py)
+- [`supplier-service/app/main.py`](../supplier-service/app/main.py)
+- [`supplier-service/tests/test_health.py`](../supplier-service/tests/test_health.py)
+
+### 2026-10-21 22:19:45 SGT - Supplier built-image smoke execution in CI
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - ChatGPT (Codex, model: gpt-6.1-sol); implementation (code generation).
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-10-21 22:19:45 SGT; Codex conversation `01a15da3-1a6c-7332-b6e6-9cb698d0c30f`.
+
+> nvm dont improve point 2. just fix point 3.
+
+**Key response** - Added CI startup of the built Supplier image against disposable PostgreSQL, readiness polling, failure logs and cleanup.
+
+**Commits** - [`43fc614`](https://github.com/AY2627S1-CS3219-P6/foc/commit/43fc614).
+
+**Affected files**
+
+- [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+
+### 2026-10-30 19:24:23 SGT - Voice Assist implementation
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - Claude Code (model: Claude Opus 5.5); implementation (code generation).
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-10-30 19:24:23 SGT; Claude Code conversation `17655a6c-4279-4bfe-8af8-bc7092b5133c`.
+
+> create the branch and implement all the phases
+
+**Key response** - Generated the Voice Assist application/configuration, authenticated upstream clients, in-memory audio handling, provider calls, deterministic time resolution, supplier matching, transcript checks, rate limits and tests. Implemented the recorder/draft panel, existing errand-form integration, proxy/Compose wiring and evaluation script/fixtures. This records implementation only.
+
+**Commits** - [`28f3d5d`](https://github.com/AY2627S1-CS3219-P6/foc/commit/28f3d5d), [`63d11b4`](https://github.com/AY2627S1-CS3219-P6/foc/commit/63d11b4), [`4be9fce`](https://github.com/AY2627S1-CS3219-P6/foc/commit/4be9fce), [`b26de20`](https://github.com/AY2627S1-CS3219-P6/foc/commit/b26de20), [`f3d0a2e`](https://github.com/AY2627S1-CS3219-P6/foc/commit/f3d0a2e), [`7f1cd57`](https://github.com/AY2627S1-CS3219-P6/foc/commit/7f1cd57).
+
+**Affected files**
+
+- [`compose.yaml`](../compose.yaml)
+- [`voice-assist-service/.dockerignore`](../voice-assist-service/.dockerignore)
+- [`voice-assist-service/.env.docker.example`](../voice-assist-service/.env.docker.example)
+- [`voice-assist-service/.env.example`](../voice-assist-service/.env.example)
+- [`voice-assist-service/.gitignore`](../voice-assist-service/.gitignore)
+- [`voice-assist-service/Dockerfile`](../voice-assist-service/Dockerfile)
+- [`voice-assist-service/app/__init__.py`](../voice-assist-service/app/__init__.py)
+- [`voice-assist-service/app/core/__init__.py`](../voice-assist-service/app/core/__init__.py)
+- [`voice-assist-service/app/core/config.py`](../voice-assist-service/app/core/config.py)
+- [`voice-assist-service/app/main.py`](../voice-assist-service/app/main.py)
+- [`voice-assist-service/app/voice_assist/__init__.py`](../voice-assist-service/app/voice_assist/__init__.py)
+- [`voice-assist-service/app/voice_assist/api.py`](../voice-assist-service/app/voice_assist/api.py)
+- [`voice-assist-service/app/voice_assist/auth.py`](../voice-assist-service/app/voice_assist/auth.py)
+- [`voice-assist-service/app/voice_assist/clients.py`](../voice-assist-service/app/voice_assist/clients.py)
+- [`voice-assist-service/app/voice_assist/errors.py`](../voice-assist-service/app/voice_assist/errors.py)
+- [`voice-assist-service/app/voice_assist/limits.py`](../voice-assist-service/app/voice_assist/limits.py)
+- [`voice-assist-service/app/voice_assist/matching.py`](../voice-assist-service/app/voice_assist/matching.py)
+- [`voice-assist-service/app/voice_assist/postprocess.py`](../voice-assist-service/app/voice_assist/postprocess.py)
+- [`voice-assist-service/app/voice_assist/providers.py`](../voice-assist-service/app/voice_assist/providers.py)
+- [`voice-assist-service/app/voice_assist/schemas.py`](../voice-assist-service/app/voice_assist/schemas.py)
+- [`voice-assist-service/app/voice_assist/times.py`](../voice-assist-service/app/voice_assist/times.py)
+- [`voice-assist-service/pyproject.toml`](../voice-assist-service/pyproject.toml)
+- [`voice-assist-service/scripts/__init__.py`](../voice-assist-service/scripts/__init__.py)
+- [`voice-assist-service/scripts/eval_drafts.py`](../voice-assist-service/scripts/eval_drafts.py)
+- [`voice-assist-service/tests/__init__.py`](../voice-assist-service/tests/__init__.py)
+- [`voice-assist-service/tests/fakes.py`](../voice-assist-service/tests/fakes.py)
+- [`voice-assist-service/tests/fixtures/eval/transcripts.json`](../voice-assist-service/tests/fixtures/eval/transcripts.json)
+- [`voice-assist-service/tests/seed.py`](../voice-assist-service/tests/seed.py)
+- [`voice-assist-service/tests/test_api.py`](../voice-assist-service/tests/test_api.py)
+- [`voice-assist-service/tests/test_clients.py`](../voice-assist-service/tests/test_clients.py)
+- [`voice-assist-service/tests/test_eval_script.py`](../voice-assist-service/tests/test_eval_script.py)
+- [`voice-assist-service/tests/test_limits_config.py`](../voice-assist-service/tests/test_limits_config.py)
+- [`voice-assist-service/tests/test_matching.py`](../voice-assist-service/tests/test_matching.py)
+- [`voice-assist-service/tests/test_postprocess.py`](../voice-assist-service/tests/test_postprocess.py)
+- [`voice-assist-service/tests/test_providers.py`](../voice-assist-service/tests/test_providers.py)
+- [`voice-assist-service/tests/test_times.py`](../voice-assist-service/tests/test_times.py)
+- [`web-client/nginx/default.conf`](../web-client/nginx/default.conf)
+- [`web-client/src/api/client.ts`](../web-client/src/api/client.ts)
+- [`web-client/src/api/voice-assist-service.ts`](../web-client/src/api/voice-assist-service.ts)
+- [`web-client/src/components/voice-draft-panel.tsx`](../web-client/src/components/voice-draft-panel.tsx)
+- [`web-client/src/pages/order-create-page.tsx`](../web-client/src/pages/order-create-page.tsx)
+- [`web-client/src/styles/order.css`](../web-client/src/styles/order.css)
+- [`web-client/src/voice/apply-draft.ts`](../web-client/src/voice/apply-draft.ts)
+- [`web-client/src/voice/recorder.ts`](../web-client/src/voice/recorder.ts)
+- [`web-client/tests/component/order-create-voice.test.tsx`](../web-client/tests/component/order-create-voice.test.tsx)
+- [`web-client/tests/component/voice-draft-panel.test.tsx`](../web-client/tests/component/voice-draft-panel.test.tsx)
+- [`web-client/tests/e2e/voice-draft.spec.ts`](../web-client/tests/e2e/voice-draft.spec.ts)
+- [`web-client/tests/unit/apply-draft.test.ts`](../web-client/tests/unit/apply-draft.test.ts)
+- [`web-client/tests/unit/order-proxy.test.ts`](../web-client/tests/unit/order-proxy.test.ts)
+- [`web-client/tests/unit/voice-assist-service.test.ts`](../web-client/tests/unit/voice-assist-service.test.ts)
+- [`web-client/tests/unit/voice-recorder.test.ts`](../web-client/tests/unit/voice-recorder.test.ts)
+- [`web-client/tests/voice-fakes.ts`](../web-client/tests/voice-fakes.ts)
+- [`web-client/vite.config.ts`](../web-client/vite.config.ts)
+
+### 2026-10-31 09:59:40 SGT - Voice transcription and empty-draft fixes
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - Claude Code (model: Claude Opus 5.5); debugging.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-10-31 09:59:40 SGT; Claude Code conversation `17655a6c-4279-4bfe-8af8-bc7092b5133c`.
+
+> ok remove the hints do not commit i need to check
+
+Message: 2026-10-31 10:07:47 SGT; Claude Code conversation `17655a6c-4279-4bfe-8af8-bc7092b5133c`.
+
+> ok now fix this The empty-errand message and the spacing fix: neither is done yet. A silent clip that the model turns into some other text (not “thank you” or “bye”) would still show “Draft ready” with an empty form.. how would u fix empty errand message though
+
+**Key response** - Removed the transcription hint from provider calls, implemented the empty-errand result and user message, adjusted field spacing, and updated existing provider/API/panel tests.
+
+**Commits** - [`60b51dc`](https://github.com/AY2627S1-CS3219-P6/foc/commit/60b51dc), [`facafbf`](https://github.com/AY2627S1-CS3219-P6/foc/commit/facafbf), [`10833c1`](https://github.com/AY2627S1-CS3219-P6/foc/commit/10833c1).
+
+**Affected files**
+
+- [`voice-assist-service/app/voice_assist/api.py`](../voice-assist-service/app/voice_assist/api.py)
+- [`voice-assist-service/app/voice_assist/providers.py`](../voice-assist-service/app/voice_assist/providers.py)
+- [`voice-assist-service/app/voice_assist/schemas.py`](../voice-assist-service/app/voice_assist/schemas.py)
+- [`voice-assist-service/scripts/eval_drafts.py`](../voice-assist-service/scripts/eval_drafts.py)
+- [`voice-assist-service/tests/fakes.py`](../voice-assist-service/tests/fakes.py)
+- [`voice-assist-service/tests/test_api.py`](../voice-assist-service/tests/test_api.py)
+- [`voice-assist-service/tests/test_providers.py`](../voice-assist-service/tests/test_providers.py)
+- [`web-client/src/api/voice-assist-service.ts`](../web-client/src/api/voice-assist-service.ts)
+- [`web-client/src/components/voice-draft-panel.tsx`](../web-client/src/components/voice-draft-panel.tsx)
+- [`web-client/src/styles/order.css`](../web-client/src/styles/order.css)
+- [`web-client/tests/component/voice-draft-panel.test.tsx`](../web-client/tests/component/voice-draft-panel.test.tsx)
+
+### 2026-10-31 14:23:16 SGT - Voice recording notice and draft discard
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - Claude Code (model: Claude Opus 5.5); implementation (code generation) and debugging.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-10-31 14:23:16 SGT; Claude Code conversation `9086a232-e151-4c2b-98a7-19cc3eb25f7f`.
+
+> ok first one change the notice. implement the 2nd one.
+
+Message: 2026-10-31 14:40:12 SGT; Claude Code conversation `9086a232-e151-4c2b-98a7-19cc3eb25f7f`.
+
+> actly yknow what, lets keep it simple to discard draft and make sure to update the documentation
+
+**Key response** - Updated the recording notice to mention automatic stopping and implemented discarding a voice draft without clearing unrelated manual form values; updated the existing tests.
+
+**Commits** - [`609620e`](https://github.com/AY2627S1-CS3219-P6/foc/commit/609620e), [`efe65f9`](https://github.com/AY2627S1-CS3219-P6/foc/commit/efe65f9).
+
+**Affected files**
+
+- [`voice-assist-service/app/core/config.py`](../voice-assist-service/app/core/config.py)
+- [`voice-assist-service/tests/test_api.py`](../voice-assist-service/tests/test_api.py)
+- [`web-client/src/components/voice-draft-panel.tsx`](../web-client/src/components/voice-draft-panel.tsx)
+- [`web-client/src/pages/order-create-page.tsx`](../web-client/src/pages/order-create-page.tsx)
+- [`web-client/tests/component/order-create-voice.test.tsx`](../web-client/tests/component/order-create-voice.test.tsx)
+- [`web-client/tests/component/voice-draft-panel.test.tsx`](../web-client/tests/component/voice-draft-panel.test.tsx)
+
+### 2026-11-02 12:02:58 SGT - Supplier responsive error handling
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - Claude Code (model: Claude Opus 5.5); debugging.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-11-02 12:02:58 SGT; Claude Code conversation `4eff386f-786e-4e7f-827e-d523e46c62b7`.
+
+> check that the supplier-listing page is responsive across all devices
+
+Message: 2026-11-02 12:02:58 SGT; Claude Code conversation `4eff386f-786e-4e7f-827e-d523e46c62b7`.
+
+> check that the integration of frontend with the Supplier Service API to handle failed queries gracefully?
+
+**Key response** - Fixed Supplier client handling of unreadable success responses, independent list/category retry behavior, stale results, page-size limits and small-screen layout; updated existing unit/browser tests.
+
+**Commits** - [`08f65d5`](https://github.com/AY2627S1-CS3219-P6/foc/commit/08f65d5).
+
+**Affected files**
+
+- [`web-client/src/api/supplier-service.ts`](../web-client/src/api/supplier-service.ts)
+- [`web-client/src/pages/supplier-list-page.tsx`](../web-client/src/pages/supplier-list-page.tsx)
+- [`web-client/src/styles/supplier.css`](../web-client/src/styles/supplier.css)
+- [`web-client/src/styles/workspace.css`](../web-client/src/styles/workspace.css)
+- [`web-client/tests/e2e/suppliers.spec.ts`](../web-client/tests/e2e/suppliers.spec.ts)
+- [`web-client/tests/unit/supplier-service.test.ts`](../web-client/tests/unit/supplier-service.test.ts)
+
+### 2026-11-02 12:49:12 SGT - Supplier inline filter controls
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - Claude Code (model: Claude Opus 5.5); refactoring.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-11-02 12:49:12 SGT; Claude Code conversation `4eff386f-786e-4e7f-827e-d523e46c62b7`.
+
+> make sort toggle button
+
+Message: 2026-11-02 12:52:55 SGT; Claude Code conversation `4eff386f-786e-4e7f-827e-d523e46c62b7`.
+
+> do it for the admin page as well for the sort.
+
+**Key response** - Replaced the Supplier native sort/status pickers with inline controls and updated the existing responsive browser checks.
+
+**Commits** - [`532d4c2`](https://github.com/AY2627S1-CS3219-P6/foc/commit/532d4c2).
+
+**Affected files**
+
+- [`web-client/src/pages/supplier-list-page.tsx`](../web-client/src/pages/supplier-list-page.tsx)
+- [`web-client/src/styles/supplier.css`](../web-client/src/styles/supplier.css)
+- [`web-client/tests/e2e/suppliers.spec.ts`](../web-client/tests/e2e/suppliers.spec.ts)
+
+### 2026-11-02 19:32:36 SGT - Supplier listing SQL implementation
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - Claude Code (model: Claude Opus 5.5); implementation (code generation) and refactoring.
+
+**Prompt paraphrase (implementation only; not verbatim)**
+
+Message: 2026-11-02 19:32:36 SGT; Claude Code conversation `a66c09a5-7f83-4581-9b25-a2a086cbebdd`.
+
+> implement all the indexes as planned
+
+**Key response** - Wrote the listing/search index migration, adjusted repository sorting and search expressions, and updated existing database tests.
+
+**Commits** - [`1be423b`](https://github.com/AY2627S1-CS3219-P6/foc/commit/1be423b).
+
+**Affected files**
+
+- [`supplier-service/app/repository.py`](../supplier-service/app/repository.py)
+- [`supplier-service/supabase/migrations/20261102000100_supplier_list_indexes.sql`](../supplier-service/supabase/migrations/20261102000100_supplier_list_indexes.sql)
+- [`supplier-service/tests/test_read_database.py`](../supplier-service/tests/test_read_database.py)
+
+### 2026-11-02 19:41:18 SGT - Supplier invalid-link error handling
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - Claude Code (model: Claude Opus 5.5); debugging.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-11-02 19:41:18 SGT; Claude Code conversation `a66c09a5-7f83-4581-9b25-a2a086cbebdd`.
+
+> ok nwo check that the frontend integration with supplier service api handles failed queries gracefullly
+
+Message: 2026-11-02 19:45:15 SGT; Claude Code conversation `a66c09a5-7f83-4581-9b25-a2a086cbebdd`.
+
+> Yes, fix both
+
+**Key response** - Distinguished invalid Supplier IDs and unavailable suppliers from retriable failures, removed misleading retry actions, and updated the existing browser checks.
+
+**Commits** - [`0609c76`](https://github.com/AY2627S1-CS3219-P6/foc/commit/0609c76).
+
+**Affected files**
+
+- [`web-client/src/pages/supplier-detail-page.tsx`](../web-client/src/pages/supplier-detail-page.tsx)
+- [`web-client/src/pages/supplier-list-page.tsx`](../web-client/src/pages/supplier-list-page.tsx)
+- [`web-client/tests/e2e/suppliers.spec.ts`](../web-client/tests/e2e/suppliers.spec.ts)
+
+### 2026-11-02 19:47:29 SGT - Supplier database connection reuse
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - Claude Code (model: Claude Opus 5.5); refactoring.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-11-02 19:47:29 SGT; Claude Code conversation `a66c09a5-7f83-4581-9b25-a2a086cbebdd`.
+
+> ok last time u mentioned about supplier db keep reopening right? u said sth about a pool or sth. do that change
+
+**Key response** - Implemented bounded database connection reuse and cleanup, integrated application shutdown handling and repository access, and added the pool regression tests already present on main.
+
+**Commits** - [`7cdde12`](https://github.com/AY2627S1-CS3219-P6/foc/commit/7cdde12).
+
+**Affected files**
+
+- [`supplier-service/app/database.py`](../supplier-service/app/database.py)
+- [`supplier-service/app/main.py`](../supplier-service/app/main.py)
+- [`supplier-service/app/repository.py`](../supplier-service/app/repository.py)
+- [`supplier-service/pyproject.toml`](../supplier-service/pyproject.toml)
+- [`supplier-service/tests/conftest.py`](../supplier-service/tests/conftest.py)
+- [`supplier-service/tests/test_database_pool.py`](../supplier-service/tests/test_database_pool.py)
+
+### 2026-11-02 19:51:18 SGT - Supplier seed image cleanup
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - Claude Code (model: Claude Opus 5.5); refactoring.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-11-02 19:51:18 SGT; Claude Code conversation `a66c09a5-7f83-4581-9b25-a2a086cbebdd`.
+
+> ok now finally update the image url to be null for all the seed data becuase i dont want tohandle images
+
+**Key response** - Updated the existing seed generator and generated SQL so Supplier seed image URLs are NULL.
+
+**Commits** - [`88771b6`](https://github.com/AY2627S1-CS3219-P6/foc/commit/88771b6).
+
+**Affected files**
+
+- [`supplier-service/scripts/generate_seed.py`](../supplier-service/scripts/generate_seed.py)
+- [`supplier-service/supabase/seed.sql`](../supplier-service/supabase/seed.sql)
+
+### 2026-11-02 20:45:35 SGT - Voice weekday, date and AM/PM handling
+
+**Contributor** - hwangjihun.
+
+**Tool and mode** - Claude Code (model: Claude Opus 5.5); implementation (code generation) and debugging.
+
+**Prompt excerpts (implementation only)**
+
+Message: 2026-11-02 20:45:35 SGT; Claude Code conversation `cb7df84e-9fcb-4f55-99f8-8516a86cec90`.
+
+> actually is it possible for u to support like next monday next tuesday or dates with full time and also if i say 9, and it is around 8pm, then it automatically interprets as 9pm same for am logic? 7th of November 11 p.m. apparently this dosent work
+
+Message: 2026-11-02 20:55:05 SGT; Claude Code conversation `cb7df84e-9fcb-4f55-99f8-8516a86cec90`.
+
+> Run the eval
+
+**Key response** - Extended the existing deterministic time parser for weekdays, calendar dates and hours without AM/PM; updated extraction/validation code, existing regression tests and evaluation fixtures.
+
+**Commits** - [`f726e4c`](https://github.com/AY2627S1-CS3219-P6/foc/commit/f726e4c), [`75433d2`](https://github.com/AY2627S1-CS3219-P6/foc/commit/75433d2).
+
+**Affected files**
+
+- [`voice-assist-service/app/voice_assist/providers.py`](../voice-assist-service/app/voice_assist/providers.py)
+- [`voice-assist-service/app/voice_assist/schemas.py`](../voice-assist-service/app/voice_assist/schemas.py)
+- [`voice-assist-service/app/voice_assist/times.py`](../voice-assist-service/app/voice_assist/times.py)
+- [`voice-assist-service/tests/fixtures/eval/transcripts.json`](../voice-assist-service/tests/fixtures/eval/transcripts.json)
+- [`voice-assist-service/tests/test_api.py`](../voice-assist-service/tests/test_api.py)
+- [`voice-assist-service/tests/test_postprocess.py`](../voice-assist-service/tests/test_postprocess.py)
+- [`voice-assist-service/tests/test_providers.py`](../voice-assist-service/tests/test_providers.py)
+- [`voice-assist-service/tests/test_times.py`](../voice-assist-service/tests/test_times.py)
+
+### JSON attribution carried by this section
+
+JSON does not permit header comments. The dated entries above carry attribution for these unchanged-format files:
+
+- [`supplier-service/package-lock.json`](../supplier-service/package-lock.json)
+- [`supplier-service/package.json`](../supplier-service/package.json)
+- [`voice-assist-service/tests/fixtures/eval/transcripts.json`](../voice-assist-service/tests/fixtures/eval/transcripts.json)

@@ -1,3 +1,10 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30, 2026-10-31
+ * Scope: Implemented voice recording, draft feedback and draft discard controls.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isApiRequestError } from "../api/client";
 import { voiceAssistService, type ErrandDraftFields, type VoiceAssistStatus } from "../api/voice-assist-service";

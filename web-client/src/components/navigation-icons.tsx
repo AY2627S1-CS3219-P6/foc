@@ -1,3 +1,10 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-07
+ * Scope: Implemented Supplier navigation and integration with the existing shared shell.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 // AI Assistance Disclosure:
 // Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
 // Scope: Added icons used by the Order navigation entries.

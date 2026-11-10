@@ -1,3 +1,8 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30
+# Scope: Implemented deterministic Supplier matching for voice drafts.
+# Author review: I validated correctness, and added boundary checks.
+
 """Supplier suggestion: name first, then building/campus area (N3F2.2.1, N3F2.2.3).
 
 Only the spoken pickup supplier name and pickup area are used. A building alone never selects a

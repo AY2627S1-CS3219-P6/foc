@@ -1,3 +1,10 @@
+/*
+ * AI Assistance Disclosure (hwangjihun):
+ * Tool: Claude Code (model: Claude Opus 5.5), date: 2026-10-30
+ * Scope: Added regression checks for Voice Assist proxy routes.
+ * Author review: I validated correctness, and added boundary checks.
+ */
+
 // AI Assistance Disclosure:
 // Tool: ChatGPT (Codex, model: gpt-6-astra), date: 2026-10-09
 // Scope: Implemented tests for Order development/production proxy routes.

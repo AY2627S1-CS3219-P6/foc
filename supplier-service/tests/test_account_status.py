@@ -1,3 +1,8 @@
+# AI Assistance Disclosure (hwangjihun):
+# Tool: ChatGPT (Codex, model: gpt-6.1-sol), date: 2026-10-21
+# Scope: Generated and refined Supplier regression tests and test fixtures.
+# Author review: I validated correctness, and added boundary checks.
+
 """Supplier management fails closed for unsupported account states."""
 
 import pytest
