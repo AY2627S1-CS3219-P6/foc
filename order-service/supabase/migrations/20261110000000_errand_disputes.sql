@@ -1,6 +1,7 @@
 -- AI Assistance Disclosure:
 -- Tool: Claude Code (model: Claude Opus 5.5), date: 2026-11-10
--- Scope: Wrote the migration for the DISPUTED errand state and its constraints.
+-- Scope: Wrote the migration for the DISPUTED errand state and its constraints; kept records
+-- made under the earlier rules valid as legacy history.
 -- Author review: I validated correctness and supplied additional boundary checks.
 
 -- N2F3: a reported problem moves an ACCEPTED, PICKED_UP or DELIVERED errand to DISPUTED and
@@ -8,7 +9,27 @@
 -- errand's state. A withdrawn or rejected dispute returns the errand to that state; an accepted
 -- dispute fails it with the reporter's selected reason. Participants no longer fail errands
 -- directly, so every FAILED errand carries the deciding administrator and dispute.
+--
+-- Errands and history made under the earlier rules (participant failures, and administrator
+-- failures or completions decided without a held dispute) stay exactly as recorded. They are
+-- marked legacy_record and exempt from the new failure rules only; every other constraint still
+-- applies, legacy errands are already terminal, and the runtime role cannot change the marker.
 BEGIN;
+
+ALTER TABLE order_service.orders
+    ADD COLUMN legacy_record boolean NOT NULL DEFAULT false;
+UPDATE order_service.orders SET legacy_record = true
+    WHERE (state = 'FAILED' AND (decided_by IS NULL OR failure_reason = 'ADMIN_DECISION'))
+       OR (decided_by IS NOT NULL AND state <> 'FAILED');
+ALTER TABLE order_service.orders
+    ADD CONSTRAINT orders_legacy_terminal CHECK (
+        NOT legacy_record OR state IN ('FAILED', 'COMPLETED')
+    );
+
+ALTER TABLE order_service.order_history
+    ADD COLUMN legacy_record boolean NOT NULL DEFAULT false;
+UPDATE order_service.order_history SET legacy_record = true
+    WHERE new_state = 'FAILED' OR actor_type = 'ADMIN';
 
 ALTER TABLE order_service.orders
     DROP CONSTRAINT orders_state_check,
@@ -62,12 +83,14 @@ ALTER TABLE order_service.orders
 ALTER TABLE order_service.orders
     DROP CONSTRAINT orders_admin_decision,
     ADD CONSTRAINT orders_admin_decision CHECK (
-        (decided_by IS NULL) = (decision_dispute_id IS NULL)
-        AND (state = 'FAILED') = (decided_by IS NOT NULL)
+        legacy_record OR (
+            (decided_by IS NULL) = (decision_dispute_id IS NULL)
+            AND (state = 'FAILED') = (decided_by IS NOT NULL))
     ),
     DROP CONSTRAINT orders_failure_record,
     ADD CONSTRAINT orders_failure_record CHECK (
-        (state = 'FAILED' AND failed_at IS NOT NULL AND failed_by = decided_by
+        legacy_record
+        OR (state = 'FAILED' AND failed_at IS NOT NULL AND failed_by = decided_by
          AND accepted_at IS NOT NULL AND courier_id IS NOT NULL
          AND failed_at >= COALESCE(delivered_at, picked_up_at, accepted_at)
          AND failure_reason IN ('ITEM_UNAVAILABLE', 'ITEM_DAMAGED', 'UNABLE_TO_PICK_UP',
@@ -84,7 +107,8 @@ ALTER TABLE order_service.orders
 ALTER TABLE order_service.order_history
     DROP CONSTRAINT history_actor,
     ADD CONSTRAINT history_actor CHECK (
-        (actor_type = 'USER' AND actor_id IS NOT NULL AND dispute_id IS NULL
+        legacy_record
+        OR (actor_type = 'USER' AND actor_id IS NOT NULL AND dispute_id IS NULL
          AND new_state NOT IN ('DISPUTED', 'FAILED')
          AND previous_state IS DISTINCT FROM 'DISPUTED')
         OR (actor_type = 'USER' AND actor_id IS NOT NULL AND dispute_id IS NOT NULL
@@ -98,7 +122,8 @@ ALTER TABLE order_service.order_history
     ),
     DROP CONSTRAINT history_failure_record,
     ADD CONSTRAINT history_failure_record CHECK (
-        (new_state = 'FAILED' AND actor_type = 'ADMIN' AND previous_state = 'DISPUTED'
+        legacy_record
+        OR (new_state = 'FAILED' AND actor_type = 'ADMIN' AND previous_state = 'DISPUTED'
          AND failure_reason IN ('ITEM_UNAVAILABLE', 'ITEM_DAMAGED', 'UNABLE_TO_PICK_UP',
              'UNABLE_TO_DELIVER', 'PARTICIPANT_UNREACHABLE', 'OTHER')
          AND (failure_reason <> 'OTHER' OR failure_details IS NOT NULL)

@@ -158,6 +158,10 @@ accepting.
   views and present in admin views.
 - An unconfigured `ADMIN_SERVICE_SECRET` returns `503 SERVICE_NOT_CONFIGURED`; a missing or
   wrong credential returns `401 UNAUTHENTICATED_SERVICE`.
+- Errands that failed before disputed errands existed keep what was recorded. Participant
+  failures keep `failedBy` and their reason; earlier administrator decisions may show
+  `failureReason: "ADMIN_DECISION"`. The migration marks these rows `legacy_record`, which exempts
+  only them from the new failure rules. New errands always follow the rules above.
 
 ## Fulfilment, completion and overdue
 
